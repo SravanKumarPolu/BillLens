@@ -1,0 +1,206 @@
+# BillLens
+
+**Snap. Read. Settle.** — A screenshot-first expense splitting app for people who live together.
+
+## 🎯 Overview
+
+BillLens makes splitting daily bills effortless. Take a screenshot of any bill or UPI screen, and the app automatically extracts the amount, merchant, and suggests a fair split. Built for flatmates, couples, and anyone sharing expenses.
+
+## ✨ Key Features
+
+- **Screenshot-first**: Point at any bill or UPI screen
+- **Always free**: OCR and splits are free, no paywalls
+- **Offline-first**: Works without internet, syncs when available
+- **Smart extraction**: Auto-detects amount, merchant, date
+- **UPI integration**: Quick settle-up with GPay/PhonePe/Paytm
+- **Group management**: Multiple groups (home, trips, etc.)
+
+## 🏗️ Project Structure
+
+```
+BillLens/
+├── src/
+│   ├── components/          # Reusable UI components
+│   │   ├── Button.tsx      # Primary, secondary, positive, outline, ghost variants
+│   │   ├── Card.tsx        # Card container with optional press
+│   │   ├── Chip.tsx        # Filter chips, tags
+│   │   ├── Input.tsx       # Text input with label/error
+│   │   ├── MoneyDisplay.tsx # Formatted money display
+│   │   └── index.ts        # Component exports
+│   ├── screens/            # App screens
+│   │   ├── OnboardingWelcome.tsx
+│   │   ├── HomeScreen.tsx
+│   │   ├── CreateGroupScreen.tsx
+│   │   ├── GroupDetailScreen.tsx
+│   │   ├── SettleUpScreen.tsx
+│   │   └── ...
+│   ├── theme/              # Design system
+│   │   ├── colors.ts       # Brand color palette
+│   │   ├── typography.ts   # Font sizes, weights, line heights
+│   │   ├── ThemeProvider.tsx # Theme context (ready for dark mode)
+│   │   └── index.ts        # Theme exports
+│   ├── utils/              # Utility functions
+│   │   ├── formatMoney.ts  # Money formatting (₹)
+│   │   └── index.ts
+│   ├── navigation/         # Navigation types
+│   │   └── types.ts
+│   └── AppNavigator.tsx    # Main navigation
+├── index.tsx               # App entry point
+└── package.json
+```
+
+## 🎨 Design System
+
+### Colors
+
+- **Primary**: Indigo (`#2563EB`) — Main CTAs, highlights
+- **Accent**: Emerald (`#22C55E`) — Success, settle-up actions
+- **Accent Amber**: (`#F59E0B`) — Warnings, analytics
+- **Accent Pink**: (`#EC4899`) — Premium/supporter badge
+
+See `DESIGN_TOKENS.md` for complete usage guidelines.
+
+### Typography
+
+Based on Inter/SF Pro principles:
+- **Headings**: H1 (28px), H2 (24px), H3 (20px), H4 (18px)
+- **Body**: Large (16px), Regular (14px), Small (13px)
+- **Labels/Captions**: 14px, 12px, 11px
+
+See `src/theme/typography.ts` for all styles.
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- React Native 0.75+
+- iOS Simulator or Android Emulator
+
+### Installation
+
+```bash
+# Install dependencies
+npm install
+
+# iOS
+npm run ios
+
+# Android
+npm run android
+```
+
+## 📦 Components
+
+### Button
+
+```tsx
+import { Button } from '../components';
+
+<Button
+  title="Create group"
+  onPress={handleCreate}
+  variant="primary" // primary | secondary | positive | outline | ghost
+  loading={false}
+  disabled={false}
+/>
+```
+
+### Card
+
+```tsx
+import { Card } from '../components';
+
+<Card onPress={handlePress} elevated>
+  <Text>Card content</Text>
+</Card>
+```
+
+### Input
+
+```tsx
+import { Input } from '../components';
+
+<Input
+  label="Group name"
+  placeholder="Enter name"
+  value={name}
+  onChangeText={setName}
+  error={error}
+/>
+```
+
+### MoneyDisplay
+
+```tsx
+import { MoneyDisplay } from '../components';
+
+<MoneyDisplay
+  amount={450}
+  size="medium" // small | medium | large
+  showPositive={true}
+/>
+```
+
+### Chip
+
+```tsx
+import { Chip } from '../components';
+
+<Chip
+  label="Food"
+  variant="primary"
+  selected={selected}
+  onPress={handlePress}
+/>
+```
+
+## 🛠️ Utilities
+
+### formatMoney
+
+```tsx
+import { formatMoney, parseMoney } from '../utils';
+
+formatMoney(450); // "₹450"
+formatMoney(-200, true); // "-₹200"
+parseMoney("₹1,500"); // 1500
+```
+
+## 🎯 Roadmap
+
+### Phase 1 (Weeks 1-3) ✅
+- [x] UI/UX foundation
+- [x] Design system (colors, typography)
+- [x] Reusable components
+- [x] Basic navigation
+
+### Phase 2 (Weeks 4-6)
+- [ ] OCR integration (Google Vision API)
+- [ ] Screenshot → Extract amount
+- [ ] Split engine
+
+### Phase 3 (Weeks 7-9)
+- [ ] UPI settle-up
+- [ ] Offline support (SQLite)
+- [ ] Templates
+- [ ] Home group defaults
+
+### Phase 4 (Weeks 10-12)
+- [ ] UI polish
+- [ ] Light analytics
+- [ ] Beta release
+
+### Phase 5 (Weeks 13-14)
+- [ ] Dark mode
+- [ ] Play Store listing
+- [ ] Launch prep
+
+## 📝 License
+
+Private project — All rights reserved
+
+---
+
+Built with ❤️ for people who split bills
+
