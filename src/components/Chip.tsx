@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeProvider';
 import { typography } from '../theme/typography';
 
 export type ChipVariant = 'default' | 'primary' | 'accent' | 'amber' | 'outline';
@@ -22,29 +22,75 @@ const Chip: React.FC<ChipProps> = ({
   style,
   textStyle,
 }) => {
-  const chipStyle = [
-    styles.base,
-    styles[variant],
-    selected && styles.selected,
-    style,
-  ];
+  const { colors } = useTheme();
 
-  const labelStyle = [
-    typography.caption,
-    styles[variant + 'Label'],
-    selected && styles.selectedLabel,
-    textStyle,
-  ];
+  const getChipStyle = () => {
+    const baseStyle = [styles.base];
+    
+    if (selected) {
+      baseStyle.push({ backgroundColor: colors.primary });
+    } else {
+      switch (variant) {
+        case 'primary':
+          baseStyle.push({ backgroundColor: colors.primaryLight });
+          break;
+        case 'accent':
+          baseStyle.push({ backgroundColor: colors.accent + '20' });
+          break;
+        case 'amber':
+          baseStyle.push({ backgroundColor: colors.accentAmber + '20' });
+          break;
+        case 'outline':
+          baseStyle.push({ 
+            backgroundColor: 'transparent',
+            borderWidth: 1,
+            borderColor: colors.borderSubtle,
+          });
+          break;
+        default:
+          baseStyle.push({ backgroundColor: colors.borderSubtle });
+      }
+    }
+    
+    return [...baseStyle, style];
+  };
+
+  const getLabelStyle = () => {
+    const baseStyle = [typography.caption];
+    
+    if (selected) {
+      baseStyle.push({ color: colors.white });
+    } else {
+      switch (variant) {
+        case 'primary':
+          baseStyle.push({ color: colors.primary });
+          break;
+        case 'accent':
+          baseStyle.push({ color: colors.accent });
+          break;
+        case 'amber':
+          baseStyle.push({ color: colors.accentAmber });
+          break;
+        case 'outline':
+          baseStyle.push({ color: colors.textPrimary });
+          break;
+        default:
+          baseStyle.push({ color: colors.textPrimary });
+      }
+    }
+    
+    return [...baseStyle, textStyle];
+  };
 
   const Component = onPress ? TouchableOpacity : View;
 
   return (
     <Component
-      style={chipStyle}
+      style={getChipStyle()}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <Text style={labelStyle}>{label}</Text>
+      <Text style={getLabelStyle()}>{label}</Text>
     </Component>
   );
 };
@@ -55,55 +101,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
     alignSelf: 'flex-start',
-  },
-
-  // Default (subtle gray)
-  default: {
-    backgroundColor: colors.borderSubtle,
-  },
-  defaultLabel: {
-    color: colors.textPrimary,
-  },
-
-  // Primary (Indigo)
-  primary: {
-    backgroundColor: colors.primaryLight,
-  },
-  primaryLabel: {
-    color: colors.primary,
-  },
-
-  // Accent (Emerald)
-  accent: {
-    backgroundColor: colors.accent + '20', // 20% opacity
-  },
-  accentLabel: {
-    color: colors.accent,
-  },
-
-  // Amber (warnings, analytics)
-  amber: {
-    backgroundColor: colors.accentAmber + '20',
-  },
-  amberLabel: {
-    color: colors.accentAmber,
-  },
-
-  // Outline
-  outline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-  },
-  outlineLabel: {
-    color: colors.textPrimary,
-  },
-
-  selected: {
-    backgroundColor: colors.primary,
-  },
-  selectedLabel: {
-    color: colors.white,
   },
 });
 

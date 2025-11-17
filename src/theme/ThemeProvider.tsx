@@ -1,11 +1,13 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { colors } from './colors';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { useColorScheme } from 'react-native';
+import { lightColors, darkColors, type ColorScheme } from './colors';
 import type { Theme } from './index';
 
 interface ThemeContextType {
   theme: Theme;
   setTheme: (theme: Theme) => void;
-  colors: typeof colors;
+  colors: ColorScheme;
+  toggleTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -17,16 +19,26 @@ interface ThemeProviderProps {
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   children,
-  initialTheme = 'light',
+  initialTheme,
 }) => {
-  const [theme, setTheme] = useState<Theme>(initialTheme);
+  const systemTheme = useColorScheme();
+  const [theme, setTheme] = useState<Theme>(initialTheme || systemTheme || 'light');
 
-  // For now, we only have light mode colors
-  // In the future, we can add dark mode colors here
-  const themeColors = colors;
+  // Sync with system theme changes
+  useEffect(() => {
+    if (!initialTheme && systemTheme) {
+      setTheme(systemTheme);
+    }
+  }, [systemTheme, initialTheme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
+  const themeColors = theme === 'dark' ? darkColors : lightColors;
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, colors: themeColors }}>
+    <ThemeContext.Provider value={{ theme, setTheme, colors: themeColors, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

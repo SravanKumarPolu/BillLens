@@ -1,60 +1,256 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, Pressable } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeProvider';
+import { typography } from '../theme/typography';
+import { useGroups } from '../context/GroupsContext';
+import { formatMoney } from '../utils/formatMoney';
+import { Button } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GroupDetail'>;
 
-type Expense = {
-  id: string;
-  title: string;
-  subtitle: string;
-  amount: string;
-};
-
-const MOCK_EXPENSES: Expense[] = [
-  { id: '1', title: 'Zomato order', subtitle: 'You paid · Split among 3', amount: '₹780' },
-  { id: '2', title: 'Rent – November', subtitle: 'Priya paid · Split among 2', amount: '₹12,000' },
-];
-
 const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { groupId } = route.params;
-  const groupName = groupId === '2' ? 'Us Two' : 'Our Home';
+  const { getGroupSummary, deleteGroup, getGroup, deleteExpense, getExpense, updateGroup } = useGroups();
+  const { colors } = useTheme();
+  const [showMenu, setShowMenu] = useState(false);
+  const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null);
+  
+  const summary = getGroupSummary(groupId);
+  const group = getGroup(groupId);
+  const styles = createStyles(colors);
+
+  if (!summary || !group) {
+    return (
+      <View style={styles.container}>
+        <Text style={[styles.errorText, { color: colors.error }]}>Group not found</Text>
+      </View>
+    );
+  }
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Group',
+      `Are you sure you want to delete "${group.name}"? This will also delete all expenses in this group.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            deleteGroup(groupId);
+            navigation.navigate('Home');
+          },
+        },
+      ]
+    );
+  };
+
+  const handleEdit = () => {
+    // Note: Alert.prompt is iOS-only. For cross-platform, we'd need a modal with TextInput.
+    // For MVP, group editing can be done by recreating the group or implementing a modal later.
+    // The updateGroup function exists in GroupsContext and is ready to use.
+    setShowMenu(false);
+    navigation.navigate('CreateGroup'); // Navigate to create screen as workaround
+    // TODO: Implement proper edit modal with TextInput for name/emoji editing
+  };
+
+  const handleDeleteExpense = (expenseId: string) => {
+    const expense = getExpense(expenseId);
+    Alert.alert(
+      'Delete Expense',
+      `Are you sure you want to delete "${expense?.title || expense?.merchant || 'this expense'}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            deleteExpense(expenseId);
+            setSelectedExpenseId(null);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleEditExpense = (expenseId: string) => {
+    const expense = getExpense(expenseId);
+    if (!expense) return;
+    
+    // Navigate to ReviewBill with expense data for editing
+    navigation.navigate('ReviewBill', {
+      imageUri: expense.imageUri || '',
+      groupId: expense.groupId,
+      parsedAmount: expense.amount.toString(),
+      parsedMerchant: expense.merchant || expense.title,
+      parsedDate: expense.date,
+      expenseId, // Pass expenseId to identify it's an edit
+    });
+  };
+
+  // Format expenses for display
+  const formattedExpenses = (summary.expenses || [])
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 10) // Show recent 10
+    .map(expense => {
+      const paidBy = group.members.find(m => m.id === expense.paidBy);
+      const splitCount = expense.splits?.length || 0;
+      return {
+        id: expense.id,
+        title: expense.title || expense.merchant || 'Expense',
+        subtitle: `${paidBy?.name || 'Someone'} paid · Split among ${splitCount}`,
+        amount: formatMoney(expense.amount),
+        expense, // Include full expense object
+      };
+    });
 
   return (
-    <View style={styles.container}>
+    <Pressable style={styles.container} onPress={() => showMenu && setShowMenu(false)}>
       <View style={styles.header}>
-        <Text style={styles.groupEmoji}>{groupId === '2' ? '👫' : '🏠'}</Text>
+        <Text style={styles.groupEmoji}>{group.emoji}</Text>
         <View style={styles.headerTextWrapper}>
-          <Text style={styles.groupName}>{groupName}</Text>
-          <Text style={styles.balanceSummary}>You owe Priya ₹450</Text>
+          <Text style={styles.groupName}>{group.name}</Text>
+          <Text style={styles.balanceSummary}>{summary.summaryText}</Text>
         </View>
+        <TouchableOpacity onPress={() => setShowMenu(!showMenu)} style={styles.menuButton}>
+          <Text style={styles.menuIcon}>⋯</Text>
+        </TouchableOpacity>
+      </View>
+
+      {showMenu && (
+        <Pressable style={styles.menu} onPress={(e) => e.stopPropagation()}>
+          <TouchableOpacity style={styles.menuItem} onPress={handleEdit}>
+            <Text style={styles.menuItemText}>Edit group</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={handleDelete}>
+            <Text style={[styles.menuItemText, styles.menuItemDanger]}>Delete group</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={() => setShowMenu(false)}>
+            <Text style={styles.menuItemText}>Cancel</Text>
+          </TouchableOpacity>
+        </Pressable>
+      )}
+
+      <View style={styles.actionButtons}>
+        <Button
+          title="Settle up"
+          onPress={() => navigation.navigate('SettleUp', { groupId })}
+          variant="positive"
+          style={styles.actionButton}
+          fullWidth={false}
+        />
+        <Button
+          title="Analytics"
+          onPress={() => navigation.navigate('Analytics', { groupId })}
+          variant="secondary"
+          style={styles.actionButton}
+          fullWidth={false}
+        />
       </View>
 
       <TouchableOpacity
-        style={styles.settleButton}
-        onPress={() => navigation.navigate('SettleUp', { groupId })}
+        style={styles.viewAllButton}
+        onPress={() => navigation.navigate('Ledger', { groupId })}
       >
-        <Text style={styles.settleLabel}>Settle up</Text>
+        <Text style={styles.viewAllText}>View all expenses →</Text>
       </TouchableOpacity>
+
+      {summary.settlements && summary.settlements.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Settlement history</Text>
+          <FlatList
+            data={summary.settlements
+              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+              .slice(0, 5)}
+            keyExtractor={s => s.id}
+            renderItem={({ item }) => {
+              const fromMember = group.members.find(m => m.id === item.fromMemberId);
+              const toMember = group.members.find(m => m.id === item.toMemberId);
+              return (
+                <View style={styles.settlementCard}>
+                  <View style={styles.settlementLeft}>
+                    <Text style={styles.settlementTitle}>
+                      {fromMember?.name || 'Someone'} → {toMember?.name || 'Someone'}
+                    </Text>
+                    <Text style={styles.settlementSubtitle}>
+                      {new Date(item.date).toLocaleDateString('en-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </Text>
+                  </View>
+                  <Text style={styles.settlementAmount}>{formatMoney(item.amount)}</Text>
+                </View>
+              );
+            }}
+            contentContainerStyle={styles.settlementsList}
+            scrollEnabled={false}
+          />
+        </>
+      )}
 
       <Text style={styles.sectionTitle}>Recent expenses</Text>
 
-      <FlatList
-        data={MOCK_EXPENSES}
-        keyExtractor={e => e.id}
-        renderItem={({ item }) => (
-          <View style={styles.expenseCard}>
-            <View>
-              <Text style={styles.expenseTitle}>{item.title}</Text>
-              <Text style={styles.expenseSubtitle}>{item.subtitle}</Text>
-            </View>
-            <Text style={styles.expenseAmount}>{item.amount}</Text>
-          </View>
-        )}
-        contentContainerStyle={styles.expensesList}
-      />
+      {formattedExpenses.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>📝</Text>
+          <Text style={[styles.emptyText, { color: colors.textPrimary }]}>No expenses yet</Text>
+          <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+            Add your first expense using the button below
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={formattedExpenses}
+          keyExtractor={e => e.id}
+          renderItem={({ item }) => (
+            <Pressable
+              style={styles.expenseCard}
+              onLongPress={() => setSelectedExpenseId(item.id)}
+            >
+              <View style={styles.expenseLeft}>
+                <Text style={styles.expenseTitle}>{item.title}</Text>
+                <Text style={styles.expenseSubtitle}>{item.subtitle}</Text>
+              </View>
+              <View style={styles.expenseRight}>
+                <Text style={styles.expenseAmount}>{item.amount}</Text>
+                {selectedExpenseId === item.id && (
+                  <View style={styles.expenseActions}>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => {
+                        handleEditExpense(item.id);
+                        setSelectedExpenseId(null);
+                      }}
+                    >
+                      <Text style={styles.actionText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.actionButtonDanger]}
+                      onPress={() => {
+                        handleDeleteExpense(item.id);
+                        setSelectedExpenseId(null);
+                      }}
+                    >
+                      <Text style={[styles.actionText, styles.actionTextDanger]}>Delete</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => setSelectedExpenseId(null)}
+                    >
+                      <Text style={styles.actionText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            </Pressable>
+          )}
+          contentContainerStyle={styles.expensesList}
+        />
+      )}
 
       <TouchableOpacity
         style={styles.fab}
@@ -67,7 +263,7 @@ const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surfaceLight,
@@ -75,95 +271,212 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: 56,
     paddingHorizontal: 24,
-    paddingBottom: 10,
+    paddingBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
   },
   groupEmoji: {
-    fontSize: 32,
-    marginRight: 10,
+    fontSize: 36,
+    marginRight: 12,
   },
   headerTextWrapper: {
     flex: 1,
   },
   groupName: {
-    fontSize: 20,
+    ...typography.h2,
     fontWeight: '700',
-    color: colors.textPrimary,
+    marginBottom: 4,
   },
   balanceSummary: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    ...typography.body,
   },
-  settleButton: {
+  actionButtons: {
+    flexDirection: 'row',
     marginHorizontal: 24,
-    marginTop: 4,
-    marginBottom: 8,
-    borderRadius: 999,
-    backgroundColor: colors.accent,
-    paddingVertical: 10,
-    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+    gap: 12,
   },
-  settleLabel: {
-    color: colors.white,
-    fontSize: 15,
-    fontWeight: '600',
+  actionButton: {
+    flex: 1,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.textSecondary,
+    ...typography.label,
     paddingHorizontal: 24,
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 24,
+    marginBottom: 12,
+    fontWeight: '600',
+  },
+  viewAllButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    alignItems: 'flex-end',
+  },
+  viewAllText: {
+    ...typography.body,
+    fontWeight: '600',
   },
   expensesList: {
-    paddingHorizontal: 24,
-    paddingBottom: 120,
+    paddingBottom: 140,
   },
   expenseCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 8,
+    backgroundColor: colors.surfaceCard,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    marginHorizontal: 24,
+  },
+  expenseLeft: {
+    flex: 1,
+  },
+  expenseRight: {
+    alignItems: 'flex-end',
   },
   expenseTitle: {
-    fontSize: 15,
-    color: colors.textPrimary,
-    fontWeight: '500',
+    ...typography.bodyLarge,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   expenseSubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    ...typography.bodySmall,
+    lineHeight: 18,
   },
   expenseAmount: {
-    fontSize: 15,
+    ...typography.money,
+    fontWeight: '700',
+  },
+  expenseActions: {
+    flexDirection: 'row',
+    marginTop: 8,
+    gap: 8,
+  },
+  actionButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceCard,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+  },
+  actionButtonDanger: {
+    backgroundColor: colors.error + '20',
+    borderColor: colors.error,
+  },
+  actionText: {
+    ...typography.caption,
     fontWeight: '600',
-    color: colors.textPrimary,
+  },
+  actionTextDanger: {
+    // Color applied inline
   },
   fab: {
     position: 'absolute',
     left: 24,
     right: 24,
     bottom: 32,
-    backgroundColor: colors.accent,
     borderRadius: 999,
-    paddingVertical: 14,
+    paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 56,
   },
   fabIcon: {
     marginRight: 8,
-    fontSize: 18,
+    fontSize: 20,
   },
   fabLabel: {
-    color: colors.white,
+    ...typography.button,
+  },
+  menuButton: {
+    padding: 8,
+  },
+  menuIcon: {
+    fontSize: 20,
+  },
+  menu: {
+    position: 'absolute',
+    top: 100,
+    right: 24,
+    backgroundColor: colors.surfaceCard,
+    borderRadius: 12,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 1000,
+    minWidth: 150,
+  },
+  menuItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  menuItemText: {
+    fontSize: 15,
+  },
+  menuItemDanger: {
+    // Color applied inline
+  },
+  errorText: {
     fontSize: 16,
+    textAlign: 'center',
+    marginTop: 100,
+  },
+  emptyState: {
+    padding: 48,
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  emptyEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyText: {
+    ...typography.h3,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    ...typography.body,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  settlementsList: {
+    marginBottom: 8,
+    paddingHorizontal: 0,
+  },
+  settlementCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceCard,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    marginHorizontal: 24,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+  },
+  settlementLeft: {
+    flex: 1,
+  },
+  settlementTitle: {
+    ...typography.body,
+    fontWeight: '500',
+  },
+  settlementSubtitle: {
+    ...typography.caption,
+    marginTop: 2,
+  },
+  settlementAmount: {
+    ...typography.body,
     fontWeight: '600',
   },
 });

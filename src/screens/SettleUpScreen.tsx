@@ -1,28 +1,163 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import React, { useMemo, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, Modal } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeProvider';
+import { typography } from '../theme/typography';
+import { useGroups } from '../context/GroupsContext';
+import { formatMoney } from '../utils/formatMoney';
+import { openUPIApp, getAvailableUPIApps, getAppDisplayName, type UPIPaymentApp } from '../utils/upiService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SettleUp'>;
 
 type Payment = {
   id: string;
+  fromMemberId: string;
   from: string;
+  toMemberId: string;
   to: string;
-  amount: string;
+  amount: number;
 };
 
-const MOCK_PAYMENTS: Payment[] = [
-  { id: '1', from: 'You', to: 'Priya', amount: '₹650' },
-  { id: '2', from: 'Arjun', to: 'You', amount: '₹200' },
-];
+const SettleUpScreen: React.FC<Props> = ({ navigation, route }) => {
+  const { groupId } = route.params;
+  const { getGroupSummary, getGroup, addSettlement, calculateGroupBalances } = useGroups();
+  const { colors } = useTheme();
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [showUPIModal, setShowUPIModal] = useState(false);
+  const [availableApps, setAvailableApps] = useState<UPIPaymentApp[]>(['upi']);
+  
+  const summary = getGroupSummary(groupId);
+  const group = getGroup(groupId);
+  const styles = createStyles(colors);
 
-const SettleUpScreen: React.FC<Props> = () => {
-  const handlePay = (payment: Payment) => {
-    // TODO: launch UPI intent; for now, no-op.
-    // Intent example: upi://pay?pa=...&am=...
+  // Check available UPI apps on mount
+  useEffect(() => {
+    getAvailableUPIApps().then(setAvailableApps);
+  }, []);
+
+  // Calculate suggested payments based on balances
+  const suggestedPayments = useMemo(() => {
+    if (!summary || !group) return [];
+
+    const balances = calculateGroupBalances(groupId);
+    const payments: Payment[] = [];
+    const userId = 'you';
+
+    // Find who owes the user and who the user owes
+    balances.forEach(balance => {
+      if (balance.memberId === userId) return; // Skip current user
+
+      const member = group.members.find(m => m.id === balance.memberId);
+      if (!member) return;
+
+      if (balance.balance < 0) {
+        // This person owes the user
+        payments.push({
+          id: `payment-${balance.memberId}-to-${userId}`,
+          fromMemberId: balance.memberId,
+          from: member.name,
+          toMemberId: userId,
+          to: 'You',
+          amount: Math.abs(balance.balance),
+        });
+      } else if (balance.balance > 0) {
+        // User owes this person
+        payments.push({
+          id: `payment-${userId}-to-${balance.memberId}`,
+          fromMemberId: userId,
+          from: 'You',
+          toMemberId: balance.memberId,
+          to: member.name,
+          amount: balance.balance,
+        });
+      }
+    });
+
+    return payments.sort((a, b) => b.amount - a.amount);
+  }, [summary, group, groupId, calculateGroupBalances]);
+
+  const handlePay = async (payment: Payment) => {
+    // Show UPI app selection if user is paying (from is "You")
+    if (payment.from === 'You') {
+      setSelectedPayment(payment);
+      setShowUPIModal(true);
+    } else {
+      // If someone else is paying, just mark as paid
+      handleMarkAsPaid(payment);
+    }
   };
+
+  const handleUPIPayment = async (app: UPIPaymentApp) => {
+    if (!selectedPayment) return;
+    
+    setShowUPIModal(false);
+    
+    // Get recipient's UPI ID (in production, this would come from member profile)
+    // For now, we'll use a placeholder
+    const recipientVpa = ''; // Would be stored in member profile
+    
+    if (recipientVpa) {
+      // Open UPI app with payment details
+      const success = await openUPIApp(app, {
+        payeeVpa: recipientVpa,
+        payeeName: selectedPayment.to,
+        amount: selectedPayment.amount,
+        transactionNote: `Settlement for ${group ? group.name : 'group'}`,
+      });
+      
+      if (success) {
+        // Record settlement after opening UPI app
+        // In production, you might want to wait for payment confirmation
+        handleMarkAsPaid(selectedPayment);
+      }
+    } else {
+      // No UPI ID stored, just mark as paid
+      Alert.alert(
+        'No UPI ID',
+        `${selectedPayment.to} hasn't added their UPI ID. Marking as paid manually.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => handleMarkAsPaid(selectedPayment),
+          },
+        ]
+      );
+    }
+  };
+
+  const handleMarkAsPaid = (payment: Payment) => {
+    // Record the settlement
+    addSettlement({
+      groupId,
+      fromMemberId: payment.fromMemberId,
+      toMemberId: payment.toMemberId,
+      amount: payment.amount,
+    });
+
+    // Show success message
+    Alert.alert(
+      'Settlement Recorded',
+      `Recorded payment of ${formatMoney(payment.amount)} from ${payment.from} to ${payment.to}`,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Navigate back to group detail to see updated balances
+            navigation.navigate('GroupDetail', { groupId });
+          },
+        },
+      ]
+    );
+  };
+
+  if (!summary || !group) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>Group not found</Text>
+      </View>
+    );
+  }
 
   const renderItem = ({ item }: { item: Payment }) => (
     <View style={styles.paymentRow}>
@@ -33,12 +168,14 @@ const SettleUpScreen: React.FC<Props> = () => {
         <Text style={styles.paymentSubtitle}>Suggested to clear balances</Text>
       </View>
       <View style={styles.paymentRight}>
-        <Text style={styles.paymentAmount}>{item.amount}</Text>
+        <Text style={styles.paymentAmount}>{formatMoney(item.amount)}</Text>
         <TouchableOpacity
           style={styles.upiButton}
           onPress={() => handlePay(item)}
         >
-          <Text style={styles.upiLabel}>Pay via UPI</Text>
+          <Text style={styles.upiLabel}>
+            {item.from === 'You' ? 'Pay via UPI' : 'Mark as paid'}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -47,21 +184,86 @@ const SettleUpScreen: React.FC<Props> = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Settle up</Text>
-      <Text style={styles.subtitle}>Pay these to become all settled.</Text>
+      <Text style={styles.subtitle}>
+        {suggestedPayments.length > 0
+          ? 'Pay these to become all settled.'
+          : 'All balances are settled!'}
+      </Text>
 
-      <FlatList
-        data={MOCK_PAYMENTS}
-        keyExtractor={p => p.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.list}
-      />
+      {suggestedPayments.length > 0 ? (
+        <FlatList
+          data={suggestedPayments}
+          keyExtractor={p => p.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+        />
+      ) : (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>🎉</Text>
+          <Text style={styles.emptyText}>All settled!</Text>
+          <Text style={styles.emptySubtext}>No pending payments</Text>
+        </View>
+      )}
 
-      <Text style={styles.footerNote}>UPI-aware, but logging payments stays simple.</Text>
+      {suggestedPayments.length > 0 && (
+        <Text style={styles.footerNote}>
+          Mark payments as completed to update balances in real-time.
+        </Text>
+      )}
+
+      {/* UPI App Selection Modal */}
+      <Modal
+        visible={showUPIModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowUPIModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Choose payment app</Text>
+            <Text style={styles.modalSubtitle}>
+              Pay {selectedPayment?.to} {formatMoney(selectedPayment?.amount || 0)}
+            </Text>
+            
+            {availableApps.map(app => (
+              <TouchableOpacity
+                key={app}
+                style={styles.appButton}
+                onPress={() => handleUPIPayment(app)}
+              >
+                <Text style={styles.appButtonText}>{getAppDisplayName(app)}</Text>
+              </TouchableOpacity>
+            ))}
+            
+            <TouchableOpacity
+              style={[styles.appButton, styles.appButtonSecondary]}
+              onPress={() => {
+                if (selectedPayment) {
+                  handleMarkAsPaid(selectedPayment);
+                }
+                setShowUPIModal(false);
+              }}
+            >
+              <Text style={[styles.appButtonText, styles.appButtonTextSecondary]}>
+                Mark as paid (no UPI)
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setShowUPIModal(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surfaceLight,
@@ -69,13 +271,12 @@ const styles = StyleSheet.create({
     paddingTop: 72,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '700',
+    ...typography.h2,
     color: colors.textPrimary,
     marginBottom: 6,
   },
   subtitle: {
-    fontSize: 14,
+    ...typography.body,
     color: colors.textSecondary,
     marginBottom: 16,
   },
@@ -86,46 +287,137 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 8,
+    backgroundColor: colors.surfaceCard,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
   paymentTitle: {
-    fontSize: 15,
-    color: colors.textPrimary,
-    fontWeight: '500',
-  },
-  paymentSubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
-  paymentRight: {
-    alignItems: 'flex-end',
-  },
-  paymentAmount: {
-    fontSize: 15,
+    ...typography.bodyLarge,
     color: colors.textPrimary,
     fontWeight: '600',
     marginBottom: 4,
   },
+  paymentSubtitle: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  paymentRight: {
+    alignItems: 'flex-end',
+    marginLeft: 16,
+  },
+  paymentAmount: {
+    ...typography.money,
+    color: colors.textPrimary,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
   upiButton: {
     borderRadius: 999,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.accent,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   upiLabel: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.accent,
     fontWeight: '600',
   },
   footerNote: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.textSecondary,
-    marginTop: 12,
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  errorText: {
+    ...typography.bodyLarge,
+    color: colors.error,
+    textAlign: 'center',
+    marginTop: 100,
+  },
+  emptyState: {
+    flex: 1,
+    padding: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 80,
+  },
+  emptyEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyText: {
+    ...typography.h3,
+    color: colors.textPrimary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.surfaceCard,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  modalTitle: {
+    ...typography.h2,
+    color: colors.textPrimary,
+    marginBottom: 8,
+    fontWeight: '700',
+  },
+  modalSubtitle: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  appButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginBottom: 12,
+    alignItems: 'center',
+    minHeight: 56,
+    justifyContent: 'center',
+  },
+  appButtonSecondary: {
+    backgroundColor: colors.surfaceCard,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+  },
+  appButtonText: {
+    ...typography.button,
+    color: colors.white,
+  },
+  appButtonTextSecondary: {
+    color: colors.textPrimary,
+  },
+  cancelButton: {
+    marginTop: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    ...typography.body,
+    color: colors.textSecondary,
   },
 });
 

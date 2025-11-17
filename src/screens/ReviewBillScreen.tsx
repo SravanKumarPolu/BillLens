@@ -1,62 +1,142 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ScrollView, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeProvider';
+import { typography } from '../theme/typography';
+import { useGroups } from '../context/GroupsContext';
+import { Input, Button } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ReviewBill'>;
 
-const categories = ['Food', 'Groceries', 'Utilities', 'Rent', 'OTT', 'Other'];
+const categories = ['Food', 'Groceries', 'Utilities', 'Rent', 'WiFi', 'Maid', 'OTT', 'Other'];
 
 const ReviewBillScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { imageUri, groupId } = route.params;
-  const [merchant, setMerchant] = useState('Swiggy');
-  const [amount, setAmount] = useState('0');
-  const [category, setCategory] = useState<string>('Food');
+  const { imageUri, groupId, parsedAmount, parsedMerchant, parsedDate, expenseId } = route.params || {};
+  const { getExpense, updateExpense } = useGroups();
+  const { colors } = useTheme();
+  
+  // Auto-fill with parsed OCR values, fallback to empty strings
+  const [merchant, setMerchant] = useState(parsedMerchant || '');
+  const [amount, setAmount] = useState(parsedAmount || '');
+  
+  // Determine category from merchant name if it matches a template
+  const getCategoryFromMerchant = (merchantName: string): string => {
+    const lower = merchantName.toLowerCase();
+    if (lower.includes('rent')) return 'Rent';
+    if (lower.includes('electric') || lower.includes('eb') || lower.includes('power')) return 'Utilities';
+    if (lower.includes('wifi') || lower.includes('internet')) return 'WiFi';
+    if (lower.includes('grocery') || lower.includes('blinkit') || lower.includes('bigbasket')) return 'Groceries';
+    if (lower.includes('maid') || lower.includes('help')) return 'Maid';
+    if (lower.includes('netflix') || lower.includes('prime') || lower.includes('ott') || lower.includes('disney')) return 'OTT';
+    return 'Food'; // Default
+  };
+  
+  const [category, setCategory] = useState<string>(getCategoryFromMerchant(merchant));
+
+  // Load existing expense data if editing
+  useEffect(() => {
+    if (expenseId) {
+      const expense = getExpense(expenseId);
+      if (expense) {
+        setMerchant(expense.merchant || expense.title || '');
+        setAmount(expense.amount.toString());
+        setCategory(expense.category || 'Other');
+      } else {
+        // Expense not found, navigate back
+        Alert.alert('Error', 'Expense not found', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      }
+    }
+  }, [expenseId, getExpense, navigation]);
 
   const handleNext = () => {
-    // TODO: store draft bill and pass its id; using a dummy id for now.
-    navigation.navigate('ConfigureSplit', { draftBillId: 'draft-1' });
+    const amountNum = parseFloat(amount) || 0;
+    if (amountNum <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+
+    // If editing, update the expense directly
+    if (expenseId) {
+      const existingExpense = getExpense(expenseId);
+      if (!existingExpense) {
+        Alert.alert('Error', 'Expense not found');
+        return;
+      }
+      updateExpense(expenseId, {
+        merchant: merchant.trim() || 'Expense',
+        title: merchant.trim() || 'Expense',
+        amount: amountNum,
+        category: category || existingExpense.category,
+        imageUri: imageUri || existingExpense.imageUri,
+      });
+      navigation.goBack();
+      return;
+    }
+
+    // Otherwise, navigate to split configuration
+    navigation.navigate('ConfigureSplit', {
+      groupId: groupId || '1',
+      amount: amountNum.toString(),
+      merchant: merchant.trim() || 'Expense',
+      category,
+      imageUri,
+      paidBy: 'you', // Default to current user paying
+    });
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Check bill details</Text>
-      <Text style={styles.subtitle}>Edit anything if it looks off.</Text>
+    <ScrollView style={[styles.container, { backgroundColor: colors.surfaceLight }]} contentContainerStyle={styles.content}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>
+        {expenseId ? 'Edit expense' : 'Check bill details'}
+      </Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+        {expenseId ? 'Update the expense details below.' : 'Edit anything if it looks off.'}
+      </Text>
 
-      <View style={styles.imageWrapper}>
-        <Image source={{ uri: imageUri }} style={styles.image} />
-      </View>
+      {imageUri ? (
+        <View style={[styles.imageWrapper, { backgroundColor: colors.surfaceCard }]}>
+          <Image source={{ uri: imageUri }} style={styles.image} />
+        </View>
+      ) : null}
 
-      <Text style={styles.label}>Merchant</Text>
-      <TextInput
+      <Input
+        label="Merchant"
         value={merchant}
         onChangeText={setMerchant}
-        style={styles.input}
         placeholder="e.g. Swiggy, Blinkit"
-        placeholderTextColor={colors.textSecondary}
+        containerStyle={styles.inputContainer}
       />
 
-      <Text style={styles.label}>Total amount</Text>
-      <TextInput
+      <Input
+        label="Total amount"
         value={amount}
         onChangeText={setAmount}
         keyboardType="decimal-pad"
-        style={styles.input}
         placeholder="₹0"
-        placeholderTextColor={colors.textSecondary}
+        containerStyle={styles.inputContainer}
       />
 
-      <Text style={styles.label}>Category</Text>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>Category</Text>
       <View style={styles.chipRow}>
         {categories.map(cat => (
           <TouchableOpacity
             key={cat}
-            style={[styles.chip, category === cat && styles.chipSelected]}
+            style={[
+              styles.chip,
+              { borderColor: category === cat ? colors.accent : colors.borderSubtle },
+              category === cat && [styles.chipSelected, { backgroundColor: colors.accent }]
+            ]}
             onPress={() => setCategory(cat)}
           >
             <Text
-              style={[styles.chipLabel, category === cat && styles.chipLabelSelected]}
+              style={[
+                styles.chipLabel,
+                { color: category === cat ? colors.white : colors.textSecondary },
+                category === cat && styles.chipLabelSelected
+              ]}
             >
               {cat}
             </Text>
@@ -64,9 +144,12 @@ const ReviewBillScreen: React.FC<Props> = ({ navigation, route }) => {
         ))}
       </View>
 
-      <TouchableOpacity style={styles.primaryButton} onPress={handleNext}>
-        <Text style={styles.primaryLabel}>Next: split bill</Text>
-      </TouchableOpacity>
+      <Button
+        title={expenseId ? 'Save changes' : 'Next: split bill'}
+        onPress={handleNext}
+        variant="positive"
+        style={styles.primaryButton}
+      />
     </ScrollView>
   );
 };
@@ -74,88 +157,63 @@ const ReviewBillScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.surfaceLight,
   },
   content: {
     paddingHorizontal: 24,
     paddingTop: 72,
-    paddingBottom: 32,
+    paddingBottom: 40,
   },
   title: {
-    fontSize: 22,
+    ...typography.h2,
+    marginBottom: 8,
     fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 6,
   },
   subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 20,
+    ...typography.body,
+    marginBottom: 24,
+    lineHeight: 22,
   },
   imageWrapper: {
-    height: 160,
-    borderRadius: 16,
+    height: 180,
+    borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: colors.surfaceCard,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   image: {
     flex: 1,
     resizeMode: 'cover',
   },
-  label: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  input: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.surfaceCard,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    fontSize: 15,
-    color: colors.textPrimary,
-    marginBottom: 16,
+  inputContainer: {
+    marginBottom: 20,
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 24,
+    marginBottom: 32,
+    marginTop: 4,
   },
   chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.surfaceCard,
+    borderWidth: 1.5,
     marginRight: 8,
     marginBottom: 8,
+    minHeight: 40,
+    justifyContent: 'center',
   },
   chipSelected: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+    // Colors applied inline
   },
   chipLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    ...typography.body,
+    fontWeight: '500',
   },
   chipLabelSelected: {
-    color: colors.white,
     fontWeight: '600',
   },
   primaryButton: {
     marginTop: 8,
-    backgroundColor: colors.accent,
-    paddingVertical: 14,
-    borderRadius: 999,
-    alignItems: 'center',
-  },
-  primaryLabel: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
 

@@ -2,55 +2,72 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeProvider';
+import { typography } from '../theme/typography';
+import { useGroups } from '../context/GroupsContext';
+import { formatMoney } from '../utils/formatMoney';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Templates'>;
 
 type TemplateItem = {
   id: string;
   name: string;
-  lastAmount?: string;
+  category: string;
 };
 
 const TEMPLATES: TemplateItem[] = [
-  { id: 'rent', name: 'Rent', lastAmount: '₹12,000' },
-  { id: 'eb', name: 'Electricity / EB', lastAmount: '₹2,100' },
-  { id: 'wifi', name: 'WiFi', lastAmount: '₹799' },
-  { id: 'groceries', name: 'Groceries' },
-  { id: 'maid', name: 'Maid' },
-  { id: 'ott', name: 'OTT (Netflix, Prime, etc.)' },
+  { id: 'rent', name: 'Rent', category: 'Rent' },
+  { id: 'eb', name: 'Electricity / EB', category: 'Utilities' },
+  { id: 'wifi', name: 'WiFi', category: 'WiFi' },
+  { id: 'groceries', name: 'Groceries', category: 'Groceries' },
+  { id: 'maid', name: 'Maid', category: 'Maid' },
+  { id: 'ott', name: 'OTT (Netflix, Prime, etc.)', category: 'OTT' },
 ];
 
 const TemplatesScreen: React.FC<Props> = ({ navigation, route }) => {
   const { groupId } = route.params;
+  const { getTemplateLastAmount } = useGroups();
+  const { colors } = useTheme();
 
   const handleUseTemplate = (item: TemplateItem) => {
-    // TODO: prefill a new expense from template.
-    navigation.goBack();
+    const lastAmount = getTemplateLastAmount(item.id);
+    
+    // Navigate to ReviewBill with pre-filled template data
+    // Since we don't have an image, we'll skip OCR and go directly to ReviewBill
+    navigation.navigate('ReviewBill', {
+      imageUri: '', // No image for templates
+      groupId: groupId || '1',
+      parsedAmount: lastAmount ? lastAmount.toString() : '',
+      parsedMerchant: item.name,
+      parsedDate: '',
+    });
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Quick add</Text>
-      <Text style={styles.subtitle}>Zero-typing templates for your shared life.</Text>
+    <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>Quick add</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Zero-typing templates for your shared life.</Text>
 
       <FlatList
         data={TEMPLATES}
         keyExtractor={t => t.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() => handleUseTemplate(item)}
-          >
-            <View>
-              <Text style={styles.cardTitle}>{item.name}</Text>
-              {item.lastAmount && (
-                <Text style={styles.cardSubtitle}>Last: {item.lastAmount}</Text>
-              )}
-            </View>
-            <Text style={styles.addLabel}>Add</Text>
-          </TouchableOpacity>
-        )}
+        renderItem={({ item }) => {
+          const lastAmount = getTemplateLastAmount(item.id);
+          return (
+            <TouchableOpacity
+              style={[styles.card, { backgroundColor: colors.surfaceCard }]}
+              onPress={() => handleUseTemplate(item)}
+            >
+              <View>
+                <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{item.name}</Text>
+                {lastAmount && (
+                  <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>Last: {formatMoney(lastAmount)}</Text>
+                )}
+              </View>
+              <Text style={[styles.addLabel, { color: colors.accent }]}>Add</Text>
+            </TouchableOpacity>
+          );
+        }}
         contentContainerStyle={styles.list}
       />
     </View>
@@ -60,19 +77,15 @@ const TemplatesScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.surfaceLight,
     paddingHorizontal: 24,
     paddingTop: 72,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    ...typography.h2,
     marginBottom: 6,
   },
   subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    ...typography.body,
     marginBottom: 16,
   },
   list: {
@@ -82,24 +95,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.white,
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginBottom: 8,
   },
   cardTitle: {
-    fontSize: 15,
+    ...typography.body,
     fontWeight: '600',
-    color: colors.textPrimary,
   },
   cardSubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    ...typography.bodySmall,
   },
   addLabel: {
-    fontSize: 14,
-    color: colors.accent,
+    ...typography.body,
     fontWeight: '600',
   },
 });

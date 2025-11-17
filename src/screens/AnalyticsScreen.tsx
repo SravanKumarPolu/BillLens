@@ -1,0 +1,397 @@
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
+import { useTheme } from '../theme/ThemeProvider';
+import { typography } from '../theme/typography';
+import { useGroups } from '../context/GroupsContext';
+import { formatMoney } from '../utils/formatMoney';
+import { Card } from '../components';
+import { Expense } from '../types/models';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'Analytics'>;
+
+interface CategoryTotal {
+  category: string;
+  amount: number;
+  count: number;
+}
+
+interface MonthlyTotal {
+  month: string;
+  year: number;
+  amount: number;
+  count: number;
+}
+
+const AnalyticsScreen: React.FC<Props> = ({ navigation, route }) => {
+  const { groupId } = route.params;
+  const { getExpensesForGroup, getGroup } = useGroups();
+  const { colors } = useTheme();
+
+  const group = getGroup(groupId);
+  const allExpenses = getExpensesForGroup(groupId);
+
+  // Calculate monthly totals - optimized with useMemo
+  const monthlyTotals = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // Get last 3 months
+    const months: MonthlyTotal[] = [];
+    for (let i = 0; i < 3; i++) {
+      const date = new Date(currentYear, currentMonth - i, 1);
+      const monthKey = date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+      
+      const monthExpenses = allExpenses.filter(expense => {
+        const expenseDate = new Date(expense.date);
+        return (
+          expenseDate.getMonth() === date.getMonth() &&
+          expenseDate.getFullYear() === date.getFullYear()
+        );
+      });
+
+      const total = monthExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+      
+      months.push({
+        month: date.toLocaleDateString('en-IN', { month: 'short' }),
+        year: date.getFullYear(),
+        amount: total,
+        count: monthExpenses.length,
+      });
+    }
+
+    return months.reverse(); // Show oldest to newest
+  }, [allExpenses]);
+
+  // Calculate category breakdown - optimized with useMemo
+  const categoryBreakdown = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // Only current month expenses
+    const currentMonthExpenses = allExpenses.filter(expense => {
+      const expenseDate = new Date(expense.date);
+      return (
+        expenseDate.getMonth() === currentMonth &&
+        expenseDate.getFullYear() === currentYear
+      );
+    });
+
+    const categoryMap = new Map<string, { amount: number; count: number }>();
+
+    currentMonthExpenses.forEach(expense => {
+      const category = expense.category || 'Other';
+      const existing = categoryMap.get(category) || { amount: 0, count: 0 };
+      categoryMap.set(category, {
+        amount: existing.amount + expense.amount,
+        count: existing.count + 1,
+      });
+    });
+
+    const breakdown: CategoryTotal[] = Array.from(categoryMap.entries())
+      .map(([category, data]) => ({
+        category,
+        amount: data.amount,
+        count: data.count,
+      }))
+      .sort((a, b) => b.amount - a.amount); // Sort by amount descending
+
+    return breakdown;
+  }, [allExpenses]);
+
+  // Current month total
+  const currentMonthTotal = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    return allExpenses
+      .filter(expense => {
+        const expenseDate = new Date(expense.date);
+        return (
+          expenseDate.getMonth() === currentMonth &&
+          expenseDate.getFullYear() === currentYear
+        );
+      })
+      .reduce((sum, exp) => sum + exp.amount, 0);
+  }, [allExpenses]);
+
+  if (!group) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
+        <Text style={[styles.errorText, { color: colors.textPrimary }]}>Group not found</Text>
+      </View>
+    );
+  }
+
+  const getCategoryEmoji = (category: string): string => {
+    const emojiMap: Record<string, string> = {
+      Food: '🍔',
+      Groceries: '🛒',
+      Utilities: '⚡',
+      Rent: '🏠',
+      WiFi: '📶',
+      Maid: '🧹',
+      OTT: '📺',
+      Other: '📝',
+    };
+    return emojiMap[category] || '📝';
+  };
+
+  return (
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.surfaceLight }]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>Analytics</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          {group.name}
+        </Text>
+      </View>
+
+      {/* Current Month Total */}
+      <Card style={styles.totalCard}>
+        <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>This month</Text>
+        <Text style={[styles.totalAmount, { color: colors.textPrimary }]}>
+          {formatMoney(currentMonthTotal)}
+        </Text>
+        <Text style={[styles.totalCount, { color: colors.textSecondary }]}>
+          {allExpenses.filter(expense => {
+            const expenseDate = new Date(expense.date);
+            const now = new Date();
+            return (
+              expenseDate.getMonth() === now.getMonth() &&
+              expenseDate.getFullYear() === now.getFullYear()
+            );
+          }).length} expenses
+        </Text>
+      </Card>
+
+      {/* Monthly Totals */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Last 3 months</Text>
+        {monthlyTotals.map((month, index) => (
+          <Card key={`${month.month}-${month.year}`} style={styles.monthCard}>
+            <View style={styles.monthHeader}>
+              <Text style={[styles.monthName, { color: colors.textPrimary }]}>
+                {month.month} {month.year}
+              </Text>
+              <Text style={[styles.monthAmount, { color: colors.textPrimary }]}>
+                {formatMoney(month.amount)}
+              </Text>
+            </View>
+            <Text style={[styles.monthCount, { color: colors.textSecondary }]}>
+              {month.count} {month.count === 1 ? 'expense' : 'expenses'}
+            </Text>
+          </Card>
+        ))}
+      </View>
+
+      {/* Category Breakdown */}
+      {categoryBreakdown.length > 0 && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+            This month by category
+          </Text>
+          {categoryBreakdown.map(category => {
+            const percentage = currentMonthTotal > 0 
+              ? (category.amount / currentMonthTotal) * 100 
+              : 0;
+            
+            return (
+              <Card key={category.category} style={styles.categoryCard}>
+                <View style={styles.categoryHeader}>
+                  <View style={styles.categoryLeft}>
+                    <Text style={styles.categoryEmoji}>
+                      {getCategoryEmoji(category.category)}
+                    </Text>
+                    <View>
+                      <Text style={[styles.categoryName, { color: colors.textPrimary }]}>
+                        {category.category}
+                      </Text>
+                      <Text style={[styles.categoryCount, { color: colors.textSecondary }]}>
+                        {category.count} {category.count === 1 ? 'expense' : 'expenses'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.categoryRight}>
+                    <Text style={[styles.categoryAmount, { color: colors.textPrimary }]}>
+                      {formatMoney(category.amount)}
+                    </Text>
+                    <Text style={[styles.categoryPercentage, { color: colors.textSecondary }]}>
+                      {percentage.toFixed(0)}%
+                    </Text>
+                  </View>
+                </View>
+                {/* Simple progress bar */}
+                <View style={[styles.progressBarContainer, { backgroundColor: colors.borderSubtle }]}>
+                  <View
+                    style={[
+                      styles.progressBar,
+                      {
+                        width: `${percentage}%`,
+                        backgroundColor: colors.primary,
+                      },
+                    ]}
+                  />
+                </View>
+              </Card>
+            );
+          })}
+        </View>
+      )}
+
+      {categoryBreakdown.length === 0 && (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>📊</Text>
+          <Text style={[styles.emptyText, { color: colors.textPrimary }]}>
+            No expenses this month
+          </Text>
+          <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+            Add expenses to see analytics
+          </Text>
+        </View>
+      )}
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: 24,
+    paddingTop: 72,
+    paddingBottom: 32,
+  },
+  header: {
+    marginBottom: 24,
+  },
+  title: {
+    ...typography.h1,
+    marginBottom: 4,
+  },
+  subtitle: {
+    ...typography.body,
+  },
+  totalCard: {
+    marginBottom: 32,
+    padding: 20,
+    alignItems: 'center',
+  },
+  totalLabel: {
+    ...typography.body,
+    marginBottom: 8,
+  },
+  totalAmount: {
+    ...typography.moneyLarge,
+    marginBottom: 4,
+  },
+  totalCount: {
+    ...typography.bodySmall,
+  },
+  section: {
+    marginBottom: 32,
+  },
+  sectionTitle: {
+    ...typography.h4,
+    marginBottom: 12,
+  },
+  monthCard: {
+    marginBottom: 8,
+    padding: 16,
+  },
+  monthHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  monthName: {
+    ...typography.bodyLarge,
+    fontWeight: '600',
+  },
+  monthAmount: {
+    ...typography.money,
+    fontWeight: '700',
+  },
+  monthCount: {
+    ...typography.bodySmall,
+  },
+  categoryCard: {
+    marginBottom: 12,
+    padding: 16,
+  },
+  categoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  categoryLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  categoryEmoji: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  categoryName: {
+    ...typography.bodyLarge,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  categoryCount: {
+    ...typography.bodySmall,
+  },
+  categoryRight: {
+    alignItems: 'flex-end',
+  },
+  categoryAmount: {
+    ...typography.money,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  categoryPercentage: {
+    ...typography.bodySmall,
+  },
+  progressBarContainer: {
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 48,
+  },
+  emptyEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyText: {
+    ...typography.h3,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    ...typography.body,
+  },
+  errorText: {
+    ...typography.body,
+    textAlign: 'center',
+    marginTop: 80,
+  },
+});
+
+export default AnalyticsScreen;
+

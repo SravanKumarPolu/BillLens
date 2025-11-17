@@ -1,35 +1,137 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Image, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeProvider';
+import { typography } from '../theme/typography';
+import { extractBillInfo, parseAmount, normalizeMerchant } from '../utils/ocrService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OcrProcessing'>;
 
 const OcrProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { imageUri, groupId } = route.params;
+  const { imageUri, groupId } = route.params || {};
+  const { colors } = useTheme();
+  const [isProcessing, setIsProcessing] = useState(true);
+
+  // Validate required params
+  useEffect(() => {
+    if (!imageUri) {
+      Alert.alert('Error', 'No image provided', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    }
+  }, [imageUri, navigation]);
 
   useEffect(() => {
-    // TODO: replace timeout with actual OCR call.
-    const timeout = setTimeout(() => {
-      navigation.replace('ReviewBill', { imageUri, groupId });
-    }, 1200);
+    if (!imageUri) return; // Don't process if no image
+    const processImage = async () => {
+      try {
+        setIsProcessing(true);
+        const result = await extractBillInfo(imageUri);
 
-    return () => clearTimeout(timeout);
+        // Handle low confidence or errors
+        if (result.error && result.confidence < 0.3) {
+          // Very low confidence - show error and allow manual entry
+          Alert.alert(
+            'Low Quality Image',
+            result.error || 'Could not extract bill information automatically. You can still enter the details manually.',
+            [
+              {
+                text: 'Enter Manually',
+                onPress: () => {
+                  navigation.replace('ReviewBill', {
+                    imageUri,
+                    groupId,
+                    parsedAmount: '',
+                    parsedMerchant: '',
+                    parsedDate: '',
+                  });
+                },
+              },
+            ],
+            { cancelable: false }
+          );
+          return;
+        }
+
+        // For low confidence (0.3-0.5), still proceed but show a warning
+        // User can verify and edit in ReviewBill screen
+        if (result.confidence < 0.5 && result.confidence >= 0.3) {
+          Alert.alert(
+            'Low Confidence',
+            'Some information may not be accurate. Please verify the extracted details.',
+            [
+              {
+                text: 'Review & Edit',
+                onPress: () => {
+                  navigation.replace('ReviewBill', {
+                    imageUri,
+                    groupId,
+                    parsedAmount: parseAmount(result.amount),
+                    parsedMerchant: normalizeMerchant(result.merchant),
+                    parsedDate: result.date || '',
+                  });
+                },
+              },
+            ],
+            { cancelable: false }
+          );
+          return;
+        }
+
+        // Navigate to ReviewBill with parsed data (confidence >= 0.5)
+        navigation.replace('ReviewBill', {
+          imageUri,
+          groupId,
+          parsedAmount: parseAmount(result.amount),
+          parsedMerchant: normalizeMerchant(result.merchant),
+          parsedDate: result.date || '',
+        });
+      } catch (error) {
+        // Handle unexpected errors
+        Alert.alert(
+          'Processing Error',
+          'Something went wrong while processing your image. You can still enter the details manually.',
+          [
+            {
+              text: 'Enter Manually',
+              onPress: () => {
+                navigation.replace('ReviewBill', {
+                  imageUri,
+                  groupId,
+                  parsedAmount: '',
+                  parsedMerchant: '',
+                  parsedDate: '',
+                });
+              },
+            },
+          ],
+          { cancelable: false }
+        );
+      } finally {
+        setIsProcessing(false);
+      }
+    };
+
+    processImage();
   }, [navigation, imageUri, groupId]);
 
+  if (!imageUri) {
+    return null; // Return null while showing alert
+  }
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Reading your bill…</Text>
-      <Text style={styles.subtitle}>
+    <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>Reading your bill…</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         BillLens is finding the amount, merchant and date. This stays private.
       </Text>
 
-      <View style={styles.imageWrapper}>
+      <View style={[styles.imageWrapper, { backgroundColor: colors.surfaceCard }]}>
         <Image source={{ uri: imageUri }} style={styles.image} />
       </View>
 
-      <ActivityIndicator size="large" color={colors.accent} />
+      {isProcessing && <ActivityIndicator size="large" color={colors.accent} />}
     </View>
   );
 };
@@ -39,24 +141,19 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 80,
-    backgroundColor: colors.surfaceLight,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    ...typography.h2,
     marginBottom: 6,
   },
   subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    ...typography.body,
     marginBottom: 24,
   },
   imageWrapper: {
     height: 180,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: colors.surfaceCard,
     marginBottom: 24,
   },
   image: {

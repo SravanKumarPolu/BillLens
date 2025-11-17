@@ -1,25 +1,57 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, TextInput } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeProvider';
+import { typography } from '../theme/typography';
+import { useGroups } from '../context/GroupsContext';
+import { useRoute } from '@react-navigation/native';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConfigureSplit'>;
 
-type Member = {
-  id: string;
-  name: string;
-};
-
-const MOCK_MEMBERS: Member[] = [
-  { id: 'you', name: 'You' },
-  { id: '1', name: 'Priya' },
-  { id: '2', name: 'Arjun' },
-];
-
 const ConfigureSplitScreen: React.FC<Props> = ({ navigation }) => {
+  const route = useRoute();
+  const { getGroup, addExpense } = useGroups();
+  const { colors } = useTheme();
   const [mode, setMode] = useState<'equal' | 'custom'>('equal');
-  const [selectedIds, setSelectedIds] = useState<string[]>(MOCK_MEMBERS.map(m => m.id));
+  
+  // Get groupId from navigation state or route params
+  // We need to track this from ReviewBill screen
+  const params = route.params || {};
+  const groupId = params.groupId || '1';
+  const group = getGroup(groupId);
+  
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [customAmounts, setCustomAmounts] = useState<Record<string, number>>({});
+  const [totalAmount, setTotalAmount] = useState(0);
+
+  useEffect(() => {
+    if (group && group.members) {
+      // Initialize with all members selected
+      setSelectedIds(group.members.map(m => m.id));
+    }
+  }, [group]);
+
+  // Get amount from ReviewBill screen
+  useEffect(() => {
+    const amount = params.amount;
+    if (amount) {
+      const parsed = parseFloat(typeof amount === 'string' ? amount : String(amount));
+      if (!isNaN(parsed) && parsed > 0) {
+        setTotalAmount(parsed);
+      }
+    }
+  }, [params.amount]);
+
+  const styles = createStyles(colors);
+
+  if (!group) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>Group not found</Text>
+      </View>
+    );
+  }
 
   const toggleMember = (id: string) => {
     setSelectedIds(prev =>
@@ -28,32 +60,103 @@ const ConfigureSplitScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleSave = () => {
-    // TODO: commit split; go to group detail for now.
-    navigation.navigate('GroupDetail', { groupId: '1' });
+    if (selectedIds.length === 0) {
+      Alert.alert('Error', 'Please select at least one person');
+      return;
+    }
+
+    if (totalAmount <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+
+    // Calculate splits
+    let splits: Array<{ memberId: string; amount: number }> = [];
+    
+    if (mode === 'equal') {
+      const sharePerPerson = totalAmount / selectedIds.length;
+      splits = selectedIds.map(memberId => ({
+        memberId,
+        amount: sharePerPerson,
+      }));
+    } else {
+      // Custom mode - use customAmounts or equal split as fallback
+      const totalCustom = selectedIds.reduce((sum, id) => sum + (customAmounts[id] || 0), 0);
+      if (totalCustom > 0 && Math.abs(totalCustom - totalAmount) < 0.01) {
+        splits = selectedIds.map(memberId => ({
+          memberId,
+          amount: customAmounts[memberId] || 0,
+        }));
+      } else {
+        // Fallback to equal split
+        const sharePerPerson = totalAmount / selectedIds.length;
+        splits = selectedIds.map(memberId => ({
+          memberId,
+          amount: sharePerPerson,
+        }));
+      }
+    }
+
+    // Get expense details from route params
+    const merchant = params.merchant || 'Expense';
+    const category = params.category || 'Other';
+    const imageUri = params.imageUri;
+    const paidBy = params.paidBy || 'you'; // Default to current user
+
+    // Create expense
+    addExpense({
+      groupId,
+      title: merchant,
+      merchant,
+      amount: totalAmount,
+      category,
+      paidBy,
+      splits,
+      imageUri,
+    });
+
+    // Navigate back to group detail
+    navigation.navigate('GroupDetail', { groupId });
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Who is this for?</Text>
-      <Text style={styles.subtitle}>Choose people and how you want to split.</Text>
+    <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>Who is this for?</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Choose people and how you want to split.</Text>
 
       <View style={styles.modeRow}>
         <TouchableOpacity
-          style={[styles.modeChip, mode === 'equal' && styles.modeChipActive]}
+          style={[
+            styles.modeChip,
+            { borderColor: colors.borderSubtle },
+            mode === 'equal' && [styles.modeChipActive, { backgroundColor: colors.accent, borderColor: colors.accent }]
+          ]}
           onPress={() => setMode('equal')}
         >
           <Text
-            style={[styles.modeLabel, mode === 'equal' && styles.modeLabelActive]}
+            style={[
+              styles.modeLabel,
+              { color: mode === 'equal' ? colors.white : colors.textSecondary },
+              mode === 'equal' && styles.modeLabelActive
+            ]}
           >
             Equal
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.modeChip, mode === 'custom' && styles.modeChipActive]}
+          style={[
+            styles.modeChip,
+            { borderColor: colors.borderSubtle },
+            mode === 'custom' && [styles.modeChipActive, { backgroundColor: colors.accent, borderColor: colors.accent }]
+          ]}
           onPress={() => setMode('custom')}
         >
           <Text
-            style={[styles.modeLabel, mode === 'custom' && styles.modeLabelActive]}
+            style={[
+              styles.modeLabel,
+              { color: mode === 'custom' ? colors.white : colors.textSecondary },
+              mode === 'custom' && styles.modeLabelActive
+            ]}
           >
             Custom
           </Text>
@@ -61,50 +164,86 @@ const ConfigureSplitScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       <FlatList
-        data={MOCK_MEMBERS}
+        data={group.members || []}
         keyExtractor={m => m.id}
         renderItem={({ item }) => {
           const selected = selectedIds.includes(item.id);
+          const shareAmount = selected && totalAmount > 0
+            ? mode === 'equal'
+              ? totalAmount / selectedIds.length
+              : customAmounts[item.id] || 0
+            : 0;
+          
           return (
-            <TouchableOpacity
-              style={[styles.memberRow, selected && styles.memberRowSelected]}
-              onPress={() => toggleMember(item.id)}
-            >
-              <Text style={styles.memberName}>{item.name}</Text>
-              <Text style={styles.memberShare}>{mode === 'equal' ? 'Equal share' : 'Tap to edit'}</Text>
-            </TouchableOpacity>
+            <View style={[
+              styles.memberRow,
+              { backgroundColor: colors.surfaceCard },
+              selected && [styles.memberRowSelected, { borderColor: colors.accent }]
+            ]}>
+              <TouchableOpacity
+                style={styles.memberLeft}
+                onPress={() => toggleMember(item.id)}
+              >
+                <Text style={[styles.memberName, { color: colors.textPrimary }]}>{item.name}</Text>
+              </TouchableOpacity>
+              {selected && mode === 'custom' ? (
+                <TextInput
+                  style={styles.amountInput}
+                  value={customAmounts[item.id] ? customAmounts[item.id].toString() : ''}
+                  onChangeText={(text) => {
+                    const num = parseFloat(text) || 0;
+                    setCustomAmounts(prev => ({ ...prev, [item.id]: num }));
+                  }}
+                  keyboardType="decimal-pad"
+                  placeholder="₹0"
+                  placeholderTextColor={colors.textSecondary}
+                />
+              ) : (
+                <Text style={[styles.memberShare, { color: colors.textSecondary }]}>
+                  {selected
+                    ? `₹${shareAmount.toFixed(2)}`
+                    : 'Not included'}
+                </Text>
+              )}
+            </View>
           );
         }}
         contentContainerStyle={styles.membersList}
       />
 
-      <View style={styles.summaryBox}>
-        <Text style={styles.summaryText}>Total split between {selectedIds.length} people.</Text>
+      <View style={[styles.summaryBox, { backgroundColor: colors.surfaceCard }]}>
+        <Text style={[styles.summaryText, { color: colors.textSecondary }]}>
+          Total: ₹{totalAmount.toFixed(2)} split between {selectedIds.length} {selectedIds.length === 1 ? 'person' : 'people'}.
+        </Text>
+        {mode === 'custom' && (
+          <Text style={[styles.summaryText, styles.summaryWarning, { color: colors.textSecondary }]}>
+            Custom total: ₹{selectedIds.reduce((sum, id) => sum + (customAmounts[id] || 0), 0).toFixed(2)}
+            {Math.abs(selectedIds.reduce((sum, id) => sum + (customAmounts[id] || 0), 0) - totalAmount) > 0.01 && (
+              <Text style={{ color: colors.error }}> (doesn't match total)</Text>
+            )}
+          </Text>
+        )}
       </View>
 
-      <TouchableOpacity style={styles.primaryButton} onPress={handleSave}>
-        <Text style={styles.primaryLabel}>Save expense</Text>
+      <TouchableOpacity style={[styles.primaryButton, { backgroundColor: colors.accent }]} onPress={handleSave}>
+        <Text style={[styles.primaryLabel, { color: colors.white }]}>Save expense</Text>
       </TouchableOpacity>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.surfaceLight,
     paddingHorizontal: 24,
     paddingTop: 72,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    ...typography.h2,
     marginBottom: 6,
   },
   subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    ...typography.body,
     marginBottom: 16,
   },
   modeRow: {
@@ -116,19 +255,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: colors.surfaceCard,
     marginRight: 8,
   },
   modeChipActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+    // Colors applied inline
   },
   modeLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    ...typography.bodySmall,
   },
   modeLabelActive: {
-    color: colors.white,
     fontWeight: '600',
   },
   membersList: {
@@ -139,7 +274,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.white,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -147,36 +281,49 @@ const styles = StyleSheet.create({
   },
   memberRowSelected: {
     borderWidth: 1,
-    borderColor: colors.accent,
+  },
+  memberLeft: {
+    flex: 1,
   },
   memberName: {
-    fontSize: 15,
-    color: colors.textPrimary,
+    ...typography.body,
   },
   memberShare: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    ...typography.bodySmall,
+  },
+  amountInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 14,
+    minWidth: 80,
+    textAlign: 'right',
   },
   summaryBox: {
-    backgroundColor: colors.surfaceCard,
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
   },
   summaryText: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    ...typography.bodySmall,
+  },
+  summaryWarning: {
+    marginTop: 4,
+    ...typography.caption,
   },
   primaryButton: {
-    backgroundColor: colors.accent,
     paddingVertical: 14,
     borderRadius: 999,
     alignItems: 'center',
   },
   primaryLabel: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.button,
+  },
+  errorText: {
+    ...typography.bodyLarge,
+    textAlign: 'center',
+    marginTop: 100,
   },
 });
 

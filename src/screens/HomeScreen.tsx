@@ -2,36 +2,56 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeProvider';
 import { typography } from '../theme/typography';
 import { Card, Button } from '../components';
+import { useGroups } from '../context/GroupsContext';
+import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-type GroupItem = {
-  id: string;
-  name: string;
-  emoji: string;
-  summary: string;
-};
-
-// Placeholder groups for UX; wire to state later.
-const MOCK_GROUPS: GroupItem[] = [
-  { id: '1', name: 'Our Home', emoji: '🏠', summary: 'You owe ₹450' },
-  { id: '2', name: 'Us Two', emoji: '👫', summary: 'All settled' },
-];
-
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
-  const renderGroup = ({ item }: { item: GroupItem }) => (
+  const { getAllGroupSummaries } = useGroups();
+  const { user, syncData, isSyncing, lastSyncDate } = useAuth();
+  const { colors } = useTheme();
+  const groupSummaries = getAllGroupSummaries() || [];
+
+  const handleProfilePress = () => {
+    if (user) {
+      // Show sync menu or profile
+      navigation.navigate('BackupRestore');
+    } else {
+      // Show login option
+      navigation.navigate('Login');
+    }
+  };
+
+  const handleSync = async () => {
+    if (!user) {
+      navigation.navigate('Login');
+      return;
+    }
+    
+    try {
+      await syncData();
+    } catch (error) {
+      // Error handling in syncData
+    }
+  };
+
+  const styles = createStyles(colors);
+
+  const renderGroup = ({ item }: { item: typeof groupSummaries[0] }) => (
     <Card
-      onPress={() => navigation.navigate('GroupDetail', { groupId: item.id })}
+      onPress={() => navigation.navigate('GroupDetail', { groupId: item.group.id })}
       style={styles.groupCard}
+      elevated
     >
       <View style={styles.groupContent}>
-        <Text style={styles.groupEmoji}>{item.emoji}</Text>
+        <Text style={styles.groupEmoji}>{item.group.emoji}</Text>
         <View style={styles.groupTextWrapper}>
-          <Text style={styles.groupName}>{item.name}</Text>
-          <Text style={styles.groupSummary}>{item.summary}</Text>
+          <Text style={[styles.groupName, { color: colors.textPrimary }]}>{item.group.name}</Text>
+          <Text style={[styles.groupSummary, { color: colors.textSecondary }]}>{item.summaryText}</Text>
         </View>
       </View>
     </Card>
@@ -40,28 +60,47 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.appName}>BillLens</Text>
-        <TouchableOpacity>
-          <Text style={styles.profile}>☁️</Text>
+        <Text style={[styles.appName, { color: colors.textPrimary }]}>BillLens</Text>
+        <TouchableOpacity 
+          onPress={handleProfilePress}
+          style={styles.profileButton}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.profile}>
+            {user ? (isSyncing ? '🔄' : '☁️') : '☁️'}
+          </Text>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.sectionTitle}>Your groups</Text>
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Your groups</Text>
 
-      <FlatList
-        data={MOCK_GROUPS}
-        keyExtractor={item => item.id}
-        renderItem={renderGroup}
-        contentContainerStyle={styles.groupsList}
-      />
+      {groupSummaries.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>🏠</Text>
+          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No groups yet</Text>
+          <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+            Create your first group to start splitting expenses
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={groupSummaries}
+          keyExtractor={item => item.group.id}
+          renderItem={renderGroup}
+          contentContainerStyle={styles.groupsList}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
-      <Button
-        title="+ New group"
-        onPress={() => navigation.navigate('CreateGroup')}
-        variant="secondary"
-        fullWidth={false}
-        style={styles.newGroupButton}
-      />
+      {groupSummaries.length > 0 && (
+        <Button
+          title="+ New group"
+          onPress={() => navigation.navigate('CreateGroup')}
+          variant="secondary"
+          fullWidth={false}
+          style={styles.newGroupButton}
+        />
+      )}
 
       <Button
         title="📷 Add from screenshot"
@@ -73,7 +112,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surfaceLight,
@@ -81,39 +120,46 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: 56,
     paddingHorizontal: 24,
-    paddingBottom: 12,
+    paddingBottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   appName: {
     ...typography.h2,
-    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  profileButton: {
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   profile: {
     fontSize: 24,
   },
   sectionTitle: {
     ...typography.label,
-    color: colors.textSecondary,
     paddingHorizontal: 24,
-    marginBottom: 8,
+    marginBottom: 16,
+    fontWeight: '600',
   },
   groupsList: {
     paddingHorizontal: 24,
-    paddingBottom: 120,
+    paddingBottom: 140,
+    paddingTop: 8,
   },
   groupCard: {
-    marginBottom: 10,
-    padding: 14,
+    marginBottom: 12,
+    padding: 16,
   },
   groupContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   groupEmoji: {
-    fontSize: 26,
-    marginRight: 10,
+    fontSize: 32,
+    marginRight: 12,
   },
   groupTextWrapper: {
     flex: 1,
@@ -121,15 +167,35 @@ const styles = StyleSheet.create({
   groupName: {
     ...typography.bodyLarge,
     fontWeight: '600',
-    color: colors.textPrimary,
+    marginBottom: 4,
   },
   groupSummary: {
     ...typography.bodySmall,
-    color: colors.textSecondary,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 48,
+    paddingTop: 80,
+  },
+  emptyEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    ...typography.h3,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    ...typography.body,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   newGroupButton: {
     marginHorizontal: 24,
-    marginTop: 8,
+    marginTop: 16,
   },
   fab: {
     position: 'absolute',

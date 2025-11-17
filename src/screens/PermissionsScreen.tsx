@@ -2,11 +2,15 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeProvider';
+import { typography } from '../theme/typography';
+import { Button, Card } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Permissions'>;
 
 const PermissionsScreen: React.FC<Props> = ({ navigation }) => {
+  const { colors } = useTheme();
+  
   const handleContinue = () => {
     // TODO: request camera and gallery permissions
     navigation.navigate('DefaultGroupSetup');
@@ -17,28 +21,34 @@ const PermissionsScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Let BillLens see your bills</Text>
-      <Text style={styles.subtitle}>
+    <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>Let BillLens see your bills</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         We only use your camera and gallery to read bill amounts. You choose what to share.
       </Text>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Camera access</Text>
-        <Text style={styles.cardText}>Snap paper bills in one tap.</Text>
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Photos & media</Text>
-        <Text style={styles.cardText}>Read screenshots from Swiggy, Blinkit, UPI and more.</Text>
-      </View>
+      <Card style={styles.card}>
+        <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Camera access</Text>
+        <Text style={[styles.cardText, { color: colors.textSecondary }]}>Snap paper bills in one tap.</Text>
+      </Card>
+      <Card style={styles.card}>
+        <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Photos & media</Text>
+        <Text style={[styles.cardText, { color: colors.textSecondary }]}>Read screenshots from Swiggy, Blinkit, UPI and more.</Text>
+      </Card>
 
-      <TouchableOpacity style={styles.primaryButton} onPress={handleContinue}>
-        <Text style={styles.primaryLabel}>Continue</Text>
-      </TouchableOpacity>
+      <Button
+        title="Continue"
+        onPress={handleContinue}
+        variant="positive"
+        style={styles.primaryButton}
+      />
 
-      <TouchableOpacity style={styles.secondaryButton} onPress={handleSkip}>
-        <Text style={styles.secondaryLabel}>Skip for now</Text>
-      </TouchableOpacity>
+      <Button
+        title="Skip for now"
+        onPress={handleSkip}
+        variant="secondary"
+        style={styles.secondaryButton}
+      />
     </View>
   );
 };
@@ -48,59 +58,31 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 80,
-    backgroundColor: colors.surfaceLight,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    ...typography.h1,
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    ...typography.body,
     marginBottom: 24,
   },
   card: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 16,
     marginBottom: 12,
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
+    ...typography.h4,
     marginBottom: 4,
   },
   cardText: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    ...typography.bodySmall,
   },
   primaryButton: {
-    backgroundColor: colors.accent,
-    paddingVertical: 14,
-    borderRadius: 999,
-    alignItems: 'center',
     marginTop: 32,
     marginBottom: 12,
   },
-  primaryLabel: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '600',
-  },
   secondaryButton: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#CBD5F5',
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  secondaryLabel: {
-    color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '500',
+    marginBottom: 12,
   },
 });
 

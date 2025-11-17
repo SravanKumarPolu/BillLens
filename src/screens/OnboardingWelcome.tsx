@@ -35,7 +35,7 @@ const OnboardingWelcome: React.FC<Props> = ({ navigation }) => {
 
       <Button
         title="Sign in to sync later"
-        onPress={() => navigation.navigate('Permissions')}
+        onPress={() => navigation.navigate('Login')}
         variant="secondary"
         style={styles.button}
       />
