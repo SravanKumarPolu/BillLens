@@ -109,24 +109,33 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const initializeData = async () => {
       try {
         // Run migrations first
-        const { runMigrations } = await import('../utils/migrationService');
-        await runMigrations();
+        try {
+          const { runMigrations } = await import('../utils/migrationService');
+          await runMigrations();
+        } catch (migrationError) {
+          console.warn('Migration error (non-fatal):', migrationError);
+        }
 
-        const savedData = await loadAppData();
-        if (savedData) {
-          setGroups(savedData.groups);
-          setExpenses(savedData.expenses);
-          setSettlements(savedData.settlements);
-          setTemplateLastAmounts(savedData.templateLastAmounts);
-          setOcrHistory(savedData.ocrHistory || []);
+        try {
+          const savedData = await loadAppData();
+          if (savedData) {
+            setGroups(savedData.groups);
+            setExpenses(savedData.expenses);
+            setSettlements(savedData.settlements);
+            setTemplateLastAmounts(savedData.templateLastAmounts);
+            setOcrHistory(savedData.ocrHistory || []);
+          }
+        } catch (loadError) {
+          console.warn('Load data error (non-fatal):', loadError);
         }
       } catch (error) {
-        console.error('Error loading app data:', error);
+        console.error('Error initializing app data:', error);
       } finally {
         setIsInitialized(true);
       }
     };
 
+    // Initialize immediately, don't block rendering
     initializeData();
   }, []);
 
