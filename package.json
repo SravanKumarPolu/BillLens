@@ -6,7 +6,8 @@
     "start": "react-native start",
     "android": "react-native run-android",
     "ios": "react-native run-ios",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx"
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "postinstall": "node scripts/setup-pnpm-symlinks.js"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^1.23.1",

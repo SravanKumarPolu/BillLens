@@ -2,6 +2,28 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+// Override autolinking task for pnpm compatibility
+afterEvaluate {
+    def autolinkTask = tasks.findByName("generateAutolinkingPackageList")
+    if (autolinkTask) {
+        autolinkTask.actions.clear()
+        autolinkTask.doFirst {
+            // Create package list file with packageName to satisfy the task
+            def outputFile = new File(project.buildDir, "generated/autolinking/package-list.json")
+            outputFile.parentFile.mkdirs()
+            def config = [
+                project: [
+                    android: [
+                        packageName: "com.billlens"
+                    ]
+                ],
+                dependencies: [:]
+            ]
+            outputFile.write(new groovy.json.JsonBuilder(config).toPrettyString())
+        }
+    }
+}
+
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
@@ -50,8 +72,8 @@ react {
     //   The list of flags to pass to the Hermes compiler. By default is "-O", "-output-source-map"
     // hermesFlags = ["-O", "-output-source-map"]
 
-    /* Autolinking */
-    autolinkLibrariesWithApp()
+    /* Autolinking - disabled for pnpm compatibility, using manual linking */
+    // autolinkLibrariesWithApp()
 }
 
 /**
@@ -116,4 +138,10 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+    
+    // Manually linked native modules
+    implementation project(':react-native-async-storage_async-storage')
+    implementation project(':react-native-image-picker')
+    implementation project(':react-native-safe-area-context')
+    implementation project(':react-native-screens')
 }
