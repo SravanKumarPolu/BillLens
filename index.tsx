@@ -4,6 +4,7 @@ import { AppNavigator } from './src/AppNavigator';
 import { ThemeProvider } from './src/theme/ThemeProvider';
 import { GroupsProvider, useGroups } from './src/context/GroupsContext';
 import { AuthProvider } from './src/context/AuthContext';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { colors } from './src/theme/colors';
 
 const AppContent = () => {
@@ -22,13 +23,15 @@ const AppContent = () => {
 
 const App = () => {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <GroupsProvider>
-          <AppContent />
-        </GroupsProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <GroupsProvider>
+            <AppContent />
+          </GroupsProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 };
 

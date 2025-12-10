@@ -57,7 +57,7 @@ const OcrProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
                 onPress: () => {
                   navigation.replace('AddExpense', {
                     imageUri,
-                    groupId,
+                    groupId: groupId || undefined,
                     parsedAmount: '',
                     parsedMerchant: '',
                     parsedDate: '',
@@ -82,7 +82,7 @@ const OcrProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
                 onPress: () => {
                   navigation.replace('AddExpense', {
                     imageUri,
-                    groupId,
+                    groupId: groupId || undefined,
                     parsedAmount: parseAmount(result.amount),
                     parsedMerchant: normalizeMerchant(result.merchant),
                     parsedDate: result.date || '',
@@ -98,7 +98,7 @@ const OcrProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
         // Navigate to AddExpense with parsed data (confidence >= 0.5)
         navigation.replace('AddExpense', {
           imageUri,
-          groupId,
+          groupId: groupId || undefined,
           parsedAmount: parseAmount(result.amount),
           parsedMerchant: normalizeMerchant(result.merchant),
           parsedDate: result.date || '',
@@ -114,7 +114,7 @@ const OcrProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
               onPress: () => {
                 navigation.replace('ReviewBill', {
                   imageUri,
-                  groupId,
+                  groupId: groupId || undefined,
                   parsedAmount: '',
                   parsedMerchant: '',
                   parsedDate: '',
@@ -130,7 +130,7 @@ const OcrProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
     };
 
     processImage();
-  }, [navigation, imageUri, groupId]);
+  }, [navigation, imageUri, groupId, addOcrHistory]);
 
   if (!imageUri) {
     return null; // Return null while showing alert

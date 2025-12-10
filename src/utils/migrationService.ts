@@ -31,8 +31,8 @@ const migration1: Migration = {
         return settlement; // Already migrated
       }
 
-        return {
-          ...settlement,
+      return {
+        ...settlement,
         createdAt: settlement.createdAt || settlement.date, // Use date as fallback
         version: settlement.version ?? 1, // Default to version 1
         // updatedAt remains undefined for original settlements
