@@ -51,6 +51,22 @@ fi
   console.log('✓ Created npx wrapper');
 }
 
+// Create @babel/runtime symlink for Metro compatibility
+const babelRuntime = path.join('node_modules', '@babel', 'runtime');
+if (!fs.existsSync(babelRuntime)) {
+  const pnpmDir = path.join('node_modules', '.pnpm');
+  const pnpmPath = fs.readdirSync(pnpmDir).find(d => d.startsWith('@babel+runtime'));
+  if (pnpmPath) {
+    fs.mkdirSync(path.dirname(babelRuntime), { recursive: true });
+    fs.symlinkSync(
+      path.join('..', '.pnpm', pnpmPath, 'node_modules', '@babel', 'runtime'),
+      babelRuntime,
+      'dir'
+    );
+    console.log('✓ Created @babel/runtime symlink');
+  }
+}
+
 // Apply react-native-screens patch
 require('./patch-react-native-screens.js');
 

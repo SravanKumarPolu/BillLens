@@ -353,7 +353,7 @@ const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         <Text style={styles.fabIcon}>📷</Text>
         <Text style={styles.fabLabel}>Add from screenshot</Text>
       </TouchableOpacity>
-    </View>
+    </Pressable>
   );
 };
 
