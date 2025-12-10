@@ -22,6 +22,11 @@ const PermissionsScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('OnboardingWelcome')} style={styles.backButton}>
+          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
+        </TouchableOpacity>
+      </View>
       <Text style={[styles.title, { color: colors.textPrimary }]}>Let BillLens see your bills</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         We only use your camera and gallery to read bill amounts. You choose what to share.
@@ -57,7 +62,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 80,
+    paddingTop: 56,
+  },
+  header: {
+    marginBottom: 24,
+  },
+  backButton: {
+    marginBottom: 8,
+  },
+  backButtonText: {
+    ...typography.body,
+    fontSize: 16,
   },
   title: {
     ...typography.h1,

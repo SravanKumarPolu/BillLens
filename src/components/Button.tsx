@@ -39,9 +39,18 @@ const Button: React.FC<ButtonProps> = ({
     style,
   ];
 
+  const labelStyleMap: Record<ButtonVariant, TextStyle> = {
+    primary: styles.primaryLabel,
+    secondary: styles.secondaryLabel,
+    positive: styles.positiveLabel,
+    outline: styles.outlineLabel,
+    ghost: styles.ghostLabel,
+    glass: styles.glassLabel,
+  };
+
   const labelStyle = [
     typography.button,
-    styles[variant + 'Label'],
+    labelStyleMap[variant],
     (disabled || loading) && styles.disabledLabel,
     textStyle,
   ];

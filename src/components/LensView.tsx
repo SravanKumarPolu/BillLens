@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
-import { Card } from './Card';
+import { Card } from './index';
 import { formatMoney } from '../utils/formatMoney';
 import { GroupBalance, Expense, Settlement, Member, Group } from '../types/models';
 import { getBalanceHistory } from '../utils/settlementExplanation';

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Image, Alert, TouchableOpacity } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
@@ -38,9 +38,9 @@ const OcrProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
           imageUri,
           success,
           extractedData: success ? {
-            amount: result.amount,
-            merchant: result.merchant,
-            date: result.date,
+            amount: result.amount || undefined,
+            merchant: result.merchant || undefined,
+            date: result.date || undefined,
           } : undefined,
           error: result.error || undefined,
         });
@@ -138,6 +138,11 @@ const OcrProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
+        </TouchableOpacity>
+      </View>
       <Text style={[styles.title, { color: colors.textPrimary }]}>Reading your bill…</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         BillLens is finding the amount, merchant and date. This stays private.
@@ -157,6 +162,19 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 80,
+  },
+  header: {
+    position: 'absolute',
+    top: 56,
+    left: 24,
+    zIndex: 1,
+  },
+  backButton: {
+    marginBottom: 8,
+  },
+  backButtonText: {
+    ...typography.body,
+    fontSize: 16,
   },
   title: {
     ...typography.h2,

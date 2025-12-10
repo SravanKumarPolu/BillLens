@@ -506,7 +506,12 @@ const extractDate = (text: string): string | null => {
   for (const pattern of datePatterns) {
     const matches = Array.from(normalized.matchAll(pattern.regex));
     for (const match of matches) {
-      const dateStr = pattern.format(...(match.slice(1).map(v => isNaN(Number(v)) ? v : Number(v))));
+      const args = match.slice(1).map(v => {
+        const num = Number(v);
+        return isNaN(num) ? v : num;
+      });
+      // Type assertion needed because format functions have different signatures
+      const dateStr = (pattern.format as (...args: any[]) => string | null)(...args);
       if (dateStr) {
         return dateStr;
       }

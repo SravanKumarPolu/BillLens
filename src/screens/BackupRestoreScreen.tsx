@@ -98,6 +98,11 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
+        </TouchableOpacity>
+      </View>
       <Text style={styles.title}>Backup & Sync</Text>
 
       {user ? (
@@ -247,8 +252,18 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 24,
-    paddingTop: 72,
+    paddingTop: 56,
     paddingBottom: 32,
+  },
+  header: {
+    marginBottom: 24,
+  },
+  backButton: {
+    marginBottom: 8,
+  },
+  backButtonText: {
+    ...typography.body,
+    fontSize: 16,
   },
   title: {
     ...typography.h2,

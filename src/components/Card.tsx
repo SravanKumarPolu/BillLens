@@ -9,7 +9,7 @@ import { spacing } from '../theme/spacing';
 export interface CardProps {
   children: React.ReactNode;
   onPress?: () => void;
-  style?: ViewStyle;
+  style?: ViewStyle | ViewStyle[];
   elevated?: boolean;
   glass?: boolean; // Glassmorphism effect
   elevationLevel?: keyof typeof elevation; // Custom elevation level (0-8)

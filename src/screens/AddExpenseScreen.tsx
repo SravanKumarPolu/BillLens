@@ -5,7 +5,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
-import { Input, Button } from '../components';
+import { Input, Button, SplitRatioInput } from '../components';
 import { createEqualSplits, normalizeSplits, verifySplitsSum } from '../utils/mathUtils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddExpense'>;

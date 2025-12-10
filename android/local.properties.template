@@ -1,0 +1,10 @@
+# Android SDK Location
+# Android Studio will automatically create local.properties with the correct path
+# This is a template - Android Studio will override this file
+
+# For macOS, the default SDK location is:
+sdk.dir=/Users/YOUR_USERNAME/Library/Android/sdk
+
+# Replace YOUR_USERNAME with your actual macOS username
+# Or let Android Studio auto-detect and create this file
+

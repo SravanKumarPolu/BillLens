@@ -45,8 +45,15 @@ const TemplatesScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
       <Text style={[styles.title, { color: colors.textPrimary }]}>Quick add</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Zero-typing templates for your shared life.</Text>
+        </View>
+      </View>
 
       <FlatList
         data={TEMPLATES}
@@ -78,7 +85,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 72,
+    paddingTop: 56,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  backButton: {
+    marginRight: 16,
+    marginTop: 4,
+  },
+  backButtonText: {
+    ...typography.body,
+    fontSize: 16,
+  },
+  headerContent: {
+    flex: 1,
   },
   title: {
     ...typography.h2,

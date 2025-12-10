@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
-import { Card } from './Card';
+import { Card } from './index';
 import { FairnessScore, ReliabilityMeter } from '../utils/fairnessScore';
 
 export interface FairnessMeterProps {

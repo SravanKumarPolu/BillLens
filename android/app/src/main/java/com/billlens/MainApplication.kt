@@ -8,6 +8,7 @@ import com.facebook.react.ReactPackage
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
+import com.facebook.react.shell.MainReactPackage
 import com.facebook.soloader.SoLoader
 import com.reactnativecommunity.asyncstorage.AsyncStoragePackage
 import com.imagepicker.ImagePickerPackage
@@ -18,14 +19,17 @@ class MainApplication : Application(), ReactApplication {
 
   override val reactNativeHost: ReactNativeHost =
       object : DefaultReactNativeHost(this) {
-        override fun getPackages(): List<ReactPackage> =
-            listOf(
-              // Manually linked packages
-              AsyncStoragePackage(),
-              ImagePickerPackage(),
-              SafeAreaContextPackage(),
-              RNScreensPackage()
-            )
+        override fun getPackages(): List<ReactPackage> {
+          val packages = ArrayList<ReactPackage>()
+          // Add React Native core package (includes AppState, ImageLoader, WebSocketModule, etc.)
+          packages.add(MainReactPackage())
+          // Add manually linked packages
+          packages.add(AsyncStoragePackage())
+          packages.add(ImagePickerPackage())
+          packages.add(SafeAreaContextPackage())
+          packages.add(RNScreensPackage())
+          return packages
+        }
 
         override fun getJSMainModuleName(): String = "index"
 

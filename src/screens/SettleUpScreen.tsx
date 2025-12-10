@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
@@ -224,12 +224,19 @@ const SettleUpScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Settle up</Text>
-      <Text style={styles.subtitle}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>Settle up</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         {suggestedPayments.length > 0
           ? 'Pay these to become all settled.'
           : 'All balances are settled!'}
       </Text>
+        </View>
+      </View>
 
       {suggestedPayments.length > 0 ? (
         <FlatList
@@ -302,7 +309,23 @@ const createStyles = (colors: any) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surfaceLight,
     paddingHorizontal: 24,
-    paddingTop: 72,
+    paddingTop: 56,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  backButton: {
+    marginRight: 16,
+    marginTop: 4,
+  },
+  backButtonText: {
+    ...typography.body,
+    fontSize: 16,
+  },
+  headerContent: {
+    flex: 1,
   },
   title: {
     ...typography.h2,

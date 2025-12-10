@@ -5,7 +5,7 @@
  * and provides a reliability score based on data quality
  */
 
-import { Expense, Group, GroupBalance } from '../types/models';
+import { Expense, Group, GroupBalance, Settlement } from '../types/models';
 
 export interface FairnessScore {
   score: number; // 0-100, higher is more fair
