@@ -51,4 +51,7 @@ fi
   console.log('✓ Created npx wrapper');
 }
 
+// Apply react-native-screens patch
+require('./patch-react-native-screens.js');
+
 console.log('✓ pnpm symlinks setup complete');
