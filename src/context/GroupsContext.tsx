@@ -152,10 +152,10 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     // Debounce saves to avoid too frequent writes
     const timeoutId = setTimeout(saveData, 500);
     return () => clearTimeout(timeoutId);
-  }, [groups, expenses, settlements, templateLastAmounts, isInitialized]);
+  }, [groups, expenses, settlements, templateLastAmounts, ocrHistory, isInitialized]);
 
   // Generate unique ID
-  const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const generateId = () => `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
   // Template helper
   const getTemplateIdFromCategory = (category: string): string | null => {
