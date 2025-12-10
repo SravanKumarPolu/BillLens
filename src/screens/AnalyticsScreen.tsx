@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
@@ -28,6 +28,7 @@ const AnalyticsScreen: React.FC<Props> = ({ navigation, route }) => {
   const { groupId } = route.params;
   const { getExpensesForGroup, getGroup } = useGroups();
   const { colors } = useTheme();
+  const styles = createStyles(colors);
 
   const group = getGroup(groupId);
   const allExpenses = getExpensesForGroup(groupId);
@@ -142,17 +143,23 @@ const AnalyticsScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.surfaceLight }]}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Analytics</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          {group.name}
-        </Text>
+    <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
+      <View style={[styles.topHeader, { backgroundColor: colors.surfaceLight }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
+        </TouchableOpacity>
       </View>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>Analytics</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            {group.name}
+          </Text>
+        </View>
 
       {/* Current Month Total */}
       <Card style={styles.totalCard}>
@@ -257,17 +264,34 @@ const AnalyticsScreen: React.FC<Props> = ({ navigation, route }) => {
           </Text>
         </View>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  topHeader: {
+    paddingTop: 56,
+    paddingHorizontal: 24,
+    paddingBottom: 8,
+    backgroundColor: colors.surfaceLight,
+    zIndex: 10,
+  },
+  backButton: {
+    marginBottom: 8,
+  },
+  backButtonText: {
+    ...typography.navigation,
+  },
+  scrollView: {
     flex: 1,
   },
   content: {
     paddingHorizontal: 24,
-    paddingTop: 72,
+    paddingTop: 8,
     paddingBottom: 32,
   },
   header: {

@@ -1,18 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
-import { useRoute } from '@react-navigation/native';
 import { createEqualSplits, normalizeSplits, verifySplitsSum } from '../utils/mathUtils';
 import { SplitRatioInput } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConfigureSplit'>;
 
-const ConfigureSplitScreen: React.FC<Props> = ({ navigation }) => {
-  const route = useRoute();
+const ConfigureSplitScreen: React.FC<Props> = ({ navigation, route }) => {
   const { getGroup, addExpense } = useGroups();
   const { colors } = useTheme();
   const [mode, setMode] = useState<'equal' | 'custom'>('equal');
@@ -155,8 +153,15 @@ const ConfigureSplitScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
-      <Text style={[styles.title, { color: colors.textPrimary }]}>Who is this for?</Text>
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Choose people and how you want to split.</Text>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>Who is this for?</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Choose people and how you want to split.</Text>
+        </View>
+      </View>
 
       <View style={styles.modeRow}>
         <TouchableOpacity
@@ -270,7 +275,22 @@ const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 72,
+    paddingTop: 56,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  backButton: {
+    marginRight: 16,
+    marginTop: 4,
+  },
+  backButtonText: {
+    ...typography.navigation,
+  },
+  headerContent: {
+    flex: 1,
   },
   title: {
     ...typography.h2,

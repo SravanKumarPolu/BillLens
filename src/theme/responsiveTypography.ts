@@ -195,6 +195,11 @@ export const getResponsiveTypography = (): typeof typography => {
     fontSize: getResponsiveFontSize(14, 14, 18),
     lineHeight: getResponsiveFontSize(20, 20, 26),
   },
+  navigation: {
+    ...typography.navigation,
+    fontSize: getResponsiveFontSize(16, 16, 20),
+    lineHeight: getResponsiveFontSize(22, 22, 28),
+  },
   moneyLarge: {
     ...typography.moneyLarge,
     fontSize: getResponsiveFontSize(28, 24, 36),

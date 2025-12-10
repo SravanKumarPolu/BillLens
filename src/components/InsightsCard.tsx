@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
-import { Card } from './Card';
+import Card from './Card';
 import { Insight } from '../utils/insightsService';
 
 export interface InsightsCardProps {
@@ -61,9 +61,9 @@ const InsightsCard: React.FC<InsightsCardProps> = ({
   return (
     <View style={styles.container}>
       <Text style={[styles.title, { color: colors.textPrimary }]}>Insights</Text>
-      {visibleInsights.map(insight => (
+      {visibleInsights.map((insight, index) => (
         <Card
-          key={insight.id}
+          key={`${insight.id}-${index}`}
           style={[
             styles.insightCard,
             { borderLeftColor: getSeverityColor(insight.severity) },

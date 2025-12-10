@@ -24,58 +24,58 @@ const Chip: React.FC<ChipProps> = ({
 }) => {
   const { colors } = useTheme();
 
-  const getChipStyle = () => {
-    const baseStyle = [styles.base];
+  const getChipStyle = (): (ViewStyle | undefined)[] => {
+    const baseStyle: ViewStyle[] = [styles.base];
     
     if (selected) {
-      baseStyle.push({ backgroundColor: colors.primary });
+      baseStyle.push({ backgroundColor: colors.primary } as ViewStyle);
     } else {
       switch (variant) {
         case 'primary':
-          baseStyle.push({ backgroundColor: colors.primaryLight });
+          baseStyle.push({ backgroundColor: colors.primaryLight } as ViewStyle);
           break;
         case 'accent':
-          baseStyle.push({ backgroundColor: colors.accent + '20' });
+          baseStyle.push({ backgroundColor: colors.accent + '20' } as ViewStyle);
           break;
         case 'amber':
-          baseStyle.push({ backgroundColor: colors.accentAmber + '20' });
+          baseStyle.push({ backgroundColor: colors.accentAmber + '20' } as ViewStyle);
           break;
         case 'outline':
           baseStyle.push({ 
             backgroundColor: 'transparent',
             borderWidth: 1,
             borderColor: colors.borderSubtle,
-          });
+          } as ViewStyle);
           break;
         default:
-          baseStyle.push({ backgroundColor: colors.borderSubtle });
+          baseStyle.push({ backgroundColor: colors.borderSubtle } as ViewStyle);
       }
     }
     
     return [...baseStyle, style];
   };
 
-  const getLabelStyle = () => {
-    const baseStyle = [typography.caption];
+  const getLabelStyle = (): (TextStyle | undefined)[] => {
+    const baseStyle: TextStyle[] = [typography.caption];
     
     if (selected) {
-      baseStyle.push({ color: colors.white });
+      baseStyle.push({ color: colors.white } as TextStyle);
     } else {
       switch (variant) {
         case 'primary':
-          baseStyle.push({ color: colors.primary });
+          baseStyle.push({ color: colors.primary } as TextStyle);
           break;
         case 'accent':
-          baseStyle.push({ color: colors.accent });
+          baseStyle.push({ color: colors.accent } as TextStyle);
           break;
         case 'amber':
-          baseStyle.push({ color: colors.accentAmber });
+          baseStyle.push({ color: colors.accentAmber } as TextStyle);
           break;
         case 'outline':
-          baseStyle.push({ color: colors.textPrimary });
+          baseStyle.push({ color: colors.textPrimary } as TextStyle);
           break;
         default:
-          baseStyle.push({ color: colors.textPrimary });
+          baseStyle.push({ color: colors.textPrimary } as TextStyle);
       }
     }
     

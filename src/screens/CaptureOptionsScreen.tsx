@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform, PermissionsAndroid } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
-import { launchCamera, launchImageLibrary, ImagePickerResponse, MediaType } from 'react-native-image-picker';
+import { launchCamera, launchImageLibrary, ImagePickerResponse, MediaType, PhotoQuality } from 'react-native-image-picker';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CaptureOptions'>;
 
@@ -36,12 +36,86 @@ const CaptureOptionsScreen: React.FC<Props> = ({ navigation, route }) => {
     navigation.navigate('OcrProcessing', { imageUri: asset.uri, groupId });
   };
 
-  const handleCameraPress = () => {
+  const requestCameraPermission = async (): Promise<boolean> => {
+    if (Platform.OS !== 'android') {
+      return true;
+    }
+
+    try {
+      const cameraPermission = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.CAMERA,
+        {
+          title: 'Camera Permission',
+          message: 'BillLens needs access to your camera to take photos of bills',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        }
+      );
+
+      if (cameraPermission !== PermissionsAndroid.RESULTS.GRANTED) {
+        return false;
+      }
+
+      // Request storage/media permission based on Android version
+      if (Platform.Version >= 33) {
+        // Android 13+ needs READ_MEDIA_IMAGES permission
+        const mediaPermission = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
+          {
+            title: 'Media Permission',
+            message: 'BillLens needs access to your photos',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          }
+        );
+        return mediaPermission === PermissionsAndroid.RESULTS.GRANTED;
+      } else if (Platform.Version >= 29) {
+        // Android 10-12: READ_EXTERNAL_STORAGE
+        const storagePermission = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+          {
+            title: 'Storage Permission',
+            message: 'BillLens needs access to your storage',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          }
+        );
+        return storagePermission === PermissionsAndroid.RESULTS.GRANTED;
+      }
+      
+      return true;
+    } catch (err) {
+      console.warn('Permission request error:', err);
+      return false;
+    }
+  };
+
+  const handleCameraPress = async () => {
+    // Request permissions first
+    const hasPermission = await requestCameraPermission();
+    
+    if (!hasPermission) {
+      Alert.alert(
+        'Permission Denied',
+        'Camera permission is required to take photos. Please enable it in app settings.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     const options = {
       mediaType: 'photo' as MediaType,
-      quality: 0.8,
+      quality: 0.8 as PhotoQuality,
       includeBase64: false,
       saveToPhotos: false,
+      cameraType: 'back' as const,
+      ...(Platform.OS === 'android' && {
+        maxWidth: 1920,
+        maxHeight: 1920,
+      }),
     };
 
     launchCamera(options, handleImagePickerResult);
@@ -50,7 +124,7 @@ const CaptureOptionsScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleGalleryPress = () => {
     const options = {
       mediaType: 'photo' as MediaType,
-      quality: 0.8,
+      quality: 0.8 as PhotoQuality,
       includeBase64: false,
       selectionLimit: 1,
     };

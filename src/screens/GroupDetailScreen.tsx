@@ -122,10 +122,17 @@ const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   return (
     <Pressable style={styles.container} onPress={() => showMenu && setShowMenu(false)}>
       <View style={styles.header}>
-        <Text style={styles.groupEmoji}>{group.emoji}</Text>
-        <View style={styles.headerTextWrapper}>
-          <Text style={styles.groupName}>{group.name}</Text>
-          <Text style={styles.balanceSummary}>{summary.summaryText}</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <View style={styles.headerTop}>
+            <Text style={styles.groupEmoji}>{group.emoji}</Text>
+            <View style={styles.headerTextWrapper}>
+              <Text style={styles.groupName}>{group.name}</Text>
+              <Text style={styles.balanceSummary}>{summary.summaryText}</Text>
+            </View>
+          </View>
         </View>
         <TouchableOpacity onPress={() => setShowMenu(!showMenu)} style={styles.menuButton}>
           <Text style={styles.menuIcon}>⋯</Text>
@@ -151,21 +158,21 @@ const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           title="Settle up"
           onPress={() => navigation.navigate('SettleUp', { groupId })}
           variant="positive"
-          style={styles.actionButton}
+          style={styles.topActionButton}
           fullWidth={false}
         />
         <Button
           title="Analytics"
           onPress={() => navigation.navigate('Analytics', { groupId })}
           variant="secondary"
-          style={styles.actionButton}
+          style={styles.topActionButton}
           fullWidth={false}
         />
         <Button
           title="Lens View"
           onPress={() => navigation.navigate('LensView', { groupId })}
           variant="secondary"
-          style={styles.actionButton}
+          style={styles.topActionButton}
           fullWidth={false}
         />
       </View>
@@ -366,6 +373,17 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingTop: 56,
     paddingHorizontal: 24,
     paddingBottom: recommendedSpacing.loose,
+  },
+  backButton: {
+    marginBottom: 16,
+  },
+  backButtonText: {
+    ...typography.navigation,
+  },
+  headerContent: {
+    flex: 1,
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -402,7 +420,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginHorizontal: 24,
     marginBottom: recommendedSpacing.loose,
   },
-  actionButton: {
+  topActionButton: {
     flex: 1,
   },
   sectionTitle: {

@@ -72,6 +72,11 @@ const DefaultGroupSetup: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Permissions')} style={styles.backButton}>
+          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
+        </TouchableOpacity>
+      </View>
       <Text style={[styles.title, { color: colors.textPrimary }]}>Who are you sharing with?</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Pick a default group. You can change this anytime.</Text>
 
@@ -134,7 +139,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 72,
+    paddingTop: 56,
+  },
+  header: {
+    marginBottom: 24,
+  },
+  backButton: {
+    marginBottom: 8,
+  },
+  backButtonText: {
+    ...typography.navigation,
   },
   title: {
     ...typography.h1,

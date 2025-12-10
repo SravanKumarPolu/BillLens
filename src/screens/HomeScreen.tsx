@@ -119,6 +119,20 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity 
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              // If no back history (e.g., after reset from DefaultGroupSetup), 
+              // navigate back to DefaultGroupSetup
+              navigation.navigate('DefaultGroupSetup');
+            }
+          }} 
+          style={styles.backButton}
+        >
+          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
+        </TouchableOpacity>
         <Text style={[styles.appName, { color: colors.textPrimary }]}>BillLens</Text>
         <TouchableOpacity 
           onPress={handleProfilePress}
@@ -232,6 +246,12 @@ const createStyles = (colors: any) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  backButton: {
+    marginRight: 16,
+  },
+  backButtonText: {
+    ...typography.navigation,
   },
   appName: {
     ...typography.display,

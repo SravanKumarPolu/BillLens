@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
@@ -38,8 +38,15 @@ const CreateGroupScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
-      <Text style={[styles.title, { color: colors.textPrimary }]}>New group</Text>
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Give your group a name and an emoji.</Text>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>New group</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Give your group a name and an emoji.</Text>
+        </View>
+      </View>
 
       <View style={styles.emojiRow}>
         <Text style={styles.emoji}>{emoji}</Text>
@@ -66,7 +73,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 72,
+    paddingTop: 56,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  backButton: {
+    marginRight: 16,
+    marginTop: 4,
+  },
+  backButtonText: {
+    ...typography.navigation,
+  },
+  headerContent: {
+    flex: 1,
   },
   title: {
     ...typography.h2,

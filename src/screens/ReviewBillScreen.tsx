@@ -210,6 +210,10 @@ const styles = StyleSheet.create({
     ...typography.label,
     fontWeight: '600',
   },
+  label: {
+    ...typography.label,
+    marginBottom: 8,
+  },
   primaryButton: {
     marginTop: 8,
   },

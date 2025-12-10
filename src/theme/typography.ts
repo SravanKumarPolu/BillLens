@@ -294,6 +294,19 @@ export const typography = {
     letterSpacing: 0,
   },
 
+  /**
+   * Navigation - Back buttons, navigation text
+   * Size: 16px | Weight: 400 | Line Height: 22px (1.38x)
+   * Use: Back buttons, navigation labels, breadcrumbs
+   * Note: Slightly larger than body for better touch targets and visibility
+   */
+  navigation: {
+    fontSize: 16,
+    fontWeight: '400' as const,
+    lineHeight: 22,
+    letterSpacing: 0,
+  },
+
   // ============================================
   // FINANCIAL / MONEY DISPLAY
   // ============================================

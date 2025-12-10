@@ -26,25 +26,61 @@ BillLens/
 │   │   ├── Chip.tsx        # Filter chips, tags
 │   │   ├── Input.tsx       # Text input with label/error
 │   │   ├── MoneyDisplay.tsx # Formatted money display
-│   │   └── index.ts        # Component exports
-│   ├── screens/            # App screens
+│   │   ├── BalanceBreakdown.tsx # Balance visualization
+│   │   ├── FairnessMeter.tsx # Fairness & reliability scores
+│   │   ├── InsightsCard.tsx # Insights display
+│   │   ├── LensView.tsx    # Balance history view
+│   │   ├── Logo.tsx        # Brand logo component
+│   │   ├── Modal.tsx       # Modal dialog
+│   │   ├── SplitRatioInput.tsx # Split ratio input
+│   │   ├── Tabs.tsx        # Tab navigation
+│   │   ├── ErrorBoundary.tsx # Error boundary
+│   │   └── index.ts        # Component barrel exports
+│   ├── screens/            # App screens (18 screens)
 │   │   ├── OnboardingWelcome.tsx
 │   │   ├── HomeScreen.tsx
 │   │   ├── CreateGroupScreen.tsx
 │   │   ├── GroupDetailScreen.tsx
 │   │   ├── SettleUpScreen.tsx
-│   │   └── ...
+│   │   ├── AddExpenseScreen.tsx
+│   │   ├── AnalyticsScreen.tsx
+│   │   ├── LedgerScreen.tsx
+│   │   ├── LensViewScreen.tsx
+│   │   └── ... (9 more screens)
 │   ├── theme/              # Design system
 │   │   ├── colors.ts       # Brand color palette
 │   │   ├── typography.ts   # Font sizes, weights, line heights
+│   │   ├── responsiveTypography.ts # DPI-aware typography
+│   │   ├── spacing.ts      # Spacing system
+│   │   ├── elevation.ts    # Elevation/shadow system
+│   │   ├── transitions.ts # Animation transitions
+│   │   ├── glassmorphism.ts # Glassmorphism tokens
+│   │   ├── contrastUtils.ts # Accessibility contrast
 │   │   ├── ThemeProvider.tsx # Theme context (ready for dark mode)
-│   │   └── index.ts        # Theme exports
+│   │   └── index.ts        # Theme barrel exports
 │   ├── utils/              # Utility functions
 │   │   ├── formatMoney.ts  # Money formatting (₹)
-│   │   └── index.ts
+│   │   ├── ocrService.ts   # OCR processing
+│   │   ├── upiService.ts   # UPI payment integration
+│   │   ├── insightsService.ts # AI insights
+│   │   ├── fairnessScore.ts # Fairness calculations
+│   │   ├── mathUtils.ts    # Financial math utilities
+│   │   ├── exportService.ts # Data export (JSON/CSV/Text)
+│   │   ├── balanceCache.ts # Balance caching
+│   │   ├── migrationService.ts # Data migrations
+│   │   ├── settlementExplanation.ts # Settlement explanations
+│   │   ├── storageService.ts # Data persistence
+│   │   └── index.ts        # Utils barrel exports
+│   ├── context/            # React contexts
+│   │   ├── AuthContext.tsx # Authentication state
+│   │   └── GroupsContext.tsx # Groups & expenses state
+│   ├── hooks/              # Custom React hooks
+│   │   └── useResponsiveTypography.ts # Responsive typography hook
+│   ├── types/              # TypeScript types
+│   │   └── models.ts       # Data models
 │   ├── navigation/         # Navigation types
-│   │   └── types.ts
-│   └── AppNavigator.tsx    # Main navigation
+│   │   └── types.ts        # Navigation type definitions
+│   └── AppNavigator.tsx    # Main navigation setup
 ├── index.tsx               # App entry point
 └── package.json
 ```
@@ -58,7 +94,7 @@ BillLens/
 - **Accent Amber**: (`#F59E0B`) — Warnings, analytics
 - **Accent Pink**: (`#EC4899`) — Premium/supporter badge
 
-See `DESIGN_TOKENS.md` for complete usage guidelines.
+See `DESIGN_SYSTEM.md` for complete usage guidelines.
 
 ### Typography
 
@@ -195,6 +231,12 @@ parseMoney("₹1,500"); // 1500
 - [ ] Dark mode
 - [ ] Play Store listing
 - [ ] Launch prep
+
+## 📚 Documentation
+
+- **[DOCUMENTATION.md](./DOCUMENTATION.md)** - Complete implementation status, audit reports, improvements summary, and technical details
+- **[DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md)** - Brand identity, design tokens, typography system, and component library
+- **[WEB_SUPPORT_ANALYSIS.md](./WEB_SUPPORT_ANALYSIS.md)** - Analysis of web support feasibility
 
 ## 📝 License
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
-import { Card } from './Card';
+import { Card } from './index';
 import { formatMoney } from '../utils/formatMoney';
 import { GroupBalance, Expense, Settlement, Member } from '../types/models';
 

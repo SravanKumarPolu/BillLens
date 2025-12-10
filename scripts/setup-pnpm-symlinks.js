@@ -5,15 +5,24 @@ const path = require('path');
 const gradlePlugin = path.join('node_modules', '@react-native', 'gradle-plugin');
 if (!fs.existsSync(gradlePlugin)) {
   const pnpmDir = path.join('node_modules', '.pnpm');
-  const pnpmPath = fs.readdirSync(pnpmDir).find(d => d.startsWith('@react-native+gradle-plugin'));
+  // Look for both patched and unpatched versions
+  const pnpmPath = fs.readdirSync(pnpmDir).find(d => 
+    d.startsWith('@react-native+gradle-plugin@') && 
+    fs.existsSync(path.join(pnpmDir, d, 'node_modules', '@react-native', 'gradle-plugin'))
+  );
   if (pnpmPath) {
     fs.mkdirSync(path.dirname(gradlePlugin), { recursive: true });
-    fs.symlinkSync(
-      path.join('..', '.pnpm', pnpmPath, 'node_modules', '@react-native', 'gradle-plugin'),
-      gradlePlugin,
-      'dir'
-    );
-    console.log('✓ Created @react-native/gradle-plugin symlink');
+    const targetPath = path.join('..', '.pnpm', pnpmPath, 'node_modules', '@react-native', 'gradle-plugin');
+    try {
+      fs.symlinkSync(targetPath, gradlePlugin, 'dir');
+      console.log('✓ Created @react-native/gradle-plugin symlink');
+    } catch (error) {
+      if (error.code !== 'EEXIST') {
+        console.warn('⚠ Could not create gradle-plugin symlink:', error.message);
+      }
+    }
+  } else {
+    console.warn('⚠ @react-native/gradle-plugin not found in .pnpm directory');
   }
 }
 
