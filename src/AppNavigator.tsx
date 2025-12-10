@@ -1,5 +1,4 @@
 import React from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from './navigation/types';
@@ -22,25 +21,14 @@ import AnalyticsScreen from './screens/AnalyticsScreen';
 import LensViewScreen from './screens/LensViewScreen';
 import BackupRestoreScreen from './screens/BackupRestoreScreen';
 import { colors } from './theme/colors';
-import { useGroups } from './context/GroupsContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const AppNavigator = () => {
-  const { isInitialized } = useGroups();
-
-  // Show loading screen while initializing
-  if (!isInitialized) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
   return (
     <NavigationContainer>
       <Stack.Navigator
+        initialRouteName="OnboardingWelcome"
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.surfaceLight },
@@ -68,12 +56,3 @@ export const AppNavigator = () => {
     </NavigationContainer>
   );
 };
-
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceLight,
-  },
-});

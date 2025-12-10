@@ -15,5 +15,4 @@ export { default as Logo, type LogoProps } from './Logo';
 export { default as Tabs, type TabsProps, type Tab } from './Tabs';
 export { default as SplitRatioInput, type SplitRatioInputProps } from './SplitRatioInput';
 export { default as Modal, type ModalProps } from './Modal';
-export { ErrorBoundary } from './ErrorBoundary';
 

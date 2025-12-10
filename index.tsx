@@ -1,30 +1,44 @@
 import React from 'react';
-import { AppRegistry, LogBox } from 'react-native';
+import { AppRegistry, View, ActivityIndicator, StyleSheet } from 'react-native';
 import { AppNavigator } from './src/AppNavigator';
 import { ThemeProvider } from './src/theme/ThemeProvider';
-import { GroupsProvider } from './src/context/GroupsContext';
+import { GroupsProvider, useGroups } from './src/context/GroupsContext';
 import { AuthProvider } from './src/context/AuthContext';
-import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { colors } from './src/theme/colors';
 
-// Ignore specific warnings
-LogBox.ignoreLogs([
-  'Require cycle:',
-  'Non-serializable values were found in the navigation state',
-  'TurboModuleRegistry',
-]);
+const AppContent = () => {
+  const { isInitialized } = useGroups();
+
+  if (!isInitialized) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  return <AppNavigator />;
+};
 
 const App = () => {
   return (
-    <ErrorBoundary>
-      <ThemeProvider>
-        <AuthProvider>
-          <GroupsProvider>
-            <AppNavigator />
-          </GroupsProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+    <ThemeProvider>
+      <AuthProvider>
+        <GroupsProvider>
+          <AppContent />
+        </GroupsProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 };
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceLight,
+  },
+});
 
 AppRegistry.registerComponent('BillLens', () => App);

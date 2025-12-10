@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { useColorScheme } from 'react-native';
 import { lightColors, darkColors, type ColorScheme } from './colors';
 import type { Theme } from './index';
 
@@ -20,8 +21,15 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   children,
   initialTheme,
 }) => {
-  // Default to light theme to avoid native module issues during initialization
-  const [theme, setTheme] = useState<Theme>(initialTheme || 'light');
+  const systemTheme = useColorScheme();
+  const [theme, setTheme] = useState<Theme>(initialTheme || systemTheme || 'light');
+
+  // Sync with system theme changes
+  useEffect(() => {
+    if (!initialTheme && systemTheme) {
+      setTheme(systemTheme);
+    }
+  }, [systemTheme, initialTheme]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
