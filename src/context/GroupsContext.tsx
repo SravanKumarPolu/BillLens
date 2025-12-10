@@ -17,6 +17,7 @@ interface GroupsContextType {
   settlements: Settlement[];
   templateLastAmounts: TemplateLastAmount[];
   ocrHistory: OcrHistory[];
+  isInitialized: boolean;
   
   // Group operations
   addGroup: (group: Omit<Group, 'id' | 'createdAt'>) => string;
@@ -529,6 +530,7 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     settlements,
     templateLastAmounts,
     ocrHistory,
+    isInitialized,
     addGroup,
     updateGroup,
     deleteGroup,
