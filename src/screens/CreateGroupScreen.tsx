@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
-import { typography } from '../theme/typography';
+import { typography, recommendedSpacing } from '../theme/typography';
 import { Button, Input } from '../components';
 import { useGroups } from '../context/GroupsContext';
 
@@ -70,26 +70,26 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h2,
-    marginBottom: 6,
+    marginBottom: recommendedSpacing.default,
   },
   subtitle: {
     ...typography.body,
-    marginBottom: 24,
+    marginBottom: recommendedSpacing.extraLoose,
   },
   emojiRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: recommendedSpacing.loose,
   },
   emoji: {
-    fontSize: 32,
+    fontSize: 32, // Emoji icon, not typography
     marginRight: 10,
   },
   changeHint: {
     ...typography.bodySmall,
   },
   inputContainer: {
-    marginBottom: 24,
+    marginBottom: recommendedSpacing.extraLoose,
   },
 });
 

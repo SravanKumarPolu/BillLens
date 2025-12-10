@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, TextInput, Alert } from 'reac
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
-import { typography } from '../theme/typography';
+import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DefaultGroupSetup'>;
@@ -138,11 +138,11 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h1,
-    marginBottom: 6,
+    marginBottom: recommendedSpacing.default,
   },
   subtitle: {
     ...typography.body,
-    marginBottom: 24,
+    marginBottom: recommendedSpacing.extraLoose,
   },
   card: {
     flexDirection: 'row',
@@ -152,8 +152,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   cardEmoji: {
-    fontSize: 24,
-    marginRight: 12,
+    fontSize: 24, // Emoji icon, not typography
+    marginRight: recommendedSpacing.comfortable,
   },
   cardTextWrapper: {
     flex: 1,
@@ -169,14 +169,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   input: {
-    marginTop: 8,
-    paddingVertical: 8,
+    marginTop: recommendedSpacing.default,
+    paddingVertical: recommendedSpacing.default,
     borderBottomWidth: 1,
-    fontSize: 14,
+    ...typography.body,
     flex: 1,
   },
   primaryButton: {
-    marginTop: 24,
+    marginTop: recommendedSpacing.extraLoose,
     paddingVertical: 14,
     borderRadius: 999,
     alignItems: 'center',

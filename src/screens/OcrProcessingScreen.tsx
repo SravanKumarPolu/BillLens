@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, Image, Alert } from 'react-n
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
-import { typography } from '../theme/typography';
+import { typography, recommendedSpacing } from '../theme/typography';
 import { extractBillInfo, parseAmount, normalizeMerchant } from '../utils/ocrService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OcrProcessing'>;
@@ -144,11 +144,11 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h2,
-    marginBottom: 6,
+    marginBottom: recommendedSpacing.default,
   },
   subtitle: {
     ...typography.body,
-    marginBottom: 24,
+    marginBottom: recommendedSpacing.extraLoose,
   },
   imageWrapper: {
     height: 180,

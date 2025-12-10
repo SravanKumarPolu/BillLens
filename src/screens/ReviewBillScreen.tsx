@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ScrollView,
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
-import { typography } from '../theme/typography';
+import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { Input, Button } from '../components';
 
@@ -165,13 +165,11 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h2,
-    marginBottom: 8,
-    fontWeight: '700',
+    marginBottom: recommendedSpacing.default,
   },
   subtitle: {
     ...typography.body,
-    marginBottom: 24,
-    lineHeight: 22,
+    marginBottom: recommendedSpacing.extraLoose,
   },
   imageWrapper: {
     height: 180,
@@ -206,10 +204,10 @@ const styles = StyleSheet.create({
     // Colors applied inline
   },
   chipLabel: {
-    ...typography.body,
-    fontWeight: '500',
+    ...typography.label,
   },
   chipLabelSelected: {
+    ...typography.label,
     fontWeight: '600',
   },
   primaryButton: {

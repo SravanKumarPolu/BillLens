@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
-import { typography } from '../theme/typography';
+import { typography, recommendedSpacing } from '../theme/typography';
 import { Card, Button } from '../components';
 import { useGroups } from '../context/GroupsContext';
 import { useAuth } from '../context/AuthContext';
@@ -120,14 +120,13 @@ const createStyles = (colors: any) => StyleSheet.create({
   header: {
     paddingTop: 56,
     paddingHorizontal: 24,
-    paddingBottom: 16,
+    paddingBottom: recommendedSpacing.loose,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   appName: {
-    ...typography.h2,
-    fontWeight: '700',
+    ...typography.display,
   },
   profileButton: {
     minWidth: 44,
@@ -136,38 +135,37 @@ const createStyles = (colors: any) => StyleSheet.create({
     alignItems: 'center',
   },
   profile: {
-    fontSize: 24,
+    fontSize: 24, // Emoji icon, not typography
   },
   sectionTitle: {
     ...typography.label,
     paddingHorizontal: 24,
-    marginBottom: 16,
+    marginBottom: recommendedSpacing.comfortable,
     fontWeight: '600',
   },
   groupsList: {
     paddingHorizontal: 24,
     paddingBottom: 140,
-    paddingTop: 8,
+    paddingTop: recommendedSpacing.default,
   },
   groupCard: {
-    marginBottom: 12,
-    padding: 16,
+    marginBottom: recommendedSpacing.comfortable,
+    padding: recommendedSpacing.loose,
   },
   groupContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   groupEmoji: {
-    fontSize: 32,
-    marginRight: 12,
+    fontSize: 32, // Emoji icon, not typography
+    marginRight: recommendedSpacing.comfortable,
   },
   groupTextWrapper: {
     flex: 1,
   },
   groupName: {
-    ...typography.bodyLarge,
-    fontWeight: '600',
-    marginBottom: 4,
+    ...typography.h4,
+    marginBottom: recommendedSpacing.tight,
   },
   groupSummary: {
     ...typography.bodySmall,
@@ -180,22 +178,21 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingTop: 80,
   },
   emptyEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
+    fontSize: 64, // Emoji icon, not typography
+    marginBottom: recommendedSpacing.loose,
   },
   emptyTitle: {
     ...typography.h3,
-    marginBottom: 8,
+    marginBottom: recommendedSpacing.default,
     textAlign: 'center',
   },
   emptySubtext: {
     ...typography.body,
     textAlign: 'center',
-    lineHeight: 22,
   },
   newGroupButton: {
     marginHorizontal: 24,
-    marginTop: 16,
+    marginTop: recommendedSpacing.loose,
   },
   fab: {
     position: 'absolute',

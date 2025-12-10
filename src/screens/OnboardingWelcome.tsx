@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
+import { typography, recommendedSpacing } from '../theme/typography';
 import { Button } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OnboardingWelcome'>;
@@ -78,26 +78,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   title: {
-    ...typography.h1,
+    ...typography.display,
     color: colors.textPrimary,
   },
   tagline: {
     ...typography.bodyLarge,
     color: colors.textSecondary,
-    marginTop: 4,
-    marginBottom: 24,
+    marginTop: recommendedSpacing.tight,
+    marginBottom: recommendedSpacing.extraLoose,
   },
   bullets: {
     width: '100%',
-    marginBottom: 32,
+    marginBottom: recommendedSpacing.extraLoose,
   },
   bullet: {
     ...typography.body,
     color: colors.textSecondary,
-    marginBottom: 6,
+    marginBottom: recommendedSpacing.default,
   },
   button: {
-    marginBottom: 12,
+    marginBottom: recommendedSpacing.comfortable,
   },
 });
 

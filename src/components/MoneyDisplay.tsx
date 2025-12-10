@@ -47,10 +47,10 @@ const MoneyDisplay: React.FC<MoneyDisplayProps> = ({
 
 const styles = StyleSheet.create({
   base: {
-    fontWeight: '600',
+    // Base styles are in typography tokens
   },
   small: {
-    ...typography.body,
+    ...typography.moneySmall,
   },
   medium: {
     ...typography.money,

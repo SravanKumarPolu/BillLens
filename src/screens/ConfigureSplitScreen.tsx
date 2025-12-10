@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, TextInput } 
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
-import { typography } from '../theme/typography';
+import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { useRoute } from '@react-navigation/native';
 
@@ -240,11 +240,11 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   title: {
     ...typography.h2,
-    marginBottom: 6,
+    marginBottom: recommendedSpacing.default,
   },
   subtitle: {
     ...typography.body,
-    marginBottom: 16,
+    marginBottom: recommendedSpacing.loose,
   },
   modeRow: {
     flexDirection: 'row',
@@ -264,7 +264,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     ...typography.bodySmall,
   },
   modeLabelActive: {
-    fontWeight: '600',
+    ...typography.label,
   },
   membersList: {
     paddingVertical: 8,
@@ -296,7 +296,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    fontSize: 14,
+    ...typography.body,
     minWidth: 80,
     textAlign: 'right',
   },

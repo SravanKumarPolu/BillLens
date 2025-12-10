@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Share, Act
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
+import { typography, recommendedSpacing } from '../theme/typography';
 import { useAuth } from '../context/AuthContext';
 import { useGroups } from '../context/GroupsContext';
 import { createBackup, restoreBackup, clearAllData } from '../utils/storageService';
@@ -253,25 +253,25 @@ const styles = StyleSheet.create({
   title: {
     ...typography.h2,
     color: colors.textPrimary,
-    marginBottom: 32,
+    marginBottom: recommendedSpacing.extraLoose,
   },
   section: {
-    marginBottom: 32,
+    marginBottom: recommendedSpacing.extraLoose,
   },
   sectionTitle: {
     ...typography.h4,
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: recommendedSpacing.default,
   },
   sectionText: {
     ...typography.body,
     color: colors.textSecondary,
-    marginBottom: 16,
+    marginBottom: recommendedSpacing.loose,
   },
   userEmail: {
     ...typography.body,
     color: colors.primary,
-    marginBottom: 4,
+    marginBottom: recommendedSpacing.tight,
   },
   syncInfo: {
     ...typography.bodySmall,
@@ -311,16 +311,16 @@ const styles = StyleSheet.create({
   statsTitle: {
     ...typography.h4,
     color: colors.textPrimary,
-    marginBottom: 12,
+    marginBottom: recommendedSpacing.comfortable,
   },
   statsText: {
     ...typography.body,
     color: colors.textSecondary,
-    marginBottom: 4,
+    marginBottom: recommendedSpacing.tight,
   },
   signOutButton: {
-    marginTop: 16,
-    paddingVertical: 12,
+    marginTop: recommendedSpacing.loose,
+    paddingVertical: recommendedSpacing.comfortable,
     alignItems: 'center',
   },
   signOutButtonText: {
@@ -343,12 +343,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     ...typography.h3,
     color: colors.textPrimary,
-    marginBottom: 6,
+    marginBottom: recommendedSpacing.default,
   },
   modalSubtitle: {
     ...typography.body,
     color: colors.textSecondary,
-    marginBottom: 16,
+    marginBottom: recommendedSpacing.loose,
   },
   restoreInput: {
     backgroundColor: colors.surfaceLight,
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSubtle,
     padding: 12,
-    fontSize: 14,
+    ...typography.body,
     color: colors.textPrimary,
     minHeight: 200,
     maxHeight: 300,

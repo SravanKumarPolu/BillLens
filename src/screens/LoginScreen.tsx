@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityInd
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
-import { typography } from '../theme/typography';
+import { typography, recommendedSpacing } from '../theme/typography';
 import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
@@ -117,11 +117,11 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h2,
-    marginBottom: 6,
+    marginBottom: recommendedSpacing.default,
   },
   subtitle: {
     ...typography.body,
-    marginBottom: 32,
+    marginBottom: recommendedSpacing.extraLoose,
   },
   googleButton: {
     borderRadius: 12,
@@ -130,12 +130,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: recommendedSpacing.loose,
   },
   googleIcon: {
-    fontSize: 20,
+    fontSize: 20, // Icon/G logo, not typography
     fontWeight: '700',
-    marginRight: 12,
+    marginRight: recommendedSpacing.comfortable,
   },
   googleButtonText: {
     ...typography.button,
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 24,
+    marginVertical: recommendedSpacing.extraLoose,
   },
   dividerLine: {
     flex: 1,
@@ -156,23 +156,23 @@ const styles = StyleSheet.create({
   input: {
     borderRadius: 12,
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    marginBottom: 12,
+    paddingHorizontal: recommendedSpacing.loose,
+    paddingVertical: recommendedSpacing.comfortable,
+    ...typography.bodyLarge,
+    marginBottom: recommendedSpacing.comfortable,
   },
   emailButton: {
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: recommendedSpacing.default,
   },
   emailButtonText: {
     ...typography.button,
   },
   skipButton: {
-    marginTop: 24,
-    paddingVertical: 12,
+    marginTop: recommendedSpacing.extraLoose,
+    paddingVertical: recommendedSpacing.comfortable,
     alignItems: 'center',
   },
   skipButtonText: {

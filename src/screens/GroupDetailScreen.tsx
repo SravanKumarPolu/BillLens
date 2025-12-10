@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, Pressable } 
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
-import { typography } from '../theme/typography';
+import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { formatMoney } from '../utils/formatMoney';
 import { Button } from '../components';
@@ -271,21 +271,20 @@ const createStyles = (colors: any) => StyleSheet.create({
   header: {
     paddingTop: 56,
     paddingHorizontal: 24,
-    paddingBottom: 16,
+    paddingBottom: recommendedSpacing.loose,
     flexDirection: 'row',
     alignItems: 'center',
   },
   groupEmoji: {
-    fontSize: 36,
-    marginRight: 12,
+    fontSize: 36, // Emoji icon, not typography
+    marginRight: recommendedSpacing.comfortable,
   },
   headerTextWrapper: {
     flex: 1,
   },
   groupName: {
     ...typography.h2,
-    fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: recommendedSpacing.tight,
   },
   balanceSummary: {
     ...typography.body,
@@ -293,9 +292,9 @@ const createStyles = (colors: any) => StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     marginHorizontal: 24,
-    marginTop: 8,
-    marginBottom: 16,
-    gap: 12,
+    marginTop: recommendedSpacing.default,
+    marginBottom: recommendedSpacing.loose,
+    gap: recommendedSpacing.comfortable,
   },
   actionButton: {
     flex: 1,
@@ -303,8 +302,8 @@ const createStyles = (colors: any) => StyleSheet.create({
   sectionTitle: {
     ...typography.label,
     paddingHorizontal: 24,
-    marginTop: 24,
-    marginBottom: 12,
+    marginTop: recommendedSpacing.extraLoose,
+    marginBottom: recommendedSpacing.comfortable,
     fontWeight: '600',
   },
   viewAllButton: {
@@ -326,8 +325,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.surfaceCard,
     borderRadius: 16,
     paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 12,
+    paddingHorizontal: recommendedSpacing.loose,
+    marginBottom: recommendedSpacing.comfortable,
     marginHorizontal: 24,
   },
   expenseLeft: {
@@ -337,22 +336,19 @@ const createStyles = (colors: any) => StyleSheet.create({
     alignItems: 'flex-end',
   },
   expenseTitle: {
-    ...typography.bodyLarge,
-    fontWeight: '600',
-    marginBottom: 4,
+    ...typography.h4,
+    marginBottom: recommendedSpacing.tight,
   },
   expenseSubtitle: {
     ...typography.bodySmall,
-    lineHeight: 18,
   },
   expenseAmount: {
     ...typography.money,
-    fontWeight: '700',
   },
   expenseActions: {
     flexDirection: 'row',
-    marginTop: 8,
-    gap: 8,
+    marginTop: recommendedSpacing.default,
+    gap: recommendedSpacing.default,
   },
   actionButton: {
     paddingHorizontal: 12,
@@ -386,8 +382,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     minHeight: 56,
   },
   fabIcon: {
-    marginRight: 8,
-    fontSize: 20,
+    marginRight: recommendedSpacing.default,
+    fontSize: 20, // Icon size, not typography
   },
   fabLabel: {
     ...typography.button,
@@ -396,7 +392,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     padding: 8,
   },
   menuIcon: {
-    fontSize: 20,
+    fontSize: 20, // Icon character, not typography
   },
   menu: {
     position: 'absolute',
@@ -418,13 +414,13 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: 16,
   },
   menuItemText: {
-    fontSize: 15,
+    ...typography.body,
   },
   menuItemDanger: {
     // Color applied inline
   },
   errorText: {
-    fontSize: 16,
+    ...typography.bodyLarge,
     textAlign: 'center',
     marginTop: 100,
   },
@@ -439,13 +435,12 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   emptyText: {
     ...typography.h3,
-    marginBottom: 8,
+    marginBottom: recommendedSpacing.default,
     textAlign: 'center',
   },
   emptySubtext: {
     ...typography.body,
     textAlign: 'center',
-    lineHeight: 22,
   },
   settlementsList: {
     marginBottom: 8,
@@ -473,7 +468,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   settlementSubtitle: {
     ...typography.caption,
-    marginTop: 2,
+    marginTop: recommendedSpacing.tight,
   },
   settlementAmount: {
     ...typography.body,

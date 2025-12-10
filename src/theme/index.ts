@@ -5,6 +5,24 @@
 
 export { colors } from './colors';
 export { typography, getTypography, type TypographyKey } from './typography';
+export {
+  responsiveTypography,
+  getResponsiveTypography,
+  getResponsiveTypographyStyle,
+  getDeviceType,
+  getScaleFactor,
+  isExternalMonitor,
+  isHighDPI,
+  getScreenInfo,
+  screenInfo,
+  DeviceType,
+} from './responsiveTypography';
+export {
+  getContrastRatio,
+  meetsWCAGAA,
+  verifyTextContrast,
+  getAccessibleTextColor,
+} from './contrastUtils';
 
 // Theme type for future dark mode support
 export type Theme = 'light' | 'dark';

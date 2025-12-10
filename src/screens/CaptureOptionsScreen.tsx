@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
-import { typography } from '../theme/typography';
+import { typography, recommendedSpacing } from '../theme/typography';
 import { launchCamera, launchImageLibrary, ImagePickerResponse, MediaType } from 'react-native-image-picker';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CaptureOptions'>;
@@ -123,14 +123,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   backButtonText: {
-    fontSize: 28,
+    fontSize: 28, // Icon-style back button
     fontWeight: '300',
   },
   title: {
     ...typography.h2,
     flex: 1,
     textAlign: 'center',
-    fontWeight: '700',
   },
   placeholder: {
     width: 44,
@@ -139,7 +138,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     paddingHorizontal: 24,
     marginBottom: 40,
-    lineHeight: 22,
   },
   optionsContainer: {
     paddingHorizontal: 24,
@@ -154,18 +152,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   optionEmoji: {
-    fontSize: 56,
-    marginBottom: 16,
+    fontSize: 56, // Emoji icon, not typography
+    marginBottom: recommendedSpacing.loose,
   },
   optionTitle: {
     ...typography.h3,
-    marginBottom: 8,
-    fontWeight: '600',
+    marginBottom: recommendedSpacing.default,
   },
   optionDescription: {
     ...typography.body,
     textAlign: 'center',
-    lineHeight: 22,
   },
 });
 

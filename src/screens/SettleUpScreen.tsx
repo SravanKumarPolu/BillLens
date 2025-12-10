@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, Modal } from
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
-import { typography } from '../theme/typography';
+import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { formatMoney } from '../utils/formatMoney';
 import { openUPIApp, getAvailableUPIApps, getAppDisplayName, type UPIPaymentApp } from '../utils/upiService';
@@ -273,12 +273,12 @@ const createStyles = (colors: any) => StyleSheet.create({
   title: {
     ...typography.h2,
     color: colors.textPrimary,
-    marginBottom: 6,
+    marginBottom: recommendedSpacing.default,
   },
   subtitle: {
     ...typography.body,
     color: colors.textSecondary,
-    marginBottom: 16,
+    marginBottom: recommendedSpacing.loose,
   },
   list: {
     paddingBottom: 24,
@@ -294,10 +294,9 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginBottom: 12,
   },
   paymentTitle: {
-    ...typography.bodyLarge,
+    ...typography.h4,
     color: colors.textPrimary,
-    fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: recommendedSpacing.tight,
   },
   paymentSubtitle: {
     ...typography.bodySmall,
@@ -310,8 +309,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   paymentAmount: {
     ...typography.money,
     color: colors.textPrimary,
-    fontWeight: '700',
-    marginBottom: 8,
+    marginBottom: recommendedSpacing.default,
   },
   upiButton: {
     borderRadius: 999,
@@ -323,17 +321,15 @@ const createStyles = (colors: any) => StyleSheet.create({
     justifyContent: 'center',
   },
   upiLabel: {
-    ...typography.caption,
+    ...typography.buttonSmall,
     color: colors.accent,
-    fontWeight: '600',
   },
   footerNote: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: recommendedSpacing.loose,
+    marginBottom: recommendedSpacing.default,
     textAlign: 'center',
-    lineHeight: 18,
   },
   errorText: {
     ...typography.bodyLarge,
@@ -349,20 +345,19 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingTop: 80,
   },
   emptyEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
+    fontSize: 64, // Emoji icon, not typography
+    marginBottom: recommendedSpacing.loose,
   },
   emptyText: {
     ...typography.h3,
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: recommendedSpacing.default,
     textAlign: 'center',
   },
   emptySubtext: {
     ...typography.body,
     color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 22,
   },
   modalOverlay: {
     flex: 1,
@@ -379,14 +374,12 @@ const createStyles = (colors: any) => StyleSheet.create({
   modalTitle: {
     ...typography.h2,
     color: colors.textPrimary,
-    marginBottom: 8,
-    fontWeight: '700',
+    marginBottom: recommendedSpacing.default,
   },
   modalSubtitle: {
     ...typography.body,
     color: colors.textSecondary,
-    marginBottom: 24,
-    lineHeight: 22,
+    marginBottom: recommendedSpacing.extraLoose,
   },
   appButton: {
     backgroundColor: colors.primary,

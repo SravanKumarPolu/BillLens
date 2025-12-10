@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
-import { typography } from '../theme/typography';
+import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { formatMoney } from '../utils/formatMoney';
 import { Card } from '../components';
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h1,
-    marginBottom: 4,
+    marginBottom: recommendedSpacing.tight,
   },
   subtitle: {
     ...typography.body,
@@ -314,12 +314,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   monthName: {
-    ...typography.bodyLarge,
-    fontWeight: '600',
+    ...typography.h4,
   },
   monthAmount: {
     ...typography.money,
-    fontWeight: '700',
   },
   monthCount: {
     ...typography.bodySmall,
@@ -344,9 +342,8 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   categoryName: {
-    ...typography.bodyLarge,
-    fontWeight: '600',
-    marginBottom: 2,
+    ...typography.h4,
+    marginBottom: recommendedSpacing.tight,
   },
   categoryCount: {
     ...typography.bodySmall,
@@ -356,8 +353,7 @@ const styles = StyleSheet.create({
   },
   categoryAmount: {
     ...typography.money,
-    fontWeight: '700',
-    marginBottom: 2,
+    marginBottom: recommendedSpacing.tight,
   },
   categoryPercentage: {
     ...typography.bodySmall,
@@ -376,8 +372,8 @@ const styles = StyleSheet.create({
     paddingVertical: 48,
   },
   emptyEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
+    fontSize: 64, // Emoji icon, not typography
+    marginBottom: recommendedSpacing.loose,
   },
   emptyText: {
     ...typography.h3,

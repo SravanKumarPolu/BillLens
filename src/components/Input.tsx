@@ -1,7 +1,7 @@
 import React from 'react';
 import { TextInput, StyleSheet, View, Text, ViewStyle, TextInputProps } from 'react-native';
 import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
+import { typography, recommendedSpacing } from '../theme/typography';
 
 export interface InputProps extends TextInputProps {
   label?: string;
@@ -35,12 +35,12 @@ const Input: React.FC<InputProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: recommendedSpacing.loose,
   },
   label: {
     ...typography.label,
     color: colors.textPrimary,
-    marginBottom: 6,
+    marginBottom: recommendedSpacing.default,
   },
   input: {
     ...typography.body,
@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
   errorText: {
     ...typography.caption,
     color: colors.error,
-    marginTop: 4,
+    marginTop: recommendedSpacing.tight,
   },
 });
 

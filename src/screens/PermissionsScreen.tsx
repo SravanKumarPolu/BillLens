@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
-import { typography } from '../theme/typography';
+import { typography, recommendedSpacing } from '../theme/typography';
 import { Button, Card } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Permissions'>;
@@ -61,18 +61,18 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h1,
-    marginBottom: 8,
+    marginBottom: recommendedSpacing.default,
   },
   subtitle: {
     ...typography.body,
-    marginBottom: 24,
+    marginBottom: recommendedSpacing.extraLoose,
   },
   card: {
     marginBottom: 12,
   },
   cardTitle: {
     ...typography.h4,
-    marginBottom: 4,
+    marginBottom: recommendedSpacing.tight,
   },
   cardText: {
     ...typography.bodySmall,

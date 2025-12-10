@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ScrollView }
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
-import { typography } from '../theme/typography';
+import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { formatMoney } from '../utils/formatMoney';
 import { Card, Chip } from '../components';
@@ -232,7 +232,6 @@ const styles = StyleSheet.create({
     ...typography.h2,
     flex: 1,
     textAlign: 'center',
-    fontWeight: '700',
   },
   sortButton: {
     paddingVertical: 8,
@@ -292,16 +291,14 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   expenseMerchant: {
-    ...typography.bodyLarge,
-    fontWeight: '600',
-    marginBottom: 4,
+    ...typography.h4,
+    marginBottom: recommendedSpacing.tight,
   },
   expenseDate: {
     ...typography.bodySmall,
   },
   expenseAmount: {
     ...typography.money,
-    fontWeight: '700',
   },
   expenseDetails: {
     paddingTop: 12,
@@ -310,7 +307,6 @@ const styles = StyleSheet.create({
   },
   expenseDetailText: {
     ...typography.bodySmall,
-    lineHeight: 20,
   },
   emptyState: {
     flex: 1,
@@ -320,12 +316,12 @@ const styles = StyleSheet.create({
     paddingTop: 80,
   },
   emptyEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
+    fontSize: 64, // Emoji icon, not typography
+    marginBottom: recommendedSpacing.loose,
   },
   emptyText: {
     ...typography.h3,
-    marginBottom: 8,
+    marginBottom: recommendedSpacing.default,
     textAlign: 'center',
   },
   emptySubtext: {

@@ -7,10 +7,13 @@
     "moduleResolution": "node",
     "esModuleInterop": true,
     "skipLibCheck": true,
+    "resolveJsonModule": true,
     "baseUrl": "./src",
     "paths": {
       "*": ["./*"]
-    }
+    },
+    "typeRoots": ["./node_modules/@types"]
   },
-  "include": ["src", "index.ts", "index.js"]
+  "include": ["src", "index.ts", "index.js"],
+  "exclude": ["node_modules"]
 }
