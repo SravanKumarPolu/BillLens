@@ -220,12 +220,31 @@ const extractAmount = (text: string): ParsedAmount | null => {
   const normalized = text.replace(/\s+/g, ' ').toLowerCase();
 
   // Priority patterns (higher priority = more likely to be the final total)
+  // Enhanced for Indian bill patterns: restaurants, utilities, e-commerce, UPI
   const amountPatterns = [
-    // High priority: Grand Total, Final Amount, Amount Paid
+    // Highest priority: Grand Total, Final Amount, Amount Paid (Indian format)
     {
-      regex: /(?:grand\s+total|final\s+amount|amount\s+paid|total\s+payable|pay\s+amount|amount\s+to\s+pay)[\s:]*₹?\s*([\d,]+\.?\d*)/gi,
+      regex: /(?:grand\s+total|final\s+amount|amount\s+paid|total\s+payable|pay\s+amount|amount\s+to\s+pay|total\s+amount|net\s+amount)[\s:]*₹?\s*([\d,]+\.?\d*)/gi,
       priority: 10,
       context: 'Grand Total',
+    },
+    // Restaurant bills: Bill Total, Total Bill
+    {
+      regex: /(?:bill\s+total|total\s+bill|final\s+bill|amount\s+payable)[\s:]*₹?\s*([\d,]+\.?\d*)/gi,
+      priority: 9,
+      context: 'Restaurant Bill',
+    },
+    // Utility bills: Total Due, Amount Due, Bill Amount
+    {
+      regex: /(?:total\s+due|amount\s+due|bill\s+amount|outstanding|balance\s+due)[\s:]*₹?\s*([\d,]+\.?\d*)/gi,
+      priority: 9,
+      context: 'Utility Bill',
+    },
+    // UPI/Online payments: Amount, Paid, Transaction Amount
+    {
+      regex: /(?:amount|paid|transaction\s+amount|payment\s+amount)[\s:]*₹\s*([\d,]+\.?\d*)/gi,
+      priority: 8,
+      context: 'UPI Payment',
     },
     // Medium priority: Total (but check it's not a subtotal)
     {
@@ -296,18 +315,39 @@ const extractMerchant = (text: string): ParsedMerchant | null => {
   const lines = normalized.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
   // Strategy 1: Known Indian apps/services (high confidence)
+  // Expanded list for better Indian bill pattern recognition
   const knownMerchants = [
+    // Food delivery
     { patterns: ['swiggy'], name: 'Swiggy', confidence: 0.95 },
     { patterns: ['zomato'], name: 'Zomato', confidence: 0.95 },
+    { patterns: ['uber eats', 'ubereats'], name: 'Uber Eats', confidence: 0.95 },
+    // Grocery delivery
     { patterns: ['blinkit'], name: 'Blinkit', confidence: 0.95 },
     { patterns: ['bigbasket', 'big basket'], name: 'BigBasket', confidence: 0.95 },
     { patterns: ['zepto'], name: 'Zepto', confidence: 0.95 },
     { patterns: ['dunzo'], name: 'Dunzo', confidence: 0.95 },
+    { patterns: ['grofers'], name: 'Grofers', confidence: 0.95 },
+    // Payment apps
     { patterns: ['phonepe'], name: 'PhonePe', confidence: 0.9 },
-    { patterns: ['google pay', 'gpay', 'gp ay'], name: 'Google Pay', confidence: 0.9 },
+    { patterns: ['google pay', 'gpay', 'gp ay', 'tez'], name: 'Google Pay', confidence: 0.9 },
     { patterns: ['paytm'], name: 'Paytm', confidence: 0.9 },
+    { patterns: ['bhim'], name: 'BHIM', confidence: 0.9 },
+    // E-commerce
     { patterns: ['amazon', 'amazon pay'], name: 'Amazon', confidence: 0.85 },
     { patterns: ['flipkart'], name: 'Flipkart', confidence: 0.85 },
+    { patterns: ['myntra'], name: 'Myntra', confidence: 0.85 },
+    // Utilities (common Indian providers)
+    { patterns: ['bses', 'bses yamuna', 'bses rajdhani'], name: 'BSES', confidence: 0.9 },
+    { patterns: ['tata power'], name: 'Tata Power', confidence: 0.9 },
+    { patterns: ['reliance energy'], name: 'Reliance Energy', confidence: 0.9 },
+    { patterns: ['airtel', 'airtel payments'], name: 'Airtel', confidence: 0.85 },
+    { patterns: ['jio'], name: 'Jio', confidence: 0.85 },
+    { patterns: ['vodafone', 'vi', 'vodafone idea'], name: 'Vodafone Idea', confidence: 0.85 },
+    // Restaurants (common chains)
+    { patterns: ['dominos', 'domino'], name: "Domino's", confidence: 0.9 },
+    { patterns: ['pizza hut'], name: "Pizza Hut", confidence: 0.9 },
+    { patterns: ['kfc'], name: 'KFC', confidence: 0.9 },
+    { patterns: ['mcdonalds', 'mcd'], name: "McDonald's", confidence: 0.9 },
   ];
 
   for (const merchant of knownMerchants) {

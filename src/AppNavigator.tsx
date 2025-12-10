@@ -12,11 +12,13 @@ import CaptureOptionsScreen from './screens/CaptureOptionsScreen';
 import OcrProcessingScreen from './screens/OcrProcessingScreen';
 import ReviewBillScreen from './screens/ReviewBillScreen';
 import ConfigureSplitScreen from './screens/ConfigureSplitScreen';
+import AddExpenseScreen from './screens/AddExpenseScreen';
 import GroupDetailScreen from './screens/GroupDetailScreen';
 import SettleUpScreen from './screens/SettleUpScreen';
 import TemplatesScreen from './screens/TemplatesScreen';
 import LedgerScreen from './screens/LedgerScreen';
 import AnalyticsScreen from './screens/AnalyticsScreen';
+import LensViewScreen from './screens/LensViewScreen';
 import BackupRestoreScreen from './screens/BackupRestoreScreen';
 import { colors } from './theme/colors';
 
@@ -41,11 +43,13 @@ export const AppNavigator = () => {
         <Stack.Screen name="OcrProcessing" component={OcrProcessingScreen} />
         <Stack.Screen name="ReviewBill" component={ReviewBillScreen} />
         <Stack.Screen name="ConfigureSplit" component={ConfigureSplitScreen} />
+        <Stack.Screen name="AddExpense" component={AddExpenseScreen} />
         <Stack.Screen name="GroupDetail" component={GroupDetailScreen} />
         <Stack.Screen name="SettleUp" component={SettleUpScreen} />
         <Stack.Screen name="Templates" component={TemplatesScreen} />
         <Stack.Screen name="Ledger" component={LedgerScreen} />
         <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+        <Stack.Screen name="LensView" component={LensViewScreen} />
         <Stack.Screen name="BackupRestore" component={BackupRestoreScreen} />
       </Stack.Navigator>
     </NavigationContainer>

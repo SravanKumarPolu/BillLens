@@ -4,7 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
 import { typography, recommendedSpacing } from '../theme/typography';
-import { Button } from '../components';
+import { Button, Logo } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OnboardingWelcome'>;
 
@@ -12,13 +12,10 @@ const OnboardingWelcome: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.logoContainer}>
-        <View style={styles.logoOuter}>
-          <View style={styles.logoInner} />
-        </View>
-        <View style={styles.receipt} />
+        <Logo variant="primary" size={120} color={colors.primary} />
       </View>
       <Text style={styles.title}>BillLens</Text>
-      <Text style={styles.tagline}>Snap. Read. Settle.</Text>
+      <Text style={styles.tagline}>See Every Expense Clearly.</Text>
 
       <View style={styles.bullets}>
         <Text style={styles.bullet}>• Screenshot-first: point at any bill or UPI screen.</Text>
@@ -52,30 +49,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   logoContainer: {
-    marginBottom: 16,
-  },
-  logoOuter: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoInner: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.accent,
-  },
-  receipt: {
-    position: 'absolute',
-    right: -6,
-    bottom: -4,
-    width: 34,
-    height: 42,
-    borderRadius: 8,
-    backgroundColor: colors.white,
+    marginBottom: 24,
   },
   title: {
     ...typography.display,

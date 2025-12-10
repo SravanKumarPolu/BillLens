@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
@@ -7,6 +7,9 @@ import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { formatMoney } from '../utils/formatMoney';
 import { openUPIApp, getAvailableUPIApps, getAppDisplayName, type UPIPaymentApp } from '../utils/upiService';
+import { optimizeSettlements } from '../utils/insightsService';
+import { explainSettlement } from '../utils/settlementExplanation';
+import { Modal, Button } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SettleUp'>;
 
@@ -21,7 +24,7 @@ type Payment = {
 
 const SettleUpScreen: React.FC<Props> = ({ navigation, route }) => {
   const { groupId } = route.params;
-  const { getGroupSummary, getGroup, addSettlement, calculateGroupBalances } = useGroups();
+  const { getGroupSummary, getGroup, addSettlement, calculateGroupBalances, getSettlementsForGroup } = useGroups();
   const { colors } = useTheme();
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [showUPIModal, setShowUPIModal] = useState(false);
@@ -36,42 +39,28 @@ const SettleUpScreen: React.FC<Props> = ({ navigation, route }) => {
     getAvailableUPIApps().then(setAvailableApps);
   }, []);
 
-  // Calculate suggested payments based on balances
+  // Calculate suggested payments based on balances (optimized)
   const suggestedPayments = useMemo(() => {
     if (!summary || !group) return [];
 
     const balances = calculateGroupBalances(groupId);
-    const payments: Payment[] = [];
-    const userId = 'you';
+    
+    // Use optimized settlements to minimize transactions
+    const optimization = optimizeSettlements(balances, group);
 
-    // Find who owes the user and who the user owes
-    balances.forEach(balance => {
-      if (balance.memberId === userId) return; // Skip current user
-
-      const member = group.members.find(m => m.id === balance.memberId);
-      if (!member) return;
-
-      if (balance.balance < 0) {
-        // This person owes the user
-        payments.push({
-          id: `payment-${balance.memberId}-to-${userId}`,
-          fromMemberId: balance.memberId,
-          from: member.name,
-          toMemberId: userId,
-          to: 'You',
-          amount: Math.abs(balance.balance),
-        });
-      } else if (balance.balance > 0) {
-        // User owes this person
-        payments.push({
-          id: `payment-${userId}-to-${balance.memberId}`,
-          fromMemberId: userId,
-          from: 'You',
-          toMemberId: balance.memberId,
-          to: member.name,
-          amount: balance.balance,
-        });
-      }
+    // Convert optimized payments to Payment format
+    const payments: Payment[] = optimization.optimizedPayments.map(payment => {
+      const fromMember = group.members.find(m => m.id === payment.fromMemberId);
+      const toMember = group.members.find(m => m.id === payment.toMemberId);
+      
+      return {
+        id: `payment-${payment.fromMemberId}-to-${payment.toMemberId}`,
+        fromMemberId: payment.fromMemberId,
+        from: fromMember?.name || 'Someone',
+        toMemberId: payment.toMemberId,
+        to: toMember?.name || 'Someone',
+        amount: payment.amount,
+      };
     });
 
     return payments.sort((a, b) => b.amount - a.amount);
@@ -127,15 +116,67 @@ const SettleUpScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const handleMarkAsPaid = (payment: Payment) => {
+    // Get balances before settlement for explanation
+    const balancesBefore = calculateGroupBalances(groupId);
+    
     // Record the settlement
-    addSettlement({
+    const settlementId = addSettlement({
       groupId,
       fromMemberId: payment.fromMemberId,
       toMemberId: payment.toMemberId,
       amount: payment.amount,
     });
 
-    // Show success message
+    // Get balances after settlement
+    const balancesAfter = calculateGroupBalances(groupId);
+    
+    // Get the settlement we just created
+    const settlements = getSettlementsForGroup(groupId);
+    const newSettlement = settlements.find(s => s.id === settlementId);
+    
+    if (newSettlement && group) {
+      // Explain what changed
+      try {
+        const explanation = explainSettlement(
+          newSettlement,
+          balancesBefore,
+          balancesAfter,
+          group.members
+        );
+
+        // Show detailed explanation
+        Alert.alert(
+          'Settlement Recorded ✓',
+          `${explanation.summary}\n\n${explanation.balanceChanges.map(c => c.explanation).join('\n')}`,
+          [
+            {
+              text: 'View Details',
+              onPress: () => {
+                navigation.navigate('GroupDetail', { groupId });
+              },
+            },
+            {
+              text: 'OK',
+            },
+          ]
+        );
+      } catch (error) {
+        // Fallback to simple message
+        Alert.alert(
+          'Settlement Recorded',
+          `Recorded payment of ${formatMoney(payment.amount)} from ${payment.from} to ${payment.to}`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                navigation.navigate('GroupDetail', { groupId });
+              },
+            },
+          ]
+        );
+      }
+    } else {
+      // Fallback
     Alert.alert(
       'Settlement Recorded',
       `Recorded payment of ${formatMoney(payment.amount)} from ${payment.from} to ${payment.to}`,
@@ -143,12 +184,12 @@ const SettleUpScreen: React.FC<Props> = ({ navigation, route }) => {
         {
           text: 'OK',
           onPress: () => {
-            // Navigate back to group detail to see updated balances
             navigation.navigate('GroupDetail', { groupId });
           },
         },
       ]
     );
+    }
   };
 
   if (!summary || !group) {
@@ -215,48 +256,41 @@ const SettleUpScreen: React.FC<Props> = ({ navigation, route }) => {
       {/* UPI App Selection Modal */}
       <Modal
         visible={showUPIModal}
-        transparent
+        onClose={() => setShowUPIModal(false)}
+        title="Choose payment app"
+        subtitle={`Pay ${selectedPayment?.to} ${formatMoney(selectedPayment?.amount || 0)}`}
+        variant="glass"
         animationType="slide"
-        onRequestClose={() => setShowUPIModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Choose payment app</Text>
-            <Text style={styles.modalSubtitle}>
-              Pay {selectedPayment?.to} {formatMoney(selectedPayment?.amount || 0)}
-            </Text>
-            
-            {availableApps.map(app => (
-              <TouchableOpacity
-                key={app}
-                style={styles.appButton}
-                onPress={() => handleUPIPayment(app)}
-              >
-                <Text style={styles.appButtonText}>{getAppDisplayName(app)}</Text>
-              </TouchableOpacity>
-            ))}
-            
-            <TouchableOpacity
-              style={[styles.appButton, styles.appButtonSecondary]}
-              onPress={() => {
-                if (selectedPayment) {
-                  handleMarkAsPaid(selectedPayment);
-                }
-                setShowUPIModal(false);
-              }}
-            >
-              <Text style={[styles.appButtonText, styles.appButtonTextSecondary]}>
-                Mark as paid (no UPI)
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => setShowUPIModal(false)}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
+        <View style={styles.modalButtonsContainer}>
+          {availableApps.map(app => (
+            <Button
+              key={app}
+              title={getAppDisplayName(app)}
+              onPress={() => handleUPIPayment(app)}
+              variant="primary"
+              style={styles.modalButton}
+            />
+          ))}
+          
+          <Button
+            title="Mark as paid (no UPI)"
+            onPress={() => {
+              if (selectedPayment) {
+                handleMarkAsPaid(selectedPayment);
+              }
+              setShowUPIModal(false);
+            }}
+            variant="secondary"
+            style={styles.modalButton}
+          />
+          
+          <Button
+            title="Cancel"
+            onPress={() => setShowUPIModal(false)}
+            variant="ghost"
+            style={styles.modalButton}
+          />
         </View>
       </Modal>
     </View>
@@ -359,58 +393,11 @@ const createStyles = (colors: any) => StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+  modalButtonsContainer: {
+    gap: 12,
   },
-  modalContent: {
-    backgroundColor: colors.surfaceCard,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
-  },
-  modalTitle: {
-    ...typography.h2,
-    color: colors.textPrimary,
-    marginBottom: recommendedSpacing.default,
-  },
-  modalSubtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: recommendedSpacing.extraLoose,
-  },
-  appButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    marginBottom: 12,
-    alignItems: 'center',
-    minHeight: 56,
-    justifyContent: 'center',
-  },
-  appButtonSecondary: {
-    backgroundColor: colors.surfaceCard,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-  },
-  appButtonText: {
-    ...typography.button,
-    color: colors.white,
-  },
-  appButtonTextSecondary: {
-    color: colors.textPrimary,
-  },
-  cancelButton: {
-    marginTop: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    ...typography.body,
-    color: colors.textSecondary,
+  modalButton: {
+    marginBottom: 0,
   },
 });
 

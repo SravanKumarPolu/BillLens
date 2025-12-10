@@ -32,9 +32,9 @@ const TemplatesScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleUseTemplate = (item: TemplateItem) => {
     const lastAmount = getTemplateLastAmount(item.id);
     
-    // Navigate to ReviewBill with pre-filled template data
-    // Since we don't have an image, we'll skip OCR and go directly to ReviewBill
-    navigation.navigate('ReviewBill', {
+    // Navigate to AddExpense with pre-filled template data
+    // Since we don't have an image, we'll skip OCR and go directly to AddExpense
+    navigation.navigate('AddExpense', {
       imageUri: '', // No image for templates
       groupId: groupId || '1',
       parsedAmount: lastAmount ? lastAmount.toString() : '',

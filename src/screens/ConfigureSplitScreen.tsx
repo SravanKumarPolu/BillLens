@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { useRoute } from '@react-navigation/native';
+import { createEqualSplits, normalizeSplits, verifySplitsSum } from '../utils/mathUtils';
+import { SplitRatioInput } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConfigureSplit'>;
 
@@ -70,31 +72,63 @@ const ConfigureSplitScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
-    // Calculate splits
+    // Calculate splits with proper normalization
     let splits: Array<{ memberId: string; amount: number }> = [];
     
     if (mode === 'equal') {
-      const sharePerPerson = totalAmount / selectedIds.length;
-      splits = selectedIds.map(memberId => ({
-        memberId,
-        amount: sharePerPerson,
-      }));
+      // Use math utils to ensure exact total
+      splits = createEqualSplits(totalAmount, selectedIds);
     } else {
-      // Custom mode - use customAmounts or equal split as fallback
+      // Custom mode - validate that amounts match total
       const totalCustom = selectedIds.reduce((sum, id) => sum + (customAmounts[id] || 0), 0);
-      if (totalCustom > 0 && Math.abs(totalCustom - totalAmount) < 0.01) {
-        splits = selectedIds.map(memberId => ({
+      const difference = Math.abs(totalCustom - totalAmount);
+      
+      if (difference > 0.01) {
+        Alert.alert(
+          'Amount Mismatch',
+          `Custom split total (₹${totalCustom.toFixed(2)}) doesn't match expense total (₹${totalAmount.toFixed(2)}). Difference: ₹${difference.toFixed(2)}.\n\nWould you like to adjust the amounts automatically?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Adjust Automatically',
+              onPress: () => {
+                // Distribute the difference proportionally
+                const adjustment = totalAmount - totalCustom;
+                const adjustmentPerPerson = adjustment / selectedIds.length;
+                const adjustedAmounts: Record<string, number> = {};
+                selectedIds.forEach(id => {
+                  adjustedAmounts[id] = (customAmounts[id] || 0) + adjustmentPerPerson;
+                });
+                setCustomAmounts(adjustedAmounts);
+                // Retry save after adjustment
+                setTimeout(() => handleSave(), 100);
+              },
+            },
+            {
+              text: 'Use Equal Split',
+              onPress: () => {
+                setMode('equal');
+                // Retry save after mode change
+                setTimeout(() => handleSave(), 100);
+              },
+            },
+          ]
+        );
+        return;
+      }
+      
+      // Amounts match, normalize custom splits to ensure exact total
+      const customSplits = selectedIds.map(memberId => ({
           memberId,
           amount: customAmounts[memberId] || 0,
         }));
-      } else {
-        // Fallback to equal split
-        const sharePerPerson = totalAmount / selectedIds.length;
-        splits = selectedIds.map(memberId => ({
-          memberId,
-          amount: sharePerPerson,
-        }));
-      }
+      splits = normalizeSplits(customSplits, totalAmount);
+    }
+
+    // Verify splits sum to total (safety check)
+    if (!verifySplitsSum(splits, totalAmount)) {
+      console.warn('[ConfigureSplit] Split verification failed, normalizing...');
+      splits = normalizeSplits(splits, totalAmount);
     }
 
     // Get expense details from route params
@@ -187,16 +221,16 @@ const ConfigureSplitScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={[styles.memberName, { color: colors.textPrimary }]}>{item.name}</Text>
               </TouchableOpacity>
               {selected && mode === 'custom' ? (
-                <TextInput
-                  style={styles.amountInput}
-                  value={customAmounts[item.id] ? customAmounts[item.id].toString() : ''}
-                  onChangeText={(text) => {
-                    const num = parseFloat(text) || 0;
-                    setCustomAmounts(prev => ({ ...prev, [item.id]: num }));
+                <SplitRatioInput
+                  memberId={item.id}
+                  memberName={item.name}
+                  amount={customAmounts[item.id] || 0}
+                  totalAmount={totalAmount}
+                  onChange={(memberId, amount) => {
+                    setCustomAmounts(prev => ({ ...prev, [memberId]: amount }));
                   }}
-                  keyboardType="decimal-pad"
-                  placeholder="₹0"
-                  placeholderTextColor={colors.textSecondary}
+                  showPercentage={true}
+                  style={{ flex: 1, marginLeft: 8 }}
                 />
               ) : (
                 <Text style={[styles.memberShare, { color: colors.textSecondary }]}>

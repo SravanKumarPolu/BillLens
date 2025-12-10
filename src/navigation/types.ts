@@ -24,10 +24,19 @@ export type RootStackParamList = {
     imageUri?: string;
     paidBy?: string;
   };
+  AddExpense: {
+    imageUri?: string;
+    groupId?: string;
+    parsedAmount?: string;
+    parsedMerchant?: string;
+    parsedDate?: string;
+    expenseId?: string; // For editing existing expenses
+  };
   GroupDetail: { groupId: string };
   SettleUp: { groupId: string };
   Templates: { groupId: string };
   Ledger: { groupId: string };
   Analytics: { groupId: string };
+  LensView: { groupId: string };
   BackupRestore: undefined;
 };

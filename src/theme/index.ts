@@ -23,6 +23,37 @@ export {
   verifyTextContrast,
   getAccessibleTextColor,
 } from './contrastUtils';
+export {
+  glassTokens,
+  createGlassStyle,
+  glassCard,
+  glassButton,
+  glassModal,
+  type GlassmorphismStyle,
+} from './glassmorphism';
+export {
+  spacing,
+  semanticSpacing,
+  getResponsiveSpacing,
+  spacingUtils,
+  type SpacingKey,
+  type SemanticSpacingKey,
+} from './spacing';
+export {
+  elevation,
+  semanticElevation,
+  createElevation,
+  type ElevationLevel,
+  type ElevationStyle,
+} from './elevation';
+export {
+  transitionDurations,
+  easing,
+  transitions,
+  animationValues,
+  type TransitionKey,
+  type AnimationValueKey,
+} from './transitions';
 
 // Theme type for future dark mode support
 export type Theme = 'light' | 'dark';

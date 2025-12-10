@@ -5,12 +5,14 @@ import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { extractBillInfo, parseAmount, normalizeMerchant } from '../utils/ocrService';
+import { useGroups } from '../context/GroupsContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OcrProcessing'>;
 
 const OcrProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
   const { imageUri, groupId } = route.params || {};
   const { colors } = useTheme();
+  const { addOcrHistory } = useGroups();
   const [isProcessing, setIsProcessing] = useState(true);
 
   // Validate required params
@@ -29,6 +31,20 @@ const OcrProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
         setIsProcessing(true);
         const result = await extractBillInfo(imageUri);
 
+        // Track OCR attempt
+        const success = !result.error && result.confidence >= 0.3;
+        addOcrHistory({
+          groupId: groupId || undefined,
+          imageUri,
+          success,
+          extractedData: success ? {
+            amount: result.amount,
+            merchant: result.merchant,
+            date: result.date,
+          } : undefined,
+          error: result.error || undefined,
+        });
+
         // Handle low confidence or errors
         if (result.error && result.confidence < 0.3) {
           // Very low confidence - show error and allow manual entry
@@ -39,7 +55,7 @@ const OcrProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
               {
                 text: 'Enter Manually',
                 onPress: () => {
-                  navigation.replace('ReviewBill', {
+                  navigation.replace('AddExpense', {
                     imageUri,
                     groupId,
                     parsedAmount: '',
@@ -55,7 +71,7 @@ const OcrProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
         }
 
         // For low confidence (0.3-0.5), still proceed but show a warning
-        // User can verify and edit in ReviewBill screen
+        // User can verify and edit in AddExpense screen
         if (result.confidence < 0.5 && result.confidence >= 0.3) {
           Alert.alert(
             'Low Confidence',
@@ -64,7 +80,7 @@ const OcrProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
               {
                 text: 'Review & Edit',
                 onPress: () => {
-                  navigation.replace('ReviewBill', {
+                  navigation.replace('AddExpense', {
                     imageUri,
                     groupId,
                     parsedAmount: parseAmount(result.amount),
@@ -79,8 +95,8 @@ const OcrProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
           return;
         }
 
-        // Navigate to ReviewBill with parsed data (confidence >= 0.5)
-        navigation.replace('ReviewBill', {
+        // Navigate to AddExpense with parsed data (confidence >= 0.5)
+        navigation.replace('AddExpense', {
           imageUri,
           groupId,
           parsedAmount: parseAmount(result.amount),

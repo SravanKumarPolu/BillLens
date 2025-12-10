@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, Pressable } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -6,20 +6,33 @@ import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { formatMoney } from '../utils/formatMoney';
-import { Button } from '../components';
+import { Button, InsightsCard, BalanceBreakdown, FairnessMeter } from '../components';
+import { calculateFairnessScore, calculateReliabilityMeter } from '../utils/fairnessScore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GroupDetail'>;
 
 const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { groupId } = route.params;
-  const { getGroupSummary, deleteGroup, getGroup, deleteExpense, getExpense, updateGroup } = useGroups();
+  const { getGroupSummary, deleteGroup, getGroup, deleteExpense, getExpense, updateGroup, getGroupInsights, calculateGroupBalances } = useGroups();
   const { colors } = useTheme();
   const [showMenu, setShowMenu] = useState(false);
   const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null);
   
   const summary = getGroupSummary(groupId);
   const group = getGroup(groupId);
+  const insights = getGroupInsights(groupId);
   const styles = createStyles(colors);
+
+  // Calculate fairness score and reliability meter
+  const fairnessScore = useMemo(() => {
+    if (!group || !summary) return null;
+    return calculateFairnessScore(summary.expenses, group, summary.balances);
+  }, [group, summary]);
+
+  const reliabilityMeter = useMemo(() => {
+    if (!summary) return null;
+    return calculateReliabilityMeter(summary.expenses, summary.settlements);
+  }, [summary]);
 
   if (!summary || !group) {
     return (
@@ -79,8 +92,8 @@ const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     const expense = getExpense(expenseId);
     if (!expense) return;
     
-    // Navigate to ReviewBill with expense data for editing
-    navigation.navigate('ReviewBill', {
+    // Navigate to AddExpense with expense data for editing
+    navigation.navigate('AddExpense', {
       imageUri: expense.imageUri || '',
       groupId: expense.groupId,
       parsedAmount: expense.amount.toString(),
@@ -147,6 +160,87 @@ const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           variant="secondary"
           style={styles.actionButton}
           fullWidth={false}
+        />
+        <Button
+          title="Lens View"
+          onPress={() => navigation.navigate('LensView', { groupId })}
+          variant="secondary"
+          style={styles.actionButton}
+          fullWidth={false}
+        />
+      </View>
+
+      {/* Fairness Score and Reliability Meter */}
+      {fairnessScore && reliabilityMeter && (
+        <View style={styles.fairnessContainer}>
+          <FairnessMeter
+            fairnessScore={fairnessScore}
+            reliabilityMeter={reliabilityMeter}
+          />
+        </View>
+      )}
+
+      {insights.length > 0 && (
+        <View style={styles.insightsContainer}>
+          <InsightsCard
+            insights={insights}
+            onInsightPress={(insight) => {
+              // Handle insight actions
+              if (insight.type === 'mistake' && insight.actionData?.mistake?.suggestedFix) {
+                const mistake = insight.actionData.mistake;
+                const expense = getExpense(mistake.expenseId);
+                if (expense && mistake.suggestedFix) {
+                  Alert.alert(
+                    'Fix Mistake',
+                    `Would you like to update ${mistake.suggestedFix.field} from ${mistake.suggestedFix.oldValue} to ${mistake.suggestedFix.newValue}?`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Fix',
+                        onPress: () => {
+                          // Navigate to edit screen with suggested fix
+                          navigation.navigate('AddExpense', {
+                            imageUri: expense.imageUri || '',
+                            groupId: expense.groupId,
+                            parsedAmount: mistake.suggestedFix.field === 'splits' 
+                              ? expense.amount.toString() 
+                              : expense.amount.toString(),
+                            parsedMerchant: expense.merchant || expense.title,
+                            parsedDate: expense.date,
+                            expenseId: expense.id,
+                          });
+                        },
+                      },
+                    ]
+                  );
+                }
+              } else if (insight.type === 'suggestion' && insight.actionData?.optimization) {
+                // Show optimized settlements
+                Alert.alert(
+                  'Optimized Settlements',
+                  `You can reduce ${insight.actionData.optimization.savings} transaction${insight.actionData.optimization.savings > 1 ? 's' : ''} by using optimized payments.`,
+                  [
+                    { text: 'OK' },
+                    {
+                      text: 'View Details',
+                      onPress: () => navigation.navigate('SettleUp', { groupId }),
+                    },
+                  ]
+                );
+              }
+            }}
+          />
+        </View>
+      )}
+
+      {/* Balance Breakdown - Clear view to prevent confusion */}
+      <View style={styles.balanceBreakdownContainer}>
+        <BalanceBreakdown
+          balances={summary.balances}
+          expenses={summary.expenses}
+          settlements={summary.settlements}
+          members={group.members}
+          currentUserId="you"
         />
       </View>
 
@@ -295,6 +389,18 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginTop: recommendedSpacing.default,
     marginBottom: recommendedSpacing.loose,
     gap: recommendedSpacing.comfortable,
+  },
+  insightsContainer: {
+    marginHorizontal: 24,
+    marginBottom: recommendedSpacing.loose,
+  },
+  balanceBreakdownContainer: {
+    marginHorizontal: 24,
+    marginBottom: recommendedSpacing.loose,
+  },
+  fairnessContainer: {
+    marginHorizontal: 24,
+    marginBottom: recommendedSpacing.loose,
   },
   actionButton: {
     flex: 1,

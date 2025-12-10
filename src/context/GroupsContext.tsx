@@ -1,6 +1,9 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { Group, Expense, Member, Settlement, GroupSummary, GroupBalance } from '../types/models';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useMemo } from 'react';
+import { Group, Expense, Member, Settlement, GroupSummary, GroupBalance, ExpenseEdit, OcrHistory } from '../types/models';
 import { saveAppData, loadAppData, type AppData } from '../utils/storageService';
+import { generateInsights, type Insight } from '../utils/insightsService';
+import { verifyBalancesSumToZero, normalizeAmount } from '../utils/mathUtils';
+import { getCachedBalances, cacheBalances, clearBalanceCache } from '../utils/balanceCache';
 
 export interface TemplateLastAmount {
   templateId: string;
@@ -13,6 +16,7 @@ interface GroupsContextType {
   expenses: Expense[];
   settlements: Settlement[];
   templateLastAmounts: TemplateLastAmount[];
+  ocrHistory: OcrHistory[];
   
   // Group operations
   addGroup: (group: Omit<Group, 'id' | 'createdAt'>) => string;
@@ -22,24 +26,33 @@ interface GroupsContextType {
   
   // Expense operations
   addExpense: (expense: Omit<Expense, 'id' | 'date'>) => string;
-  updateExpense: (expenseId: string, updates: Partial<Expense>) => void;
+  updateExpense: (expenseId: string, updates: Partial<Expense>, editedBy?: string) => void;
   deleteExpense: (expenseId: string) => void;
   getExpense: (expenseId: string) => Expense | undefined;
   getExpensesForGroup: (groupId: string) => Expense[];
+  getExpenseEditHistory: (expenseId: string) => ExpenseEdit[];
+  
+  // OCR History operations
+  addOcrHistory: (history: Omit<OcrHistory, 'id' | 'timestamp'>) => string;
+  getOcrHistory: (groupId?: string) => OcrHistory[];
   
   // Template operations
   getTemplateLastAmount: (templateId: string) => number | null;
   updateTemplateLastAmount: (templateId: string, amount: number) => void;
   
   // Settlement operations
-  addSettlement: (settlement: Omit<Settlement, 'id' | 'date' | 'status'>) => string;
+  addSettlement: (settlement: Omit<Settlement, 'id' | 'date' | 'status' | 'createdAt' | 'version' | 'previousVersionId'>) => string;
   completeSettlement: (settlementId: string) => void;
   getSettlementsForGroup: (groupId: string) => Settlement[];
+  getSettlementHistory: (groupId: string) => Settlement[]; // Immutable history
   
   // Balance calculations
   calculateGroupBalances: (groupId: string) => GroupBalance[];
   getGroupSummary: (groupId: string) => GroupSummary | null;
   getAllGroupSummaries: () => GroupSummary[];
+  
+  // Insights
+  getGroupInsights: (groupId: string) => Insight[];
 }
 
 const GroupsContext = createContext<GroupsContextType | undefined>(undefined);
@@ -88,18 +101,24 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [templateLastAmounts, setTemplateLastAmounts] = useState<TemplateLastAmount[]>([]);
+  const [ocrHistory, setOcrHistory] = useState<OcrHistory[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Load data from storage on mount
+  // Load data from storage on mount and run migrations
   useEffect(() => {
     const initializeData = async () => {
       try {
+        // Run migrations first
+        const { runMigrations } = await import('../utils/migrationService');
+        await runMigrations();
+
         const savedData = await loadAppData();
         if (savedData) {
           setGroups(savedData.groups);
           setExpenses(savedData.expenses);
           setSettlements(savedData.settlements);
           setTemplateLastAmounts(savedData.templateLastAmounts);
+          setOcrHistory(savedData.ocrHistory || []);
         }
       } catch (error) {
         console.error('Error loading app data:', error);
@@ -122,6 +141,7 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           expenses,
           settlements,
           templateLastAmounts,
+          ocrHistory,
         });
       } catch (error) {
         console.error('Error saving app data:', error);
@@ -200,12 +220,21 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   // Expense operations
   const addExpense = useCallback((expenseData: Omit<Expense, 'id' | 'date'>): string => {
+    const now = new Date().toISOString();
     const newExpense: Expense = {
       ...expenseData,
       id: generateId(),
-      date: new Date().toISOString(),
+      date: now,
+      createdAt: now,
+      updatedAt: now,
+      editHistory: [],
     };
-    setExpenses(prev => [...prev, newExpense]);
+    setExpenses(prev => {
+      const updated = [...prev, newExpense];
+      // Clear balance cache for this group when expense is added
+      clearBalanceCache(expenseData.groupId);
+      return updated;
+    });
     
     // Update template last amount if category matches a template
     const templateId = getTemplateIdFromCategory(expenseData.category);
@@ -216,19 +245,63 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return newExpense.id;
   }, [updateTemplateLastAmount]);
 
-  const updateExpense = useCallback((expenseId: string, updates: Partial<Expense>) => {
+  const updateExpense = useCallback((expenseId: string, updates: Partial<Expense>, editedBy?: string) => {
     setExpenses(prev => {
-      const updated = prev.map(expense => (expense.id === expenseId ? { ...expense, ...updates } : expense));
+      const expense = prev.find(e => e.id === expenseId);
+      if (!expense) return prev;
+
+      // Track changes for history
+      const changes: Array<{ field: string; oldValue: any; newValue: any }> = [];
+      Object.keys(updates).forEach(key => {
+        if (key !== 'editHistory' && key !== 'createdAt' && key !== 'updatedAt') {
+          const oldValue = (expense as any)[key];
+          const newValue = (updates as any)[key];
+          if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+            changes.push({ field: key, oldValue, newValue });
+          }
+        }
+      });
+
+      // Create edit history entry if there are changes
+      const editHistory = changes.length > 0
+        ? [
+            ...(expense.editHistory || []),
+            {
+              id: generateId(),
+              expenseId,
+              editedAt: new Date().toISOString(),
+              editedBy: editedBy || 'you',
+              changes,
+            },
+          ]
+        : expense.editHistory || [];
+
+      const updated = prev.map(e =>
+        e.id === expenseId
+          ? {
+              ...e,
+              ...updates,
+              updatedAt: new Date().toISOString(),
+              editHistory,
+            }
+          : e
+      );
       
       // Update template last amount if amount changed
       if (updates.amount !== undefined) {
-        const expense = updated.find(e => e.id === expenseId);
-        if (expense) {
-          const templateId = getTemplateIdFromCategory(expense.category);
+        const updatedExpense = updated.find(e => e.id === expenseId);
+        if (updatedExpense) {
+          const templateId = getTemplateIdFromCategory(updatedExpense.category);
           if (templateId) {
             updateTemplateLastAmount(templateId, updates.amount);
           }
         }
+      }
+      
+      // Clear balance cache for this group when expense is updated
+      const updatedExpense = updated.find(e => e.id === expenseId);
+      if (updatedExpense) {
+        clearBalanceCache(updatedExpense.groupId);
       }
       
       return updated;
@@ -236,7 +309,13 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, [updateTemplateLastAmount]);
 
   const deleteExpense = useCallback((expenseId: string) => {
-    setExpenses(prev => prev.filter(expense => expense.id !== expenseId));
+    setExpenses(prev => {
+      const expense = prev.find(e => e.id === expenseId);
+      if (expense) {
+        clearBalanceCache(expense.groupId);
+      }
+      return prev.filter(expense => expense.id !== expenseId);
+    });
   }, []);
 
   const getExpense = useCallback((expenseId: string): Expense | undefined => {
@@ -247,17 +326,37 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return expenses.filter(expense => expense.groupId === groupId);
   }, [expenses]);
 
-  // Settlement operations
-  const addSettlement = useCallback((settlementData: Omit<Settlement, 'id' | 'date' | 'status'>): string => {
+  // Settlement operations - Settlement-proof: Immutable history
+  const addSettlement = useCallback((settlementData: Omit<Settlement, 'id' | 'date' | 'status' | 'createdAt' | 'version' | 'previousVersionId'>): string => {
+    const now = new Date().toISOString();
     const newSettlement: Settlement = {
       ...settlementData,
       id: generateId(),
-      date: new Date().toISOString(),
+      date: now,
       status: 'completed', // Mark as completed when added
+      createdAt: now, // Immutable creation timestamp
+      version: 1, // Initial version
+      // No previousVersionId for new settlements
     };
-    setSettlements(prev => [...prev, newSettlement]);
+    setSettlements(prev => {
+      const updated = [...prev, newSettlement];
+      // Clear balance cache for this group when settlement is added
+      clearBalanceCache(settlementData.groupId);
+      return updated;
+    });
     return newSettlement.id;
   }, []);
+
+  // Get immutable settlement history (all settlements, ordered by creation)
+  const getSettlementHistory = useCallback((groupId: string): Settlement[] => {
+    return settlements
+      .filter(s => s.groupId === groupId)
+      .sort((a, b) => {
+        const dateA = a.createdAt || a.date;
+        const dateB = b.createdAt || b.date;
+        return new Date(dateA).getTime() - new Date(dateB).getTime();
+      });
+  }, [settlements]);
 
   const completeSettlement = useCallback((settlementId: string) => {
     setSettlements(prev =>
@@ -269,13 +368,19 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return settlements.filter(s => s.groupId === groupId);
   }, [settlements]);
 
-  // Balance calculations
+  // Balance calculations with caching to prevent shifting values
   const calculateGroupBalances = useCallback((groupId: string): GroupBalance[] => {
     const group = groups.find(g => g.id === groupId);
     if (!group) return [];
 
     const groupExpenses = expenses.filter(e => e.groupId === groupId);
     const groupSettlements = settlements.filter(s => s.groupId === groupId && s.status === 'completed');
+
+    // Check cache first
+    const cached = getCachedBalances(groupId, groupExpenses, groupSettlements);
+    if (cached) {
+      return cached;
+    }
 
     // Initialize balances for all members
     const balances: Map<string, number> = new Map();
@@ -284,31 +389,45 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     // Process expenses: who paid gets credited, who owes gets debited
     groupExpenses.forEach(expense => {
       const paidBy = expense.paidBy;
-      const paidAmount = expense.amount;
+      const paidAmount = normalizeAmount(expense.amount);
       
       // Credit the person who paid
-      balances.set(paidBy, (balances.get(paidBy) || 0) + paidAmount);
+      balances.set(paidBy, normalizeAmount((balances.get(paidBy) || 0) + paidAmount));
       
       // Debit those who owe (safely handle missing splits array)
       if (expense.splits && Array.isArray(expense.splits)) {
         expense.splits.forEach(split => {
-          balances.set(split.memberId, (balances.get(split.memberId) || 0) - split.amount);
+          const splitAmount = normalizeAmount(split.amount);
+          balances.set(split.memberId, normalizeAmount((balances.get(split.memberId) || 0) - splitAmount));
         });
       }
     });
 
     // Process settlements: reduce balances
     groupSettlements.forEach(settlement => {
+      const settlementAmount = normalizeAmount(settlement.amount);
       // From person pays to person
-      balances.set(settlement.fromMemberId, (balances.get(settlement.fromMemberId) || 0) - settlement.amount);
-      balances.set(settlement.toMemberId, (balances.get(settlement.toMemberId) || 0) + settlement.amount);
+      balances.set(settlement.fromMemberId, normalizeAmount((balances.get(settlement.fromMemberId) || 0) - settlementAmount));
+      balances.set(settlement.toMemberId, normalizeAmount((balances.get(settlement.toMemberId) || 0) + settlementAmount));
     });
 
-    // Convert to array format
-    return Array.from(balances.entries()).map(([memberId, balance]) => ({
+    // Convert to array format and normalize balances
+    const result = Array.from(balances.entries()).map(([memberId, balance]) => ({
       memberId,
-      balance,
+      balance: normalizeAmount(balance),
     }));
+
+    // Verify balances sum to zero (safety check)
+    if (!verifyBalancesSumToZero(result)) {
+      console.warn('[GroupsContext] Balance verification failed - balances do not sum to zero:', result);
+      // In a closed group, balances should sum to zero. If they don't, there's a data integrity issue.
+      // We log it but don't throw to avoid breaking the app.
+    }
+
+    // Cache the result
+    cacheBalances(groupId, groupExpenses, groupSettlements, result);
+
+    return result;
   }, [groups, expenses, settlements]);
 
   const getGroupSummary = useCallback((groupId: string): GroupSummary | null => {
@@ -360,11 +479,47 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       .filter((summary): summary is GroupSummary => summary !== null);
   }, [groups, getGroupSummary]);
 
+  // Expense edit history
+  const getExpenseEditHistory = useCallback((expenseId: string): ExpenseEdit[] => {
+    const expense = expenses.find(e => e.id === expenseId);
+    return expense?.editHistory || [];
+  }, [expenses]);
+
+  // OCR History operations
+  const addOcrHistory = useCallback((history: Omit<OcrHistory, 'id' | 'timestamp'>): string => {
+    const newHistory: OcrHistory = {
+      ...history,
+      id: generateId(),
+      timestamp: new Date().toISOString(),
+    };
+    setOcrHistory(prev => [...prev, newHistory]);
+    return newHistory.id;
+  }, []);
+
+  const getOcrHistory = useCallback((groupId?: string): OcrHistory[] => {
+    if (groupId) {
+      return ocrHistory.filter(h => h.groupId === groupId);
+    }
+    return ocrHistory;
+  }, [ocrHistory]);
+
+  const getGroupInsights = useCallback((groupId: string): Insight[] => {
+    const group = groups.find(g => g.id === groupId);
+    if (!group) return [];
+
+    const groupExpenses = getExpensesForGroup(groupId);
+    const groupSettlements = getSettlementsForGroup(groupId);
+    const balances = calculateGroupBalances(groupId);
+
+    return generateInsights(groupExpenses, group, balances, groupSettlements);
+  }, [groups, getExpensesForGroup, getSettlementsForGroup, calculateGroupBalances]);
+
   const value: GroupsContextType = {
     groups,
     expenses,
     settlements,
     templateLastAmounts,
+    ocrHistory,
     addGroup,
     updateGroup,
     deleteGroup,
@@ -374,6 +529,7 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     deleteExpense,
     getExpense,
     getExpensesForGroup,
+    getExpenseEditHistory,
     getTemplateLastAmount,
     updateTemplateLastAmount,
     addSettlement,
@@ -382,6 +538,10 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     calculateGroupBalances,
     getGroupSummary,
     getAllGroupSummaries,
+    getGroupInsights,
+    getSettlementHistory,
+    addOcrHistory,
+    getOcrHistory,
   };
 
   return <GroupsContext.Provider value={value}>{children}</GroupsContext.Provider>;

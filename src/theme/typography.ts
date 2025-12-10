@@ -60,9 +60,18 @@ export interface TextStyle {
 
 /**
  * Font Family Note:
- * React Native uses system fonts by default:
- * - iOS: SF Pro (automatically uses correct weight variants)
- * - Android: Roboto (automatically uses correct weight variants)
+ * 
+ * BillLens Brand Typography:
+ * - Recommended: Inter or Satoshi (best for 2025 modern apps)
+ * - React Native uses system fonts by default:
+ *   - iOS: SF Pro (automatically uses correct weight variants)
+ *   - Android: Roboto (automatically uses correct weight variants)
+ * 
+ * To use Inter or Satoshi:
+ * 1. Install custom font: npm install react-native-fonts or use expo-font
+ * 2. Add font files to assets/fonts/
+ * 3. Configure in app.json or load programmatically
+ * 4. Set fontFamily in typography tokens
  * 
  * System fonts are optimized for:
  * - Font smoothing (antialiasing)
@@ -77,6 +86,13 @@ export interface TextStyle {
  * - System fonts automatically adjust for DPI
  * - React Native handles font smoothing natively
  * - No additional CSS properties needed (unlike web)
+ * 
+ * Typography Scale (Tailwind-ready):
+ * - App Title: text-3xl (28px) font-bold (700)
+ * - Section Title: text-xl (20px) font-semibold (600)
+ * - Body: text-base (16px) font-normal (400)
+ * - Secondary: text-sm (14px) text-muted
+ * - Caption: text-xs (12px) text-muted
  */
 
 // Base typography tokens with proper mathematical relationships

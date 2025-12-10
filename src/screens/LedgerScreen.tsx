@@ -1,13 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ScrollView, Alert, Share } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { formatMoney } from '../utils/formatMoney';
-import { Card, Chip } from '../components';
+import { Card, Chip, Button } from '../components';
 import { Expense } from '../types/models';
+import { exportGroupHistory } from '../utils/exportService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Ledger'>;
 
@@ -15,13 +16,15 @@ type CategoryFilter = 'All' | 'Food' | 'Groceries' | 'Utilities' | 'Others';
 
 const LedgerScreen: React.FC<Props> = ({ navigation, route }) => {
   const { groupId } = route.params;
-  const { getGroup, getExpensesForGroup } = useGroups();
+  const { getGroup, getExpensesForGroup, getSettlementsForGroup, calculateGroupBalances } = useGroups();
   const { colors } = useTheme();
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('All');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
   const group = getGroup(groupId);
   const allExpenses = getExpensesForGroup(groupId);
+  const settlements = getSettlementsForGroup(groupId);
+  const balances = calculateGroupBalances(groupId);
 
   // Filter and sort expenses
   const filteredAndSortedExpenses = useMemo(() => {
@@ -150,14 +153,39 @@ const LedgerScreen: React.FC<Props> = ({ navigation, route }) => {
           <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.textPrimary }]}>Expense history</Text>
-        <TouchableOpacity
-          onPress={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
-          style={styles.sortButton}
-        >
-          <Text style={[styles.sortButtonText, { color: colors.textSecondary }]}>
-            {sortOrder === 'newest' ? '↓ Newest' : '↑ Oldest'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            onPress={async () => {
+              if (!group) return;
+              try {
+                const exportText = exportGroupHistory(
+                  group,
+                  allExpenses,
+                  { format: 'text', includeSettlements: true, includeBalances: true },
+                  settlements,
+                  balances
+                );
+                await Share.share({
+                  message: exportText,
+                  title: `BillLens Export - ${group.name}`,
+                });
+              } catch (error) {
+                Alert.alert('Error', 'Failed to export history');
+              }
+            }}
+            style={styles.exportButton}
+          >
+            <Text style={[styles.exportButtonText, { color: colors.primary }]}>Export</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
+            style={styles.sortButton}
+          >
+            <Text style={[styles.sortButtonText, { color: colors.textSecondary }]}>
+              {sortOrder === 'newest' ? '↓ Newest' : '↑ Oldest'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Category Filters */}
@@ -232,6 +260,21 @@ const styles = StyleSheet.create({
     ...typography.h2,
     flex: 1,
     textAlign: 'center',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  exportButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  exportButtonText: {
+    ...typography.body,
+    fontWeight: '600',
   },
   sortButton: {
     paddingVertical: 8,

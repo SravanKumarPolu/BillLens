@@ -1,20 +1,79 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
-import { Card, Button } from '../components';
+import { Card, Button, InsightsCard } from '../components';
 import { useGroups } from '../context/GroupsContext';
 import { useAuth } from '../context/AuthContext';
+import { formatMoney } from '../utils/formatMoney';
+import { generateInsights } from '../utils/insightsService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
-  const { getAllGroupSummaries } = useGroups();
+  const { getAllGroupSummaries, getGroupSummary, getGroupInsights } = useGroups();
   const { user, syncData, isSyncing, lastSyncDate } = useAuth();
   const { colors } = useTheme();
   const groupSummaries = getAllGroupSummaries() || [];
+
+  // Calculate monthly total across all groups
+  const monthlyTotal = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    return groupSummaries.reduce((total, summary) => {
+      const monthExpenses = summary.expenses.filter(expense => {
+        const expenseDate = new Date(expense.date);
+        return (
+          expenseDate.getMonth() === currentMonth &&
+          expenseDate.getFullYear() === currentYear
+        );
+      });
+      return total + monthExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    }, 0);
+  }, [groupSummaries]);
+
+  // Calculate total pending amount (what user owes or is owed)
+  const pendingAmount = useMemo(() => {
+    return groupSummaries.reduce((total, summary) => {
+      const userBalance = summary.balances.find(b => b.memberId === 'you')?.balance || 0;
+      // If user owes money (negative balance), add to pending
+      // If user is owed money (positive balance), it's not "pending" for them to pay
+      return total + (userBalance < 0 ? Math.abs(userBalance) : 0);
+    }, 0);
+  }, [groupSummaries]);
+
+  // Get top insights across all groups
+  const topInsights = useMemo(() => {
+    const allInsights: Array<{ insight: any; groupId: string; groupName: string }> = [];
+    
+    groupSummaries.forEach(summary => {
+      const insights = getGroupInsights(summary.group.id);
+      insights.forEach(insight => {
+        allInsights.push({
+          insight,
+          groupId: summary.group.id,
+          groupName: summary.group.name,
+        });
+      });
+    });
+
+    // Sort by priority/severity and take top 3
+    return allInsights
+      .sort((a, b) => {
+        // Prioritize warnings and mistakes
+        if (a.insight.type === 'warning' && b.insight.type !== 'warning') return -1;
+        if (a.insight.type !== 'warning' && b.insight.type === 'warning') return 1;
+        if (a.insight.type === 'mistake' && b.insight.type !== 'mistake') return -1;
+        if (a.insight.type !== 'mistake' && b.insight.type === 'mistake') return 1;
+        return 0;
+      })
+      .slice(0, 3)
+      .map(item => item.insight);
+  }, [groupSummaries, getGroupInsights]);
 
   const handleProfilePress = () => {
     if (user) {
@@ -72,6 +131,52 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
+      {/* Summary Cards */}
+      {groupSummaries.length > 0 && (
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.summaryCardsContainer}
+        >
+          <Card style={[styles.summaryCard, { backgroundColor: colors.primary }]}>
+            <Text style={[styles.summaryLabel, { color: colors.white }]}>Monthly Total</Text>
+            <Text style={[styles.summaryValue, { color: colors.white }]}>
+              {formatMoney(monthlyTotal)}
+            </Text>
+          </Card>
+          
+          <Card style={[styles.summaryCard, { 
+            backgroundColor: pendingAmount > 0 ? colors.warning : colors.success 
+          }]}>
+            <Text style={[styles.summaryLabel, { color: colors.white }]}>Pending</Text>
+            <Text style={[styles.summaryValue, { color: colors.white }]}>
+              {formatMoney(pendingAmount)}
+            </Text>
+          </Card>
+        </ScrollView>
+      )}
+
+      {/* Insights Preview */}
+      {topInsights.length > 0 && (
+        <View style={styles.insightsSection}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Insights</Text>
+          <InsightsCard
+            insights={topInsights}
+            maxVisible={3}
+            onInsightPress={(insight) => {
+              // Find the group for this insight and navigate
+              const groupSummary = groupSummaries.find(summary => {
+                const groupInsights = getGroupInsights(summary.group.id);
+                return groupInsights.some(i => i.id === insight.id);
+              });
+              if (groupSummary) {
+                navigation.navigate('GroupDetail', { groupId: groupSummary.group.id });
+              }
+            }}
+          />
+        </View>
+      )}
+
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Your groups</Text>
 
       {groupSummaries.length === 0 ? (
@@ -117,6 +222,9 @@ const createStyles = (colors: any) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surfaceLight,
   },
+  summaryCardsScroll: {
+    marginBottom: recommendedSpacing.comfortable,
+  },
   header: {
     paddingTop: 56,
     paddingHorizontal: 24,
@@ -137,6 +245,29 @@ const createStyles = (colors: any) => StyleSheet.create({
   profile: {
     fontSize: 24, // Emoji icon, not typography
   },
+  summaryCardsContainer: {
+    paddingHorizontal: 24,
+    paddingBottom: recommendedSpacing.comfortable,
+    gap: 12,
+  },
+  summaryCard: {
+    minWidth: 140,
+    padding: recommendedSpacing.loose,
+    marginRight: 12,
+  },
+  summaryLabel: {
+    ...typography.caption,
+    opacity: 0.9,
+    marginBottom: 4,
+  },
+  summaryValue: {
+    ...typography.h3,
+    fontWeight: '700',
+  },
+  insightsSection: {
+    paddingHorizontal: 24,
+    marginBottom: recommendedSpacing.comfortable,
+  },
   sectionTitle: {
     ...typography.label,
     paddingHorizontal: 24,
@@ -145,7 +276,6 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   groupsList: {
     paddingHorizontal: 24,
-    paddingBottom: 140,
     paddingTop: recommendedSpacing.default,
   },
   groupCard: {
