@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useMemo, useRef } from 'react';
-import { Group, Expense, Member, Settlement, GroupSummary, GroupBalance, ExpenseEdit, OcrHistory, GroupCollection, CategoryBudget, RecurringExpense } from '../types/models';
+import { Group, Expense, Member, Settlement, GroupSummary, GroupBalance, ExpenseEdit, OcrHistory, GroupCollection, CategoryBudget, RecurringExpense, DeletedExpense, GroupActivity } from '../types/models';
 import { saveAppData, loadAppData, type AppData } from '../utils/storageService';
 import { generateInsights, type Insight } from '../utils/insightsService';
 import { verifyBalancesSumToZero, normalizeAmount } from '../utils/mathUtils';
@@ -34,7 +34,7 @@ interface GroupsContextType {
   // Expense operations
   addExpense: (expense: Omit<Expense, 'id' | 'date'>) => string;
   updateExpense: (expenseId: string, updates: Partial<Expense>, editedBy?: string) => void;
-  deleteExpense: (expenseId: string) => void;
+  deleteExpense: (expenseId: string, deletedBy?: string) => void;
   getExpense: (expenseId: string) => Expense | undefined;
   getExpensesForGroup: (groupId: string) => Expense[];
   getExpenseEditHistory: (expenseId: string) => ExpenseEdit[];
@@ -84,6 +84,15 @@ interface GroupsContextType {
   
   // Insights
   getGroupInsights: (groupId: string) => Insight[];
+  
+  // Friend operations (friends are groups with type: 'friend')
+  getFriends: () => Group[];
+  getFriendSummary: (friendId: string) => GroupSummary | null;
+  getGroupsExcludingType: (excludeType: 'friend') => Group[];
+  
+  // Activity feed operations
+  getDeletedExpensesForGroup: (groupId: string) => DeletedExpense[];
+  getGroupActivitiesForGroup: (groupId: string) => GroupActivity[];
 }
 
 const GroupsContext = createContext<GroupsContextType | undefined>(undefined);
@@ -104,6 +113,7 @@ const DEFAULT_GROUPS: Group[] = [
     members: [DEFAULT_MEMBERS[0], DEFAULT_MEMBERS[1], DEFAULT_MEMBERS[2]],
     currency: 'INR',
     createdAt: new Date().toISOString(),
+    type: 'house',
   },
   {
     id: '2',
@@ -112,6 +122,7 @@ const DEFAULT_GROUPS: Group[] = [
     members: [DEFAULT_MEMBERS[0], DEFAULT_MEMBERS[1]],
     currency: 'INR',
     createdAt: new Date().toISOString(),
+    type: 'friend', // 1-to-1 relationship
   },
   {
     id: '3',
@@ -120,6 +131,7 @@ const DEFAULT_GROUPS: Group[] = [
     members: [DEFAULT_MEMBERS[0], DEFAULT_MEMBERS[1], DEFAULT_MEMBERS[2]],
     currency: 'INR',
     createdAt: new Date().toISOString(),
+    type: 'house',
   },
   {
     id: '4',
@@ -128,6 +140,7 @@ const DEFAULT_GROUPS: Group[] = [
     members: [DEFAULT_MEMBERS[0], DEFAULT_MEMBERS[1]],
     currency: 'INR',
     createdAt: new Date().toISOString(),
+    type: 'trip',
   },
 ];
 
@@ -140,6 +153,8 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [collections, setCollections] = useState<GroupCollection[]>([]);
   const [budgets, setBudgets] = useState<CategoryBudget[]>([]);
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
+  const [deletedExpenses, setDeletedExpenses] = useState<DeletedExpense[]>([]);
+  const [groupActivities, setGroupActivities] = useState<GroupActivity[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const syncCallbackRef = useRef<((localData: AppData, userId: string) => Promise<any>) | null>(null);
 
@@ -161,6 +176,8 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           setCollections(savedData.collections || []);
           setBudgets(savedData.budgets || []);
           setRecurringExpenses(savedData.recurringExpenses || []);
+          setDeletedExpenses(savedData.deletedExpenses || []);
+          setGroupActivities(savedData.groupActivities || []);
         }
       } catch (error) {
         console.error('Error loading app data:', error);
@@ -178,6 +195,10 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     const saveData = async () => {
       try {
+        // Get custom categories for sync
+        const { getAllCategoriesForSync } = await import('../utils/categoryService');
+        const categoriesData = await getAllCategoriesForSync();
+        
         await saveAppData({
           groups,
           expenses,
@@ -187,6 +208,9 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           collections,
           budgets,
           recurringExpenses,
+          deletedExpenses,
+          groupActivities,
+          customCategories: categoriesData, // Include categories in sync data
         });
 
         // Track changes for sync (if user is authenticated)
@@ -201,7 +225,7 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     // Debounce saves to avoid too frequent writes
     const timeoutId = setTimeout(saveData, 500);
     return () => clearTimeout(timeoutId);
-  }, [groups, expenses, settlements, templateLastAmounts, ocrHistory, collections, budgets, recurringExpenses, isInitialized]);
+  }, [groups, expenses, settlements, templateLastAmounts, ocrHistory, collections, budgets, recurringExpenses, deletedExpenses, groupActivities, isInitialized]);
 
   // Set up sync callback for real-time sync
   useEffect(() => {
@@ -221,6 +245,12 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             setExpenses(result.mergedData.expenses);
             setSettlements(result.mergedData.settlements);
             
+            // Load and merge synced categories
+            if (result.mergedData && 'customCategories' in result.mergedData && result.mergedData.customCategories) {
+              const { loadSyncedCategories } = await import('../utils/categoryService');
+              await loadSyncedCategories(result.mergedData.customCategories);
+            }
+            
             // Save merged data
             await saveAppData({
               groups: result.mergedData.groups,
@@ -231,6 +261,8 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
               collections,
               budgets,
               recurringExpenses,
+              deletedExpenses,
+              groupActivities,
             });
           }
           
@@ -306,13 +338,57 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       createdAt: new Date().toISOString(),
     };
     setGroups(prev => [...prev, newGroup]);
+    
+    // Track for automatic sync (fire and forget)
+    (async () => {
+      try {
+        const { syncService } = await import('../utils/syncService');
+        await syncService.addPendingChange('create', 'group', newGroup.id, newGroup);
+      } catch (error) {
+        console.error('Error tracking group for sync:', error);
+      }
+    })();
+    
     return newGroup.id;
   }, []);
 
-  const updateGroup = useCallback((groupId: string, updates: Partial<Group>) => {
-    setGroups(prev =>
-      prev.map(group => (group.id === groupId ? { ...group, ...updates } : group))
-    );
+  const updateGroup = useCallback((groupId: string, updates: Partial<Group>, updatedBy?: string) => {
+    setGroups(prev => {
+      const group = prev.find(g => g.id === groupId);
+      if (!group) return prev;
+      
+      // Track changes for activity feed
+      const changes: Array<{ field: string; oldValue: any; newValue: any }> = [];
+      Object.keys(updates).forEach(key => {
+        if (key !== 'members' && key !== 'createdAt') {
+          const oldValue = (group as any)[key];
+          const newValue = (updates as any)[key];
+          if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+            changes.push({ field: key, oldValue, newValue });
+          }
+        }
+      });
+      
+      // Track group activity if there are changes
+      if (changes.length > 0) {
+        changes.forEach(change => {
+          setGroupActivities(prevActivities => [...prevActivities, {
+            id: generateId(),
+            groupId,
+            type: 'group_updated',
+            timestamp: new Date().toISOString(),
+            performedBy: updatedBy || 'you',
+            details: {
+              field: change.field,
+              oldValue: change.oldValue,
+              newValue: change.newValue,
+            },
+          }]);
+        });
+      }
+      
+      return prev.map(group => (group.id === groupId ? { ...group, ...updates } : group));
+    });
   }, []);
 
   const deleteGroup = useCallback((groupId: string) => {
@@ -327,7 +403,7 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, [groups]);
 
   // Member management operations
-  const addMemberToGroup = useCallback((groupId: string, member: Member) => {
+  const addMemberToGroup = useCallback((groupId: string, member: Member, addedBy?: string) => {
     setGroups(prev =>
       prev.map(group =>
         group.id === groupId
@@ -335,16 +411,47 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           : group
       )
     );
+    
+    // Track group activity
+    setGroupActivities(prev => [...prev, {
+      id: generateId(),
+      groupId,
+      type: 'member_added',
+      timestamp: new Date().toISOString(),
+      performedBy: addedBy || 'you',
+      details: {
+        memberId: member.id,
+        memberName: member.name,
+      },
+    }]);
   }, []);
 
-  const removeMemberFromGroup = useCallback((groupId: string, memberId: string) => {
-    setGroups(prev =>
-      prev.map(group =>
+  const removeMemberFromGroup = useCallback((groupId: string, memberId: string, removedBy?: string) => {
+    setGroups(prev => {
+      const group = prev.find(g => g.id === groupId);
+      const member = group?.members.find(m => m.id === memberId);
+      
+      // Track group activity before removing
+      if (member) {
+        setGroupActivities(prevActivities => [...prevActivities, {
+          id: generateId(),
+          groupId,
+          type: 'member_removed',
+          timestamp: new Date().toISOString(),
+          performedBy: removedBy || 'you',
+          details: {
+            memberId: member.id,
+            memberName: member.name,
+          },
+        }]);
+      }
+      
+      return prev.map(group =>
         group.id === groupId
           ? { ...group, members: group.members.filter(m => m.id !== memberId) }
           : group
-      )
-    );
+      );
+    });
     // Also remove expenses/settlements where this member was involved?
     // For now, we'll keep expenses but mark them as inactive
   }, []);
@@ -369,7 +476,7 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const now = new Date().toISOString();
     const group = groups.find(g => g.id === expenseData.groupId);
     const groupCurrency = group?.currency || 'INR';
-    
+
     const newExpense: Expense = {
       ...expenseData,
       currency: expenseData.currency || groupCurrency, // Use group currency if not specified
@@ -381,6 +488,13 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     };
     setExpenses(prev => {
       const updated = [...prev, newExpense];
+      
+      // Track for automatic sync
+      (async () => {
+        const { syncService } = await import('../utils/syncService');
+        syncService.addPendingChange('create', 'expense', newExpense.id, newExpense);
+      })();
+      
       // Clear balance cache for this group when expense is added
       clearBalanceCache(expenseData.groupId);
       return updated;
@@ -398,6 +512,28 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }).catch(() => {
       // Ignore sync errors during local operations
     });
+    
+    // Generate notification for expense added (only if not by current user, or if enabled)
+    (async () => {
+      try {
+        const { generateExpenseAddedNotification } = await import('../utils/notificationService');
+        const { addNotification } = await import('../utils/notificationManager');
+        const group = groups.find(g => g.id === newExpense.groupId);
+        if (group) {
+          const member = group.members.find(m => m.id === newExpense.paidBy);
+          const memberName = member?.name || (newExpense.paidBy === 'you' ? 'You' : newExpense.paidBy);
+          const notification = generateExpenseAddedNotification(
+            newExpense.groupId,
+            newExpense,
+            group.name,
+            memberName
+          );
+          await addNotification(notification);
+        }
+      } catch (error) {
+        console.error('Error generating expense added notification:', error);
+      }
+    })();
     
     return newExpense.id;
   }, [updateTemplateLastAmount, groups]);
@@ -444,6 +580,75 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           : e
       );
       
+      // Track for automatic sync (fire and forget)
+      const expenseToSync = updated.find(e => e.id === expenseId);
+      if (expenseToSync) {
+        (async () => {
+          try {
+            const { syncService } = await import('../utils/syncService');
+            await syncService.addPendingChange('update', 'expense', expenseId, expenseToSync);
+          } catch (error) {
+            console.error('Error tracking expense update for sync:', error);
+          }
+        })();
+        
+        // Check if this is a comment addition (new comments added)
+        const oldComments = expense.comments || [];
+        const newComments = expenseToSync.comments || [];
+        if (newComments.length > oldComments.length) {
+          // New comment(s) added - generate notification
+          const latestComment = newComments[newComments.length - 1];
+          (async () => {
+            try {
+              const { generateCommentAddedNotification } = await import('../utils/notificationService');
+              const { addNotification } = await import('../utils/notificationManager');
+              const group = groups.find(g => g.id === expenseToSync.groupId);
+              if (group && latestComment.memberId !== 'you') {
+                // Only notify if comment is from someone else
+                const member = group.members.find(m => m.id === latestComment.memberId);
+                const memberName = member?.name || latestComment.memberId;
+                const notification = generateCommentAddedNotification(
+                  expenseToSync.groupId,
+                  expenseId,
+                  expenseToSync.merchant || expenseToSync.title,
+                  group.name,
+                  memberName
+                );
+                await addNotification(notification);
+              }
+            } catch (error) {
+              console.error('Error generating comment notification:', error);
+            }
+          })();
+        } else if (Object.keys(updates).some(key => key !== 'comments' && key !== 'editHistory')) {
+          // Expense was edited (not just comments) - generate notification
+          (async () => {
+            try {
+              const { generateExpenseEditedNotification } = await import('../utils/notificationService');
+              const { addNotification } = await import('../utils/notificationManager');
+              const group = groups.find(g => g.id === expenseToSync.groupId);
+              if (group) {
+                const editorId = editedBy || 'you';
+                // Only notify if edited by someone else
+                if (editorId !== 'you') {
+                  const member = group.members.find(m => m.id === editorId);
+                  const memberName = member?.name || editorId;
+              const notification = generateExpenseEditedNotification(
+                expenseToSync.groupId,
+                expenseToSync,
+                group.name,
+                memberName
+              );
+                  await addNotification(notification);
+                }
+              }
+            } catch (error) {
+              console.error('Error generating expense edited notification:', error);
+            }
+          })();
+        }
+      }
+      
       // Update template last amount if amount changed
       if (updates.amount !== undefined) {
         const updatedExpense = updated.find(e => e.id === expenseId);
@@ -456,20 +661,73 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
       
       // Clear balance cache for this group when expense is updated
-      const updatedExpense = updated.find(e => e.id === expenseId);
-      if (updatedExpense) {
-        clearBalanceCache(updatedExpense.groupId);
+      const expenseForCache = updated.find(e => e.id === expenseId);
+      if (expenseForCache) {
+        clearBalanceCache(expenseForCache.groupId);
       }
       
       return updated;
     });
   }, [updateTemplateLastAmount]);
 
-  const deleteExpense = useCallback((expenseId: string) => {
+  const deleteExpense = useCallback((expenseId: string, deletedBy?: string) => {
+    // Track for automatic sync before deletion (fire and forget)
+    (async () => {
+      try {
+        const { syncService } = await import('../utils/syncService');
+        const expense = expenses.find(e => e.id === expenseId);
+        if (expense) {
+          await syncService.addPendingChange('delete', 'expense', expenseId, expense);
+        }
+      } catch (error) {
+        console.error('Error tracking expense deletion for sync:', error);
+      }
+    })();
     setExpenses(prev => {
       const expense = prev.find(e => e.id === expenseId);
       if (expense) {
         clearBalanceCache(expense.groupId);
+        
+        // Track deleted expense for activity feed
+        setDeletedExpenses(prevDeleted => [...prevDeleted, {
+          id: generateId(),
+          expenseId: expense.id,
+          groupId: expense.groupId,
+          deletedAt: new Date().toISOString(),
+          deletedBy: deletedBy || 'you',
+          expenseData: {
+            title: expense.title,
+            merchant: expense.merchant,
+            amount: expense.amount,
+            category: expense.category,
+            paidBy: expense.paidBy,
+          },
+        }]);
+        
+        // Generate notification for expense deleted
+        (async () => {
+          try {
+            const { generateExpenseDeletedNotification } = await import('../utils/notificationService');
+            const { addNotification } = await import('../utils/notificationManager');
+            const group = groups.find(g => g.id === expense.groupId);
+            if (group) {
+              const deleterId = deletedBy || 'you';
+              const member = group.members.find(m => m.id === deleterId);
+              const memberName = member?.name || (deleterId === 'you' ? 'You' : deleterId);
+              const notification = generateExpenseDeletedNotification(
+                expense.groupId,
+                expense.merchant || expense.title,
+                expense.amount,
+                expense.currency || 'INR',
+                group.name,
+                memberName
+              );
+              await addNotification(notification);
+            }
+          } catch (error) {
+            console.error('Error generating expense deleted notification:', error);
+          }
+        })();
       }
       return prev.filter(expense => expense.id !== expenseId);
     });
@@ -500,6 +758,39 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       // No previousVersionId for new settlements
     };
     setSettlements(prev => {
+      // Track for automatic sync (fire and forget)
+      (async () => {
+        try {
+          const { syncService } = await import('../utils/syncService');
+          await syncService.addPendingChange('create', 'settlement', newSettlement.id, newSettlement);
+        } catch (error) {
+          console.error('Error tracking settlement for sync:', error);
+        }
+      })();
+      
+      // Generate notification for settlement added
+      (async () => {
+        try {
+          const { generateSettlementAddedNotification } = await import('../utils/notificationService');
+          const { addNotification } = await import('../utils/notificationManager');
+          const group = groups.find(g => g.id === settlementData.groupId);
+          if (group) {
+            const settlerId = settlementData.fromMemberId || 'you';
+            const member = group.members.find(m => m.id === settlerId);
+            const memberName = member?.name || (settlerId === 'you' ? 'You' : settlerId);
+            const notification = generateSettlementAddedNotification(
+              settlementData.groupId,
+              newSettlement,
+              group.name,
+              memberName
+            );
+            await addNotification(notification);
+          }
+        } catch (error) {
+          console.error('Error generating settlement notification:', error);
+        }
+      })();
+      
       const updated = [...prev, newSettlement];
       // Clear balance cache for this group when settlement is added
       clearBalanceCache(settlementData.groupId);
@@ -718,6 +1009,29 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return generateInsights(groupExpenses, group, balances, groupSettlements);
   }, [groups, getExpensesForGroup, getSettlementsForGroup, calculateGroupBalances]);
 
+  // Friend operations (friends are groups with type: 'friend')
+  const getFriends = useCallback((): Group[] => {
+    return groups.filter(g => g.type === 'friend');
+  }, [groups]);
+
+  const getFriendSummary = useCallback((friendId: string): GroupSummary | null => {
+    // Friends are just groups with type: 'friend', so use getGroupSummary
+    return getGroupSummary(friendId);
+  }, [getGroupSummary]);
+
+  const getGroupsExcludingType = useCallback((excludeType: 'friend'): Group[] => {
+    return groups.filter(g => g.type !== excludeType);
+  }, [groups]);
+
+  // Activity feed operations
+  const getDeletedExpensesForGroup = useCallback((groupId: string): DeletedExpense[] => {
+    return deletedExpenses.filter(de => de.groupId === groupId);
+  }, [deletedExpenses]);
+
+  const getGroupActivitiesForGroup = useCallback((groupId: string): GroupActivity[] => {
+    return groupActivities.filter(ga => ga.groupId === groupId);
+  }, [groupActivities]);
+
   // Collection operations
   const addCollection = useCallback((collectionData: Omit<GroupCollection, 'id' | 'createdAt'>): string => {
     const newCollection: GroupCollection = {
@@ -831,8 +1145,32 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       createdAt: new Date().toISOString(),
     };
     setRecurringExpenses(prev => [...prev, newRecurring]);
+    
+    // Generate notification for recurring expense added
+    (async () => {
+      try {
+        const { generateRecurringExpenseAddedNotification } = await import('../utils/notificationService');
+        const { addNotification } = await import('../utils/notificationManager');
+        const group = groups.find(g => g.id === recurringData.groupId);
+        if (group) {
+          const creatorId = 'you'; // Recurring expenses are created by current user
+          const member = group.members.find(m => m.id === creatorId);
+          const memberName = member?.name || 'You';
+          const notification = generateRecurringExpenseAddedNotification(
+            recurringData.groupId || '',
+            newRecurring,
+            group.name,
+            memberName
+          );
+          await addNotification(notification);
+        }
+      } catch (error) {
+        console.error('Error generating recurring expense notification:', error);
+      }
+    })();
+    
     return newRecurring.id;
-  }, []);
+  }, [groups]);
 
   const updateRecurringExpense = useCallback((recurringId: string, updates: Partial<RecurringExpense>) => {
     setRecurringExpenses(prev =>
@@ -912,6 +1250,11 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     getSettlementHistory,
     addOcrHistory,
     getOcrHistory,
+    getFriends,
+    getFriendSummary,
+    getGroupsExcludingType,
+    getDeletedExpensesForGroup,
+    getGroupActivitiesForGroup,
   };
 
   return <GroupsContext.Provider value={value}>{children}</GroupsContext.Provider>;

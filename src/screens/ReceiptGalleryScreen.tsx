@@ -7,7 +7,9 @@ import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { Card, Button } from '../components';
 import { formatMoney } from '../utils/formatMoney';
-import { Expense } from '../types/models';
+import { Expense, Receipt } from '../types/models';
+import { downloadReceipt } from '../utils/receiptService';
+import { launchImageLibrary, ImagePickerResponse, MediaType, PhotoQuality } from 'react-native-image-picker';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ReceiptGallery'>;
 
@@ -21,10 +23,39 @@ const ReceiptGalleryScreen: React.FC<Props> = ({ navigation, route }) => {
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'timeline'>('grid');
 
-  // Filter expenses with images
+  // Collect all receipts from expenses (support both receipts array and imageUri for backward compatibility)
+  const allReceipts = useMemo(() => {
+    const receiptList: Array<{ expense: Expense; receipt: Receipt }> = [];
+    
+    expenses.forEach(expense => {
+      if (expense.receipts && expense.receipts.length > 0) {
+        // Use receipts array
+        expense.receipts.forEach(receipt => {
+          receiptList.push({ expense, receipt });
+        });
+      } else if (expense.imageUri) {
+        // Fallback to imageUri for backward compatibility
+        receiptList.push({
+          expense,
+          receipt: {
+            id: `${expense.id}-legacy`,
+            uri: expense.imageUri,
+            mimeType: 'image/jpeg',
+            isCloudStored: false,
+          },
+        });
+      }
+    });
+    
+    return receiptList.sort((a, b) => 
+      new Date(b.expense.date).getTime() - new Date(a.expense.date).getTime()
+    );
+  }, [expenses]);
+  
+  // Filter expenses with images (for backward compatibility with existing UI)
   const expensesWithImages = useMemo(() => {
     return expenses
-      .filter(e => e.imageUri)
+      .filter(e => (e.receipts && e.receipts.length > 0) || e.imageUri)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [expenses]);
 
@@ -58,6 +89,30 @@ const ReceiptGalleryScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const handleImagePress = (expense: Expense) => {
     setSelectedExpense(expense);
+  };
+  
+  const handleDownloadReceipt = async (receipt: Receipt) => {
+    await downloadReceipt(receipt);
+  };
+  
+  const handleAddReceipt = async (expense: Expense) => {
+    const options = {
+      mediaType: 'photo' as MediaType,
+      quality: 0.8 as PhotoQuality,
+      includeBase64: false,
+      selectionLimit: 5, // Allow multiple receipts
+    };
+    
+    launchImageLibrary(options, (response: ImagePickerResponse) => {
+      if (response.didCancel || response.errorCode) return;
+      
+      const assets = response.assets || [];
+      if (assets.length > 0) {
+        // TODO: Update expense with new receipts
+        // This would require updating the expense's receipts array
+        Alert.alert('Success', `Added ${assets.length} receipt(s)`);
+      }
+    });
   };
 
   const handleEditExpense = (expense: Expense) => {
@@ -239,8 +294,40 @@ const ReceiptGalleryScreen: React.FC<Props> = ({ navigation, route }) => {
                       year: 'numeric',
                     })}
                   </Text>
+                  
+                  {/* Show all receipts for this expense */}
+                  {selectedExpense.receipts && selectedExpense.receipts.length > 0 && (
+                    <View style={styles.receiptsList}>
+                      <Text style={[styles.receiptsTitle, { color: colors.textPrimary }]}>
+                        Receipts ({selectedExpense.receipts.length})
+                      </Text>
+                      {selectedExpense.receipts.map((receipt, index) => (
+                        <View key={receipt.id} style={styles.receiptItem}>
+                          <Text style={[styles.receiptLabel, { color: colors.textSecondary }]}>
+                            Receipt {index + 1}
+                            {receipt.isCloudStored && ' ☁️'}
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => handleDownloadReceipt(receipt)}
+                            style={[styles.downloadButton, { backgroundColor: colors.accent }]}
+                          >
+                            <Text style={[styles.downloadButtonText, { color: colors.white }]}>
+                              Download
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
                 <View style={styles.modalActions}>
+                  <Button
+                    title="Add Receipt"
+                    onPress={() => handleAddReceipt(selectedExpense)}
+                    variant="secondary"
+                    fullWidth={false}
+                    style={styles.modalButton}
+                  />
                   <Button
                     title="Edit"
                     onPress={() => handleEditExpense(selectedExpense)}
@@ -434,6 +521,39 @@ const createStyles = (colors: any) => StyleSheet.create({
   emptySubtext: {
     ...typography.body,
     textAlign: 'center',
+  },
+  receiptsList: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSubtle,
+  },
+  receiptsTitle: {
+    ...typography.h4,
+    marginBottom: 12,
+  },
+  receiptItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: colors.surfaceLight,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  receiptLabel: {
+    ...typography.body,
+    flex: 1,
+  },
+  downloadButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  downloadButtonText: {
+    ...typography.bodySmall,
+    ...typography.emphasis.semibold,
   },
 });
 

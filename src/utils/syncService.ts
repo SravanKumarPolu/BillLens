@@ -15,6 +15,7 @@ import { AppData } from './storageService';
 import { Group, Expense, Settlement, OcrHistory } from '../types/models';
 import { TemplateLastAmount } from '../context/GroupsContext';
 import { cloudService, CloudConfig } from './cloudService';
+import { networkService } from './networkService';
 
 export interface SyncStatus {
   isSyncing: boolean;
@@ -81,6 +82,7 @@ class SyncService {
   private listeners: Set<SyncListener> = new Set();
   private pendingChanges: Map<string, PendingChange> = new Map();
   private lastSyncTimestamp: string | null = null;
+  private pendingChangesLoaded = false;
   private syncInProgress = false;
   private autoSyncEnabled = true;
   private syncInterval: ReturnType<typeof setTimeout> | null = null;
@@ -89,6 +91,8 @@ class SyncService {
   private currentUserId: string | null = null;
   private pollingEnabled = false;
   private pollingIntervalMs = 30000; // 30 seconds default
+  private networkUnsubscribe: (() => void) | null = null;
+  private isOnline = true;
 
   /**
    * Subscribe to sync status updates
@@ -119,14 +123,58 @@ class SyncService {
   }
 
   /**
+   * Load pending changes from local storage
+   */
+  async loadPendingChanges(): Promise<void> {
+    if (this.pendingChangesLoaded) return;
+    
+    try {
+      const { loadAppData } = await import('./storageService');
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      const pendingData = await AsyncStorage.getItem('@billlens:pendingSyncChanges');
+      
+      if (pendingData) {
+        const changes: PendingChange[] = JSON.parse(pendingData);
+        changes.forEach(change => {
+          this.pendingChanges.set(change.id, change);
+        });
+        this.updateStatus({ pendingChanges: this.pendingChanges.size });
+      }
+      
+      this.pendingChangesLoaded = true;
+    } catch (error) {
+      console.error('Error loading pending changes:', error);
+      this.pendingChangesLoaded = true; // Mark as loaded even on error to prevent retry loops
+    }
+  }
+
+  /**
+   * Save pending changes to local storage
+   */
+  private async savePendingChanges(): Promise<void> {
+    try {
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      const changesArray = Array.from(this.pendingChanges.values());
+      await AsyncStorage.setItem('@billlens:pendingSyncChanges', JSON.stringify(changesArray));
+    } catch (error) {
+      console.error('Error saving pending changes:', error);
+    }
+  }
+
+  /**
    * Add a pending change to the queue
    */
-  addPendingChange(
+  async addPendingChange(
     type: 'create' | 'update' | 'delete',
     entityType: 'group' | 'expense' | 'settlement',
     entityId: string,
     data: any
-  ): void {
+  ): Promise<void> {
+    // Ensure pending changes are loaded
+    if (!this.pendingChangesLoaded) {
+      await this.loadPendingChanges();
+    }
+
     const change: PendingChange = {
       id: `${entityType}-${entityId}-${Date.now()}`,
       type,
@@ -139,9 +187,19 @@ class SyncService {
 
     this.pendingChanges.set(change.id, change);
     this.updateStatus({ pendingChanges: this.pendingChanges.size });
+    
+    // Persist to local storage
+    await this.savePendingChanges();
 
-    // Auto-sync if enabled
-    if (this.autoSyncEnabled && !this.syncInProgress) {
+    // Notify real-time listeners immediately (only if online)
+    if (this.isOnline) {
+      cloudService.notifyRealtimeUpdate(entityType, type, data).catch(err => {
+        console.error('Failed to notify real-time update:', err);
+      });
+    }
+
+    // Auto-sync if enabled and online
+    if (this.autoSyncEnabled && !this.syncInProgress && this.isOnline) {
       this.scheduleSync();
     }
   }
@@ -149,9 +207,10 @@ class SyncService {
   /**
    * Remove pending change after successful sync
    */
-  private removePendingChange(changeId: string): void {
+  private async removePendingChange(changeId: string): Promise<void> {
     this.pendingChanges.delete(changeId);
     this.updateStatus({ pendingChanges: this.pendingChanges.size });
+    await this.savePendingChanges();
   }
 
   /**
@@ -229,9 +288,43 @@ class SyncService {
   /**
    * Initialize sync service with cloud configuration
    */
-  initializeCloud(config: CloudConfig): void {
+  async initializeCloud(config: CloudConfig): Promise<void> {
     cloudService.initialize(config);
     this.currentUserId = config.userId;
+    
+    // Load pending changes from storage
+    await this.loadPendingChanges();
+    
+    // Subscribe to network state changes
+    this.networkUnsubscribe = networkService.subscribe(async (state) => {
+      const wasOffline = !this.isOnline;
+      this.isOnline = state.isConnected && state.isInternetReachable;
+      
+      // If we come back online, trigger sync for pending changes
+      if (wasOffline && this.isOnline && this.autoSyncEnabled && this.pendingChanges.size > 0) {
+        // Small delay to ensure network is stable
+        setTimeout(() => {
+          this.scheduleSync();
+        }, 1000);
+      }
+    });
+    
+    // Subscribe to real-time updates if enabled
+    if (config.enableRealtime) {
+      cloudService.subscribeRealtime((update) => {
+        // Trigger sync when real-time update is received
+        if (this.syncCallback && this.currentUserId && !this.syncInProgress && this.isOnline) {
+          this.scheduleSync();
+        }
+      });
+    }
+    
+    // If online and have pending changes, sync immediately
+    if (this.isOnline && this.autoSyncEnabled && this.pendingChanges.size > 0) {
+      setTimeout(() => {
+        this.scheduleSync();
+      }, 2000); // Small delay to ensure everything is initialized
+    }
   }
 
   /**
@@ -507,10 +600,11 @@ class SyncService {
 
       result.mergedData = mergedData;
 
-      // Step 6: Clear pending changes
+      // Step 6: Clear pending changes after successful sync
       this.updateStatus({ syncProgress: 90 });
       this.pendingChanges.clear();
       this.updateStatus({ pendingChanges: 0 });
+      await this.savePendingChanges(); // Clear from storage
 
       // Step 7: Update sync timestamp
       this.lastSyncTimestamp = new Date().toISOString();
@@ -541,6 +635,11 @@ class SyncService {
    * Schedule sync (with debouncing)
    */
   private scheduleSync(): void {
+    // Don't sync if offline
+    if (!this.isOnline) {
+      return;
+    }
+
     if (this.syncInterval) {
       clearTimeout(this.syncInterval);
     }
@@ -548,6 +647,11 @@ class SyncService {
     // Debounce: wait 2 seconds before syncing
     this.syncInterval = setTimeout(async () => {
       this.syncInterval = null;
+      
+      // Check online status again before syncing
+      if (!this.isOnline) {
+        return;
+      }
       
       // Actually trigger sync if callback is set
       if (this.syncCallback && this.currentUserId && !this.syncInProgress) {
@@ -592,6 +696,11 @@ class SyncService {
       clearTimeout(this.syncInterval);
       this.syncInterval = null;
     }
+    if (this.networkUnsubscribe) {
+      this.networkUnsubscribe();
+      this.networkUnsubscribe = null;
+    }
+    cloudService.cleanup();
     this.syncCallback = null;
     this.currentUserId = null;
     this.pendingChanges.clear();

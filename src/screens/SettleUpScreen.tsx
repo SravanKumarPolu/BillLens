@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
@@ -206,30 +206,39 @@ const SettleUpScreen: React.FC<Props> = ({ navigation, route }) => {
     );
   }
 
-  const renderItem = ({ item }: { item: Payment }) => (
-    <View style={styles.paymentRow}>
-      <View>
-        <Text style={styles.paymentTitle}>
-          {item.from} → {item.to}
-        </Text>
-        <Text style={styles.paymentSubtitle}>Suggested to clear balances</Text>
-      </View>
-      <View style={styles.paymentRight}>
-        <Text style={styles.paymentAmount}>{formatMoney(item.amount)}</Text>
-        <TouchableOpacity
-          style={styles.upiButton}
-          onPress={() => handlePay(item)}
-        >
-          <Text style={styles.upiLabel}>
-            {item.from === 'You' ? 'Pay via UPI' : 'Mark as paid'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+
+  // Calculate balances for display
+  const balances = useMemo(() => {
+    if (!summary) return [];
+    return calculateGroupBalances(groupId);
+  }, [summary, groupId, calculateGroupBalances]);
+
+  // Calculate simplified summary
+  const summaryInfo = useMemo(() => {
+    if (!summary || !group) return null;
+    
+    const userBalance = balances.find(b => b.memberId === 'you')?.balance || 0;
+    const totalOwed = balances
+      .filter(b => b.balance < 0)
+      .reduce((sum, b) => sum + Math.abs(b.balance), 0);
+    const totalOwedToYou = balances
+      .filter(b => b.balance > 0 && b.memberId !== 'you')
+      .reduce((sum, b) => sum + b.balance, 0);
+    
+    return {
+      userBalance,
+      totalOwed,
+      totalOwedToYou,
+      totalTransactions: suggestedPayments.length,
+    };
+  }, [summary, group, balances, suggestedPayments.length]);
 
   return (
-    <View style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
@@ -237,33 +246,154 @@ const SettleUpScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.headerContent}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>Settle up</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-        {suggestedPayments.length > 0
-          ? 'Pay these to become all settled.'
-          : 'All balances are settled!'}
-      </Text>
+            {suggestedPayments.length > 0
+              ? 'Pay these to become all settled.'
+              : 'All balances are settled!'}
+          </Text>
         </View>
       </View>
 
-      {suggestedPayments.length > 0 ? (
-        <FlatList
-          data={suggestedPayments}
-          keyExtractor={p => p.id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-        />
-      ) : (
+      {/* Simplified Summary */}
+      {summaryInfo && (
+        <View style={[styles.summaryCard, { backgroundColor: colors.surfaceCard }]}>
+          <Text style={[styles.summaryTitle, { color: colors.textPrimary }]}>Summary</Text>
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Your balance</Text>
+            <Text style={[
+              styles.summaryValue,
+              { 
+                color: summaryInfo.userBalance > 0 
+                  ? colors.accent 
+                  : summaryInfo.userBalance < 0 
+                  ? colors.error 
+                  : colors.textPrimary 
+              }
+            ]}>
+              {summaryInfo.userBalance > 0 
+                ? `+${formatMoney(summaryInfo.userBalance)}`
+                : formatMoney(summaryInfo.userBalance)}
+            </Text>
+          </View>
+          {summaryInfo.totalOwedToYou > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Owed to you</Text>
+              <Text style={[styles.summaryValue, { color: colors.accent }]}>
+                {formatMoney(summaryInfo.totalOwedToYou)}
+              </Text>
+            </View>
+          )}
+          {summaryInfo.totalOwed > 0 && summaryInfo.userBalance < 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>You owe</Text>
+              <Text style={[styles.summaryValue, { color: colors.error }]}>
+                {formatMoney(Math.abs(summaryInfo.userBalance))}
+              </Text>
+            </View>
+          )}
+          {suggestedPayments.length > 0 && (
+            <View style={[styles.summaryDivider, { backgroundColor: colors.borderSubtle }]} />
+          )}
+          {suggestedPayments.length > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Payments needed</Text>
+              <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>
+                {summaryInfo.totalTransactions} {summaryInfo.totalTransactions === 1 ? 'payment' : 'payments'}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Who Owes Whom - Running Balances */}
+      {balances.length > 0 && (
+        <View style={styles.balancesSection}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Running Balances</Text>
+          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+            Current balance for each member
+          </Text>
+          {balances
+            .filter(b => Math.abs(b.balance) > 0.01)
+            .sort((a, b) => b.balance - a.balance)
+            .map(balance => {
+              const member = group?.members.find(m => m.id === balance.memberId);
+              const isOwed = balance.balance > 0;
+              const owes = balance.balance < 0;
+              
+              return (
+                <View key={balance.memberId} style={[styles.balanceRow, { backgroundColor: colors.surfaceCard }]}>
+                  <View style={styles.balanceLeft}>
+                    <Text style={[styles.balanceMemberName, { color: colors.textPrimary }]}>
+                      {member?.name || 'Unknown'}
+                    </Text>
+                    <Text style={[styles.balanceStatus, { color: colors.textSecondary }]}>
+                      {isOwed ? 'is owed' : owes ? 'owes' : 'settled'}
+                    </Text>
+                  </View>
+                  <Text style={[
+                    styles.balanceAmount,
+                    { 
+                      color: isOwed ? colors.accent : owes ? colors.error : colors.textSecondary 
+                    }
+                  ]}>
+                    {isOwed 
+                      ? `+${formatMoney(balance.balance)}`
+                      : formatMoney(balance.balance)}
+                  </Text>
+                </View>
+              );
+            })}
+        </View>
+      )}
+
+      {/* Who Owes Whom - Suggested Payments */}
+      {suggestedPayments.length > 0 && (
+        <View style={styles.paymentsSection}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Who Owes Whom</Text>
+          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+            Optimized payments to settle all balances
+          </Text>
+          {suggestedPayments.map(payment => (
+            <View key={payment.id} style={[styles.paymentRow, { backgroundColor: colors.surfaceCard }]}>
+              <View style={styles.paymentLeft}>
+                <Text style={[styles.paymentTitle, { color: colors.textPrimary }]}>
+                  {payment.from} → {payment.to}
+                </Text>
+                <Text style={[styles.paymentSubtitle, { color: colors.textSecondary }]}>
+                  Suggested to clear balances
+                </Text>
+              </View>
+              <View style={styles.paymentRight}>
+                <Text style={[styles.paymentAmount, { color: colors.textPrimary }]}>
+                  {formatMoney(payment.amount)}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.upiButton, { borderColor: colors.accent }]}
+                  onPress={() => handlePay(payment)}
+                >
+                  <Text style={[styles.upiLabel, { color: colors.accent }]}>
+                    {payment.from === 'You' ? 'Pay via UPI' : 'Mark as paid'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {suggestedPayments.length === 0 && (
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>🎉</Text>
-          <Text style={styles.emptyText}>All settled!</Text>
-          <Text style={styles.emptySubtext}>No pending payments</Text>
+          <Text style={[styles.emptyText, { color: colors.textPrimary }]}>All settled!</Text>
+          <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>No pending payments</Text>
         </View>
       )}
 
       {suggestedPayments.length > 0 && (
-        <Text style={styles.footerNote}>
-          Mark payments as completed to update balances in real-time.
-        </Text>
+        <View style={styles.footerNoteContainer}>
+          <Text style={[styles.footerNote, { color: colors.textSecondary }]}>
+            Mark payments as completed to update balances in real-time.
+          </Text>
+        </View>
       )}
 
       {/* UPI App Selection Modal */}
@@ -344,7 +474,7 @@ const SettleUpScreen: React.FC<Props> = ({ navigation, route }) => {
           />
         </ScrollView>
       </Modal>
-    </View>
+    </ScrollView>
   );
 };
 
@@ -352,8 +482,11 @@ const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surfaceLight,
+  },
+  content: {
     paddingHorizontal: 24,
     paddingTop: 56,
+    paddingBottom: 40,
   },
   header: {
     flexDirection: 'row',
@@ -387,20 +520,20 @@ const createStyles = (colors: any) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.surfaceCard,
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 16,
     marginBottom: 12,
   },
+  paymentLeft: {
+    flex: 1,
+  },
   paymentTitle: {
     ...typography.h4,
-    color: colors.textPrimary,
     marginBottom: recommendedSpacing.tight,
   },
   paymentSubtitle: {
     ...typography.bodySmall,
-    color: colors.textSecondary,
   },
   paymentRight: {
     alignItems: 'flex-end',
@@ -408,7 +541,6 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   paymentAmount: {
     ...typography.money,
-    color: colors.textPrimary,
     marginBottom: recommendedSpacing.default,
   },
   upiButton: {
@@ -422,18 +554,18 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   upiLabel: {
     ...typography.buttonSmall,
-    color: colors.accent,
+  },
+  footerNoteContainer: {
+    marginTop: recommendedSpacing.loose,
+    marginBottom: recommendedSpacing.default,
+    paddingHorizontal: 24,
   },
   footerNote: {
     ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: recommendedSpacing.loose,
-    marginBottom: recommendedSpacing.default,
     textAlign: 'center',
   },
   errorText: {
     ...typography.bodyLarge,
-    color: colors.error,
     textAlign: 'center',
     marginTop: 100,
   },
@@ -450,13 +582,11 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   emptyText: {
     ...typography.h3,
-    color: colors.textPrimary,
     marginBottom: recommendedSpacing.default,
     textAlign: 'center',
   },
   emptySubtext: {
     ...typography.body,
-    color: colors.textSecondary,
     textAlign: 'center',
   },
   modalButtonsContainer: {
@@ -489,6 +619,70 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   modalButton: {
     marginBottom: 12,
+  },
+  summaryCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+  },
+  summaryTitle: {
+    ...typography.h4,
+    marginBottom: 16,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  summaryLabel: {
+    ...typography.body,
+  },
+  summaryValue: {
+    ...typography.h4,
+    ...typography.emphasis.semibold,
+  },
+  summaryDivider: {
+    height: 1,
+    marginVertical: 12,
+  },
+  balancesSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    ...typography.h4,
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    ...typography.bodySmall,
+    marginBottom: 16,
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  balanceLeft: {
+    flex: 1,
+  },
+  balanceMemberName: {
+    ...typography.body,
+    ...typography.emphasis.medium,
+    marginBottom: 2,
+  },
+  balanceStatus: {
+    ...typography.bodySmall,
+  },
+  balanceAmount: {
+    ...typography.money,
+    ...typography.emphasis.semibold,
+  },
+  paymentsSection: {
+    marginBottom: 24,
   },
 });
 

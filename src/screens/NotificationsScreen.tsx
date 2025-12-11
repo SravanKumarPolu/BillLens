@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Pressable } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
@@ -11,6 +11,7 @@ import {
   type Notification,
   type NotificationSettings,
 } from '../utils/notificationService';
+import { loadNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification } from '../utils/notificationManager';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Notifications'>;
 
@@ -23,44 +24,84 @@ const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
   const groupSummaries = getAllGroupSummaries() || [];
 
   useEffect(() => {
-    // Get all notifications for all groups
-    const allNotifications: Notification[] = [];
+    const loadAllNotifications = async () => {
+      // Load stored notifications (real-time events)
+      const storedNotifications = await loadNotifications();
+      
+      // Get reminder notifications for all groups
+      const reminderNotifications: Notification[] = [];
 
-    groupSummaries.forEach(summary => {
-      const group = getGroup(summary.group.id);
-      if (!group) return;
+      groupSummaries.forEach(summary => {
+        const group = getGroup(summary.group.id);
+        if (!group) return;
 
-      const groupNotifications = getPendingNotifications(
-        summary.group.id,
-        group,
-        summary.expenses,
-        summary.balances,
-        undefined, // lastSettlementDate - could be tracked
-        {
-          settleReminders: true,
-          rentReminders: true,
-          expenseNotifications: false, // Don't show historical expense notifications
-          imbalanceAlerts: true,
-          monthEndReports: true,
-          upiReminders: true,
-          priorityReminders: true,
-          reminderFrequency: 'weekly',
-        }
+        const groupReminders = getPendingNotifications(
+          summary.group.id,
+          group,
+          summary.expenses,
+          summary.balances,
+          undefined, // lastSettlementDate - could be tracked
+          {
+            settleReminders: true,
+            rentReminders: true,
+            expenseNotifications: false, // Don't show historical expense notifications
+            expenseEditNotifications: false,
+            expenseDeleteNotifications: false,
+            commentNotifications: false,
+            settlementNotifications: false,
+            recurringExpenseNotifications: false,
+            imbalanceAlerts: true,
+            monthEndReports: true,
+            upiReminders: true,
+            priorityReminders: true,
+            reminderFrequency: 'weekly',
+          }
+        );
+
+        reminderNotifications.push(...groupReminders);
+      });
+
+      // Combine stored notifications (real-time events) with reminders
+      // Sort by creation date, most recent first
+      const allNotifications = [...storedNotifications, ...reminderNotifications].sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
-      allNotifications.push(...groupNotifications);
-    });
+      setNotifications(allNotifications);
+    };
 
-    setNotifications(allNotifications);
+    loadAllNotifications();
+    
+    // Refresh notifications every 5 seconds to catch new ones
+    const interval = setInterval(loadAllNotifications, 5000);
+    return () => clearInterval(interval);
   }, [groupSummaries, getGroup]);
 
-  const handleNotificationPress = (notification: Notification) => {
+  const handleNotificationPress = async (notification: Notification) => {
+    // Mark as read
+    if (!notification.read) {
+      await markNotificationAsRead(notification.id);
+      setNotifications(prev => 
+        prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
+      );
+    }
+    
     if (notification.actionable && notification.actionData) {
       const { action, screen, params } = notification.actionData;
       if (action === 'navigate' && screen) {
         navigation.navigate(screen as any, params);
       }
     }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    await markAllNotificationsAsRead();
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const handleDeleteNotification = async (notificationId: string) => {
+    await deleteNotification(notificationId);
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
   };
 
   const getSeverityColor = (severity: Notification['severity']) => {
@@ -84,10 +125,24 @@ const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
         return '🏠';
       case 'expense_added':
         return '📝';
+      case 'expense_edited':
+        return '✏️';
+      case 'expense_deleted':
+        return '🗑️';
+      case 'comment_added':
+        return '💬';
+      case 'settlement_added':
+        return '✅';
+      case 'recurring_expense_added':
+        return '🔄';
       case 'imbalance_alert':
         return '⚠️';
       case 'month_end':
         return '📊';
+      case 'upi_reminder':
+        return '💳';
+      case 'priority_bill':
+        return '⭐';
       default:
         return '🔔';
     }
@@ -100,7 +155,11 @@ const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.textPrimary }]}>Notifications</Text>
-        <View style={styles.placeholder} />
+        {notifications.length > 0 && (
+          <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.markAllButton}>
+            <Text style={[styles.markAllText, { color: colors.primary }]}>Mark all read</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView
@@ -120,31 +179,60 @@ const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         ) : (
           notifications.map((notification, index) => (
-            <Card
+            <TouchableOpacity
               key={notification.id}
-              style={[
-                styles.notificationCard,
-                { borderLeftColor: getSeverityColor(notification.severity) },
-              ]}
               onPress={() => handleNotificationPress(notification)}
+              onLongPress={() => {
+                Alert.alert(
+                  'Delete Notification',
+                  'Are you sure you want to delete this notification?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Delete',
+                      style: 'destructive',
+                      onPress: () => handleDeleteNotification(notification.id),
+                    },
+                  ]
+                );
+              }}
             >
+              <Card
+                style={[
+                  styles.notificationCard,
+                  { 
+                    borderLeftColor: getSeverityColor(notification.severity),
+                    opacity: notification.read ? 0.7 : 1,
+                  },
+                ]}
+              >
               <View style={styles.notificationHeader}>
                 <Text style={styles.notificationIcon}>
                   {getTypeIcon(notification.type)}
                 </Text>
                 <View style={styles.notificationContent}>
-                  <Text style={[styles.notificationTitle, { color: colors.textPrimary }]}>
-                    {notification.title}
-                  </Text>
+                  <View style={styles.notificationTitleRow}>
+                    <Text style={[
+                      styles.notificationTitle, 
+                      { color: colors.textPrimary },
+                      !notification.read && styles.notificationTitleUnread
+                    ]}>
+                      {notification.title}
+                    </Text>
+                    {!notification.read && (
+                      <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />
+                    )}
+                  </View>
                   <Text style={[styles.notificationMessage, { color: colors.textSecondary }]}>
                     {notification.message}
                   </Text>
                   <Text style={[styles.notificationTime, { color: colors.textSecondary }]}>
-                    {new Date(notification.createdAt).toLocaleDateString()}
+                    {formatRelativeTime(notification.createdAt)}
                   </Text>
                 </View>
               </View>
-            </Card>
+              </Card>
+            </TouchableOpacity>
           ))
         )}
       </ScrollView>
@@ -231,6 +319,44 @@ const createStyles = (colors: any) => StyleSheet.create({
     ...typography.body,
     textAlign: 'center',
   },
+  markAllButton: {
+    minWidth: 80,
+    paddingVertical: 4,
+  },
+  markAllText: {
+    ...typography.bodySmall,
+    ...typography.emphasis.medium,
+  },
+  notificationTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  notificationTitleUnread: {
+    ...typography.emphasis.semibold,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
 });
+
+const formatRelativeTime = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+};
 
 export default NotificationsScreen;

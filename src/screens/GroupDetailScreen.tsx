@@ -9,6 +9,26 @@ import { formatMoney } from '../utils/formatMoney';
 import { Button, InsightsCard, BalanceBreakdown, FairnessMeter } from '../components';
 import { calculateFairnessScore, calculateReliabilityMeter } from '../utils/fairnessScore';
 
+// Helper function to get display label for group type
+const getGroupTypeLabel = (type?: string): string => {
+  switch (type) {
+    case 'house':
+      return 'House / Flatmates';
+    case 'trip':
+      return 'Trip';
+    case 'event':
+      return 'Event';
+    case 'office':
+      return 'Office';
+    case 'friend':
+      return 'Friend';
+    case 'custom':
+      return 'Custom';
+    default:
+      return '';
+  }
+};
+
 type Props = NativeStackScreenProps<RootStackParamList, 'GroupDetail'>;
 
 const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
@@ -80,7 +100,7 @@ const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            deleteExpense(expenseId);
+            deleteExpense(expenseId, 'you');
             setSelectedExpenseId(null);
           },
         },
@@ -129,7 +149,16 @@ const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           <View style={styles.headerTop}>
             <Text style={styles.groupEmoji}>{group.emoji}</Text>
             <View style={styles.headerTextWrapper}>
-              <Text style={styles.groupName}>{group.name}</Text>
+              <View style={styles.groupNameRow}>
+                <Text style={styles.groupName}>{group.name}</Text>
+                {group.type && (
+                  <View style={[styles.groupTypeBadge, { backgroundColor: colors.surfaceCard }]}>
+                    <Text style={[styles.groupTypeText, { color: colors.textSecondary }]}>
+                      {getGroupTypeLabel(group.type)}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.balanceSummary}>{summary.summaryText}</Text>
             </View>
           </View>
@@ -300,6 +329,13 @@ const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           fullWidth={false}
           style={styles.actionButton}
         />
+        <Button
+          title="Activity Feed →"
+          onPress={() => navigation.navigate('ActivityFeed', { groupId })}
+          variant="ghost"
+          fullWidth={false}
+          style={styles.actionButton}
+        />
       </View>
 
       {summary.settlements && summary.settlements.length > 0 && (
@@ -354,11 +390,19 @@ const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           renderItem={({ item }) => (
             <Pressable
               style={styles.expenseCard}
+              onPress={() => navigation.navigate('ExpenseDetail', { expenseId: item.id, groupId })}
               onLongPress={() => setSelectedExpenseId(item.id)}
             >
               <View style={styles.expenseLeft}>
                 <Text style={styles.expenseTitle}>{item.title}</Text>
                 <Text style={styles.expenseSubtitle}>{item.subtitle}</Text>
+                {item.expense?.comments && item.expense.comments.length > 0 && (
+                  <View style={styles.commentBadge}>
+                    <Text style={[styles.commentBadgeText, { color: colors.primary }]}>
+                      💬 {item.expense.comments.length} {item.expense.comments.length === 1 ? 'comment' : 'comments'}
+                    </Text>
+                  </View>
+                )}
               </View>
               <View style={styles.expenseRight}>
                 <Text style={styles.expenseAmount}>{item.amount}</Text>
@@ -509,6 +553,13 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   expenseSubtitle: {
     ...typography.bodySmall,
+  },
+  commentBadge: {
+    marginTop: 4,
+  },
+  commentBadgeText: {
+    ...typography.caption,
+    ...typography.emphasis.medium,
   },
   expenseAmount: {
     ...typography.money,
@@ -671,6 +722,20 @@ const createStyles = (colors: any) => StyleSheet.create({
   quickAccessArrow: {
     ...typography.bodyLarge,
     marginLeft: 8,
+  },
+  groupNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  groupTypeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  groupTypeText: {
+    ...typography.caption,
+    ...typography.emphasis.medium,
   },
 });
 

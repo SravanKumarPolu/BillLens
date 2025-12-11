@@ -4,7 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Group, Expense, Settlement, OcrHistory, GroupCollection, CategoryBudget, RecurringExpense } from '../types/models';
+import { Group, Expense, Settlement, OcrHistory, GroupCollection, CategoryBudget, RecurringExpense, DeletedExpense, GroupActivity } from '../types/models';
 import { TemplateLastAmount } from '../context/GroupsContext';
 
 const STORAGE_KEYS = {
@@ -16,6 +16,11 @@ const STORAGE_KEYS = {
   COLLECTIONS: '@billlens:collections',
   BUDGETS: '@billlens:budgets',
   RECURRING_EXPENSES: '@billlens:recurringExpenses',
+  DELETED_EXPENSES: '@billlens:deletedExpenses',
+  GROUP_ACTIVITIES: '@billlens:groupActivities',
+  CUSTOM_CATEGORIES: '@billlens:customCategories',
+  PENDING_SYNC_CHANGES: '@billlens:pendingSyncChanges',
+  NOTIFICATIONS: '@billlens:notifications',
   BACKUP: '@billlens:backup',
 };
 
@@ -28,6 +33,9 @@ export interface AppData {
   collections?: GroupCollection[];
   budgets?: CategoryBudget[];
   recurringExpenses?: RecurringExpense[];
+  deletedExpenses?: DeletedExpense[];
+  groupActivities?: GroupActivity[];
+  customCategories?: any; // Custom categories for sync
 }
 
 /**
@@ -44,6 +52,10 @@ export const saveAppData = async (data: AppData): Promise<void> => {
       AsyncStorage.setItem(STORAGE_KEYS.COLLECTIONS, JSON.stringify(data.collections || [])),
       AsyncStorage.setItem(STORAGE_KEYS.BUDGETS, JSON.stringify(data.budgets || [])),
       AsyncStorage.setItem(STORAGE_KEYS.RECURRING_EXPENSES, JSON.stringify(data.recurringExpenses || [])),
+      AsyncStorage.setItem(STORAGE_KEYS.DELETED_EXPENSES, JSON.stringify(data.deletedExpenses || [])),
+      AsyncStorage.setItem(STORAGE_KEYS.GROUP_ACTIVITIES, JSON.stringify(data.groupActivities || [])),
+      // Custom categories are stored separately in categoryService, but we include them in sync data
+      AsyncStorage.setItem(STORAGE_KEYS.CUSTOM_CATEGORIES, JSON.stringify(data.customCategories || [])),
     ]);
   } catch (error) {
     console.error('Error saving app data:', error);
@@ -56,7 +68,7 @@ export const saveAppData = async (data: AppData): Promise<void> => {
  */
 export const loadAppData = async (): Promise<AppData | null> => {
   try {
-    const [groupsStr, expensesStr, settlementsStr, templateAmountsStr, ocrHistoryStr, collectionsStr, budgetsStr, recurringExpensesStr] = await Promise.all([
+    const [groupsStr, expensesStr, settlementsStr, templateAmountsStr, ocrHistoryStr, collectionsStr, budgetsStr, recurringExpensesStr, deletedExpensesStr, groupActivitiesStr] = await Promise.all([
       AsyncStorage.getItem(STORAGE_KEYS.GROUPS),
       AsyncStorage.getItem(STORAGE_KEYS.EXPENSES),
       AsyncStorage.getItem(STORAGE_KEYS.SETTLEMENTS),
@@ -65,6 +77,9 @@ export const loadAppData = async (): Promise<AppData | null> => {
       AsyncStorage.getItem(STORAGE_KEYS.COLLECTIONS),
       AsyncStorage.getItem(STORAGE_KEYS.BUDGETS),
       AsyncStorage.getItem(STORAGE_KEYS.RECURRING_EXPENSES),
+      AsyncStorage.getItem(STORAGE_KEYS.DELETED_EXPENSES),
+      AsyncStorage.getItem(STORAGE_KEYS.GROUP_ACTIVITIES),
+      AsyncStorage.getItem(STORAGE_KEYS.CUSTOM_CATEGORIES),
     ]);
 
     if (!groupsStr) {
@@ -80,6 +95,9 @@ export const loadAppData = async (): Promise<AppData | null> => {
       collections: collectionsStr ? JSON.parse(collectionsStr) : [],
       budgets: budgetsStr ? JSON.parse(budgetsStr) : [],
       recurringExpenses: recurringExpensesStr ? JSON.parse(recurringExpensesStr) : [],
+      deletedExpenses: deletedExpensesStr ? JSON.parse(deletedExpensesStr) : [],
+      groupActivities: groupActivitiesStr ? JSON.parse(groupActivitiesStr) : [],
+      customCategories: undefined, // Custom categories are managed by categoryService
     };
   } catch (error) {
     console.error('Error loading app data:', error);
@@ -134,6 +152,9 @@ export const restoreBackup = async (backupString: string): Promise<void> => {
       collections: backup.collections || [],
       budgets: backup.budgets || [],
       recurringExpenses: backup.recurringExpenses || [],
+      deletedExpenses: backup.deletedExpenses || [],
+      groupActivities: backup.groupActivities || [],
+      customCategories: backup.customCategories || [],
     };
 
     await saveAppData(data);

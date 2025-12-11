@@ -113,36 +113,49 @@ const LedgerScreen: React.FC<Props> = ({ navigation, route }) => {
     const paidByName = getPaidByName(item);
     const memberNames = getMemberNames(item);
     const isYouPaid = item.paidBy === 'you';
+    const commentCount = item.comments?.length || 0;
 
     return (
-      <Card style={styles.expenseCard}>
-        <View style={styles.expenseHeader}>
-          {item.imageUri ? (
-            <Image source={{ uri: item.imageUri }} style={styles.expenseImage} />
-          ) : (
-            <View style={[styles.expenseImagePlaceholder, { backgroundColor: colors.borderSubtle }]}>
-              <Text style={styles.imagePlaceholderText}>📷</Text>
+      <TouchableOpacity
+        onPress={() => navigation.navigate('ExpenseDetail', { expenseId: item.id, groupId })}
+        activeOpacity={0.7}
+      >
+        <Card style={styles.expenseCard}>
+          <View style={styles.expenseHeader}>
+            {item.imageUri ? (
+              <Image source={{ uri: item.imageUri }} style={styles.expenseImage} />
+            ) : (
+              <View style={[styles.expenseImagePlaceholder, { backgroundColor: colors.borderSubtle }]}>
+                <Text style={styles.imagePlaceholderText}>📷</Text>
+              </View>
+            )}
+            <View style={styles.expenseInfo}>
+              <Text style={[styles.expenseMerchant, { color: colors.textPrimary }]}>
+                {item.merchant || item.title || 'Expense'}
+              </Text>
+              <Text style={[styles.expenseDate, { color: colors.textSecondary }]}>
+                {formatDate(item.date)}
+              </Text>
+              {commentCount > 0 && (
+                <View style={styles.commentBadge}>
+                  <Text style={[styles.commentBadgeText, { color: colors.primary }]}>
+                    💬 {commentCount} {commentCount === 1 ? 'comment' : 'comments'}
+                  </Text>
+                </View>
+              )}
             </View>
-          )}
-          <View style={styles.expenseInfo}>
-            <Text style={[styles.expenseMerchant, { color: colors.textPrimary }]}>
-              {item.merchant || item.title || 'Expense'}
-            </Text>
-            <Text style={[styles.expenseDate, { color: colors.textSecondary }]}>
-              {formatDate(item.date)}
+            <Text style={[styles.expenseAmount, { color: colors.textPrimary }]}>
+              {formatMoney(item.amount)}
             </Text>
           </View>
-          <Text style={[styles.expenseAmount, { color: colors.textPrimary }]}>
-            {formatMoney(item.amount)}
-          </Text>
-        </View>
 
-        <View style={[styles.expenseDetails, { borderTopColor: colors.borderSubtle }]}>
-          <Text style={[styles.expenseDetailText, { color: colors.textSecondary }]}>
-            {isYouPaid ? 'You' : paidByName} paid this, split with {memberNames}
-          </Text>
-        </View>
-      </Card>
+          <View style={[styles.expenseDetails, { borderTopColor: colors.borderSubtle }]}>
+            <Text style={[styles.expenseDetailText, { color: colors.textSecondary }]}>
+              {isYouPaid ? 'You' : paidByName} paid this, split with {memberNames}
+            </Text>
+          </View>
+        </Card>
+      </TouchableOpacity>
     );
   };
 
@@ -350,6 +363,13 @@ const styles = StyleSheet.create({
   },
   expenseDetailText: {
     ...typography.bodySmall,
+  },
+  commentBadge: {
+    marginTop: 4,
+  },
+  commentBadgeText: {
+    ...typography.caption,
+    ...typography.emphasis.medium,
   },
   emptyState: {
     flex: 1,

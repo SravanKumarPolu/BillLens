@@ -30,6 +30,24 @@ export interface ExpenseSplit {
   amount: number; // Amount this member owes for this expense
 }
 
+export interface ExpenseComment {
+  id: string;
+  memberId: string; // Member who posted the comment
+  text: string;
+  createdAt: string; // ISO date string
+  updatedAt?: string; // ISO date string
+}
+
+export interface Receipt {
+  id: string;
+  uri: string; // Local file URI or cloud URL
+  cloudUrl?: string; // Cloud storage URL (for Pro users)
+  uploadedAt?: string; // ISO date string - when uploaded to cloud
+  size?: number; // File size in bytes
+  mimeType?: string; // e.g., 'image/jpeg', 'image/png'
+  isCloudStored?: boolean; // Whether stored in cloud
+}
+
 export interface Expense {
   id: string;
   groupId: string; // 'personal' for personal expenses
@@ -43,7 +61,8 @@ export interface Expense {
   splits: ExpenseSplit[]; // How the expense is split
   extraItems?: ExtraItem[]; // Extra items or special case adjustments
   date: string; // ISO date string
-  imageUri?: string;
+  imageUri?: string; // DEPRECATED: Use receipts array instead. Kept for backward compatibility
+  receipts?: Receipt[]; // Multiple receipts per expense
   collectionId?: string; // Optional: ID of collection this expense belongs to
   // History tracking
   createdAt?: string; // When expense was created
@@ -52,6 +71,8 @@ export interface Expense {
   isPersonal?: boolean; // Flag to mark personal expenses
   isPriority?: boolean; // Priority bill flag for important expenses
   paymentMode?: 'cash' | 'upi' | 'bank_transfer' | 'card' | 'other'; // Payment method used
+  isReimbursement?: boolean; // Reimbursement toggle - marks expense as reimbursable
+  comments?: ExpenseComment[]; // Chat-like comments on the expense
 }
 
 export interface ExpenseEdit {
@@ -64,6 +85,36 @@ export interface ExpenseEdit {
     oldValue: any;
     newValue: any;
   }[];
+}
+
+export interface DeletedExpense {
+  id: string;
+  expenseId: string;
+  groupId: string;
+  deletedAt: string; // ISO date string
+  deletedBy?: string; // Member ID who deleted
+  expenseData: {
+    title?: string;
+    merchant?: string;
+    amount: number;
+    category: string;
+    paidBy: string;
+  }; // Store basic info for activity feed
+}
+
+export interface GroupActivity {
+  id: string;
+  groupId: string;
+  type: 'member_added' | 'member_removed' | 'member_updated' | 'group_updated';
+  timestamp: string; // ISO date string
+  performedBy?: string; // Member ID who made the change
+  details: {
+    memberId?: string;
+    memberName?: string;
+    field?: string;
+    oldValue?: any;
+    newValue?: any;
+  };
 }
 
 export interface Settlement {
@@ -92,6 +143,7 @@ export interface Group {
   createdAt: string; // ISO date string
   adminId?: string; // Admin member ID (can manage group, settle on behalf)
   customCategories?: string[]; // Custom categories for this group
+  type?: 'house' | 'trip' | 'event' | 'office' | 'custom' | 'friend'; // Group type: house/flatmates, trips, events, office, custom, or 1-to-1 friend
 }
 
 export interface GroupBalance {

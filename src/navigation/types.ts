@@ -4,7 +4,7 @@ export type RootStackParamList = {
   DefaultGroupSetup: undefined;
   Home: undefined;
   Login: undefined;
-  CreateGroup: { suggestedName?: string; suggestedEmoji?: string } | undefined;
+  CreateGroup: { suggestedName?: string; suggestedEmoji?: string; suggestedType?: 'house' | 'trip' | 'event' | 'office' | 'custom' | 'friend' } | undefined;
   CaptureOptions: { groupId?: string } | undefined;
   OcrProcessing: { imageUri: string; groupId?: string };
   ReviewBill: { 
@@ -53,4 +53,8 @@ export type RootStackParamList = {
   Collections: { groupId: string };
   CollectionDetail: { collectionId: string; groupId: string };
   BudgetManagement: { groupId?: string };
+  ActivityFeed: { groupId: string };
+  RecurringExpensesReport: { groupId: string };
+  ExpenseDetail: { expenseId: string; groupId?: string };
+  PersonalSpending: undefined;
 };

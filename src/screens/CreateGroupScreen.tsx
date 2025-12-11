@@ -12,9 +12,28 @@ type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 const CreateGroupScreen: React.FC<Props> = ({ navigation, route }) => {
   const { addGroup } = useGroups();
   const { colors } = useTheme();
-  const { suggestedName, suggestedEmoji } = route.params || {};
+  const { suggestedName, suggestedEmoji, suggestedType } = route.params || {};
+  
+  // Set default emoji based on type
+  const getDefaultEmoji = (type?: string) => {
+    switch (type) {
+      case 'friend':
+        return '👫';
+      case 'trip':
+        return '✈️';
+      case 'event':
+        return '🎉';
+      case 'office':
+        return '💼';
+      case 'house':
+        return '🏠';
+      default:
+        return suggestedEmoji || '🏠';
+    }
+  };
+  
   const [name, setName] = useState(suggestedName || '');
-  const [emoji, setEmoji] = useState(suggestedEmoji || '🏠');
+  const [emoji, setEmoji] = useState(getDefaultEmoji(suggestedType));
 
   const handleCreate = () => {
     if (!name.trim()) {
@@ -23,6 +42,7 @@ const CreateGroupScreen: React.FC<Props> = ({ navigation, route }) => {
     }
 
     // Add default members (You + one other)
+    // For friends, ensure only 2 members (1-to-1)
     const defaultMembers = [
       { id: 'you', name: 'You' },
       { id: 'priya', name: 'Priya' },
@@ -33,6 +53,7 @@ const CreateGroupScreen: React.FC<Props> = ({ navigation, route }) => {
       emoji,
       members: defaultMembers,
       currency: 'INR',
+      type: suggestedType || 'custom',
     });
 
     navigation.navigate('Home');
@@ -45,8 +66,14 @@ const CreateGroupScreen: React.FC<Props> = ({ navigation, route }) => {
           <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>New group</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Give your group a name and an emoji.</Text>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>
+            {suggestedType === 'friend' ? 'Add friend' : 'New group'}
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            {suggestedType === 'friend' 
+              ? 'Track expenses with a single person. Give your friend a name.'
+              : 'Give your group a name and an emoji.'}
+          </Text>
         </View>
       </View>
 
@@ -56,14 +83,14 @@ const CreateGroupScreen: React.FC<Props> = ({ navigation, route }) => {
       </View>
 
       <Input
-        placeholder="e.g. Our Home, Goa Trip, Us Two"
+        placeholder={suggestedType === 'friend' ? "e.g. Priya, Arjun, John" : "e.g. Our Home, Goa Trip, Us Two"}
         value={name}
         onChangeText={setName}
         containerStyle={styles.inputContainer}
       />
 
       <Button
-        title="Create group"
+        title={suggestedType === 'friend' ? "Add friend" : "Create group"}
         onPress={handleCreate}
         variant="primary"
       />

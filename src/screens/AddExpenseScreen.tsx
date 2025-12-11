@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, TextInput, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, TextInput, Image, ScrollView, Platform } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
+import { useAuth } from '../context/AuthContext';
+import { networkService } from '../utils/networkService';
 import { Input, Button, SplitRatioInput, Modal } from '../components';
 import { createEqualSplits, normalizeSplits, verifySplitsSum } from '../utils/mathUtils';
-import { ExpensePayer, ExtraItem } from '../types/models';
+import { ExpensePayer, ExtraItem, Receipt } from '../types/models';
 import { SUPPORTED_CURRENCIES, formatCurrency } from '../utils/currencyService';
 import { formatMoney } from '../utils/formatMoney';
 import { learnSplitPatterns, getSuggestedSplitPattern, suggestAmount, suggestCategory, learnCategoryPatterns } from '../utils/patternLearningService';
@@ -17,8 +19,30 @@ type Props = NativeStackScreenProps<RootStackParamList, 'AddExpense'>;
 
 const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
   const { imageUri, groupId, parsedAmount, parsedMerchant, parsedDate, expenseId } = route.params || {};
+  
+  // Initialize receipts from imageUri if provided (for new expenses)
+  useEffect(() => {
+    if (imageUri && !expenseId && receipts.length === 0) {
+      setReceipts([{
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+        uri: imageUri,
+        mimeType: 'image/jpeg',
+        isCloudStored: false,
+      }]);
+    }
+  }, [imageUri, expenseId]);
   const { getExpense, updateExpense, getGroup, addExpense, getExpensesForGroup } = useGroups();
   const { colors } = useTheme();
+  const { syncStatus } = useAuth();
+  const [isOnline, setIsOnline] = React.useState(true);
+  
+  // Monitor network status
+  React.useEffect(() => {
+    const unsubscribe = networkService.subscribe((state) => {
+      setIsOnline(state.isConnected && state.isInternetReachable);
+    });
+    return unsubscribe;
+  }, []);
   
   // Bill details state
   const [merchant, setMerchant] = useState(parsedMerchant || '');
@@ -39,9 +63,11 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
   const [category, setCategory] = useState<string>(getCategoryFromMerchant(merchant));
 
   // Split configuration state
-  const [mode, setMode] = useState<'equal' | 'custom'>('equal');
+  const [mode, setMode] = useState<'equal' | 'custom' | 'percentage' | 'shares'>('equal');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [customAmounts, setCustomAmounts] = useState<Record<string, number>>({});
+  const [percentageAmounts, setPercentageAmounts] = useState<Record<string, number>>({}); // Percentage values (0-100)
+  const [shareAmounts, setShareAmounts] = useState<Record<string, number>>({}); // Share counts (e.g., 3, 1, 2)
   const [paidBy, setPaidBy] = useState<string>('you');
   
   // Multiple payers state
@@ -65,6 +91,27 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
   const [isPriority, setIsPriority] = useState<boolean>(false);
   const [paymentMode, setPaymentMode] = useState<'cash' | 'upi' | 'bank_transfer' | 'card' | 'other' | undefined>(undefined);
   const [categories, setCategories] = useState<string[]>(['Food', 'Groceries', 'Utilities', 'Rent', 'WiFi', 'Maid', 'OTT', 'Other']);
+  
+  // Date state
+  const [expenseDate, setExpenseDate] = useState<Date>(() => {
+    // Parse date from route params or use current date
+    if (parsedDate) {
+      const parsed = new Date(parsedDate);
+      return isNaN(parsed.getTime()) ? new Date() : parsed;
+    }
+    return new Date();
+  });
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  
+  // Reimbursement state
+  const [isReimbursement, setIsReimbursement] = useState<boolean>(false);
+  
+  // Comments state
+  const [comments, setComments] = useState<Array<{ id: string; memberId: string; text: string; createdAt: string }>>([]);
+  const [newComment, setNewComment] = useState<string>('');
+  
+  // Receipts state - support multiple receipts per expense
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
 
   const styles = createStyles(colors);
 
@@ -149,17 +196,48 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
         setIsPriority(expense.isPriority || false);
         setPaymentMode(expense.paymentMode);
         
+        // Load date
+        if (expense.date) {
+          const parsedDate = new Date(expense.date);
+          if (!isNaN(parsedDate.getTime())) {
+            setExpenseDate(parsedDate);
+          }
+        }
+        
+        // Load reimbursement
+        setIsReimbursement(expense.isReimbursement || false);
+        
+        // Load receipts (prefer receipts array, fallback to imageUri for backward compatibility)
+        if (expense.receipts && expense.receipts.length > 0) {
+          setReceipts(expense.receipts);
+        } else if (expense.imageUri) {
+          // For backward compatibility, convert single imageUri to receipts array
+          setReceipts([{
+            id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+            uri: expense.imageUri,
+            mimeType: 'image/jpeg',
+            isCloudStored: false,
+          }]);
+        }
+        
+        // Load comments
+        if (expense.comments && expense.comments.length > 0) {
+          setComments(expense.comments);
+        }
+        
         // Load split configuration
         if (expense.splits && expense.splits.length > 0) {
           const splitAmounts = expense.splits.map(s => s.amount);
           const isEqual = splitAmounts.every(amt => Math.abs(amt - splitAmounts[0]) < 0.01);
           
+          setSelectedIds(expense.splits.map(s => s.memberId));
+          
           if (isEqual) {
             setMode('equal');
-            setSelectedIds(expense.splits.map(s => s.memberId));
           } else {
+            // Try to detect if it's percentage or shares based
+            // For now, default to custom - we can enhance this later
             setMode('custom');
-            setSelectedIds(expense.splits.map(s => s.memberId));
             const custom: Record<string, number> = {};
             expense.splits.forEach(s => {
               custom[s.memberId] = s.amount;
@@ -190,8 +268,24 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
   const totalAmount = parseFloat(amount) || 0;
 
   if (!group) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
+  return (
+    <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
+      {/* Offline Indicator */}
+      {!isOnline && (
+        <View style={[styles.offlineIndicator, { backgroundColor: colors.warning + '20' }]}>
+          <Text style={[styles.offlineText, { color: colors.warning }]}>
+            📴 Offline - Changes will sync when you're back online
+          </Text>
+        </View>
+      )}
+      {/* Pending Sync Indicator */}
+      {isOnline && syncStatus.pendingChanges > 0 && (
+        <View style={[styles.offlineIndicator, { backgroundColor: colors.accent + '20' }]}>
+          <Text style={[styles.offlineText, { color: colors.accent }]}>
+            ⏳ {syncStatus.pendingChanges} change{syncStatus.pendingChanges > 1 ? 's' : ''} pending sync
+          </Text>
+        </View>
+      )}
         <Text style={[styles.errorText, { color: colors.error }]}>Group not found</Text>
       </View>
     );
@@ -287,8 +381,58 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
     let splits: Array<{ memberId: string; amount: number }> = [];
     
     if (mode === 'equal') {
-      // Use math utils to ensure exact total
+      // Equal split: divide total equally among selected members
       splits = createEqualSplits(amountNum, selectedIds);
+    } else if (mode === 'percentage') {
+      // Percentage-based split: calculate amounts from percentages
+      const totalPercentage = selectedIds.reduce((sum, id) => sum + (percentageAmounts[id] || 0), 0);
+      
+      if (Math.abs(totalPercentage - 100) > 0.01) {
+        Alert.alert(
+          'Percentage Mismatch',
+          `Percentages total ${totalPercentage.toFixed(1)}% but should equal 100%.\n\nWould you like to adjust automatically?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Adjust Automatically',
+              onPress: () => {
+                // Normalize percentages to sum to 100
+                const normalized: Record<string, number> = {};
+                selectedIds.forEach(id => {
+                  normalized[id] = totalPercentage > 0 
+                    ? (percentageAmounts[id] || 0) * (100 / totalPercentage)
+                    : 100 / selectedIds.length;
+                });
+                setPercentageAmounts(normalized);
+                setTimeout(() => handleSave(), 100);
+              },
+            },
+          ]
+        );
+        return;
+      }
+      
+      // Calculate amounts from percentages
+      const percentageSplits = selectedIds.map(memberId => ({
+        memberId,
+        amount: (amountNum * (percentageAmounts[memberId] || 0)) / 100,
+      }));
+      splits = normalizeSplits(percentageSplits, amountNum);
+    } else if (mode === 'shares') {
+      // Shares-based split: divide total proportionally based on share counts
+      const totalShares = selectedIds.reduce((sum, id) => sum + (shareAmounts[id] || 0), 0);
+      
+      if (totalShares <= 0) {
+        Alert.alert('Error', 'Please assign at least one share');
+        return;
+      }
+      
+      // Calculate amounts based on shares
+      const shareSplits = selectedIds.map(memberId => ({
+        memberId,
+        amount: (amountNum * (shareAmounts[memberId] || 0)) / totalShares,
+      }));
+      splits = normalizeSplits(shareSplits, amountNum);
     } else {
       // Custom mode - validate that amounts match total
       const totalCustom = selectedIds.reduce((sum, id) => sum + (customAmounts[id] || 0), 0);
@@ -363,13 +507,28 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
         amount: amountNum,
         currency,
         category: category || existingExpense.category,
-        imageUri: imageUri || existingExpense.imageUri,
+        // Support both receipts array and imageUri for backward compatibility
+        receipts: receipts.length > 0 ? receipts : (imageUri ? [{
+          id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+          uri: imageUri,
+          mimeType: 'image/jpeg',
+          isCloudStored: false,
+        }] : existingExpense.receipts || (existingExpense.imageUri ? [{
+          id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+          uri: existingExpense.imageUri,
+          mimeType: 'image/jpeg',
+          isCloudStored: false,
+        }] : undefined)),
+        imageUri: receipts.length > 0 ? receipts[0]?.uri : (imageUri || existingExpense.imageUri), // Keep for backward compatibility
         paidBy: finalPaidBy,
         payers: finalPayers,
         splits,
         extraItems: extraItems.length > 0 ? extraItems : undefined,
         isPriority: isPriority || undefined,
         paymentMode: paymentMode,
+        date: expenseDate.toISOString(),
+        isReimbursement: isReimbursement || undefined,
+        comments: comments.length > 0 ? comments : undefined,
       });
       navigation.goBack();
       return;
@@ -387,13 +546,30 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
       payers: finalPayers,
       splits,
       extraItems: extraItems.length > 0 ? extraItems : undefined,
-      imageUri,
+      receipts: receipts.length > 0 ? receipts : (imageUri ? [{
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+        uri: imageUri,
+        mimeType: 'image/jpeg',
+        isCloudStored: false,
+      }] : undefined),
+      imageUri: receipts.length > 0 ? receipts[0]?.uri : imageUri, // Keep for backward compatibility
       isPriority: isPriority || undefined,
       paymentMode: paymentMode,
+      isReimbursement: isReimbursement || undefined,
+      comments: comments.length > 0 ? comments : undefined,
     });
 
-    // Navigate back to group detail
-    navigation.navigate('GroupDetail', { groupId: currentGroupId });
+    // Show success message with offline indicator if needed
+    if (!isOnline) {
+      Alert.alert(
+        'Expense Saved',
+        'Your expense has been saved locally and will sync when you\'re back online.',
+        [{ text: 'OK', onPress: () => navigation.navigate('GroupDetail', { groupId: currentGroupId }) }]
+      );
+    } else {
+      // Navigate back to group detail
+      navigation.navigate('GroupDetail', { groupId: currentGroupId });
+    }
   };
 
   return (
@@ -402,6 +578,23 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
+      {/* Offline Indicator */}
+      {!isOnline && (
+        <View style={[styles.offlineIndicator, { backgroundColor: colors.warning + '20' }]}>
+          <Text style={[styles.offlineText, { color: colors.warning }]}>
+            📴 Offline - Changes will sync when you're back online
+          </Text>
+        </View>
+      )}
+      {/* Pending Sync Indicator */}
+      {isOnline && syncStatus.pendingChanges > 0 && (
+        <View style={[styles.offlineIndicator, { backgroundColor: colors.accent + '20' }]}>
+          <Text style={[styles.offlineText, { color: colors.accent }]}>
+            ⏳ {syncStatus.pendingChanges} change{syncStatus.pendingChanges > 1 ? 's' : ''} pending sync
+          </Text>
+        </View>
+      )}
+      
       <Text style={[styles.title, { color: colors.textPrimary }]}>
         {expenseId ? 'Edit expense' : 'Add expense'}
       </Text>
@@ -409,12 +602,65 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
         {expenseId ? 'Update the expense details below.' : 'Review bill details and split the expense.'}
       </Text>
 
-      {/* Bill Image */}
-      {imageUri ? (
+      {/* Receipts Section */}
+      {receipts.length > 0 && (
+        <View style={[styles.section, { backgroundColor: colors.surfaceCard }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+            Receipts ({receipts.length})
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.receiptsScroll}>
+            {receipts.map((receipt, index) => (
+              <View key={receipt.id} style={styles.receiptThumbnail}>
+                <Image source={{ uri: receipt.uri }} style={styles.receiptImage} />
+                {receipt.isCloudStored && (
+                  <View style={styles.cloudBadge}>
+                    <Text style={styles.cloudBadgeText}>☁️</Text>
+                  </View>
+                )}
+                <TouchableOpacity
+                  style={styles.removeReceiptButton}
+                  onPress={() => {
+                    setReceipts(receipts.filter((_, i) => i !== index));
+                  }}
+                >
+                  <Text style={styles.removeReceiptText}>×</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+          <TouchableOpacity
+            style={[styles.addReceiptButton, { borderColor: colors.borderSubtle }]}
+            onPress={async () => {
+              // TODO: Implement image picker to add more receipts
+              const { launchImageLibrary } = await import('react-native-image-picker');
+              launchImageLibrary({
+                mediaType: 'photo',
+                quality: 0.8,
+                selectionLimit: 5,
+              }, (response) => {
+                if (response.didCancel || response.errorCode) return;
+                const assets = response.assets || [];
+                const newReceipts = assets.map(asset => ({
+                  id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+                  uri: asset.uri || '',
+                  mimeType: asset.type || 'image/jpeg',
+                  isCloudStored: false,
+                }));
+                setReceipts([...receipts, ...newReceipts]);
+              });
+            }}
+          >
+            <Text style={[styles.addReceiptText, { color: colors.primary }]}>+ Add Receipt</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      
+      {/* Legacy: Show single imageUri if no receipts but imageUri exists (backward compatibility) */}
+      {receipts.length === 0 && imageUri && (
         <View style={[styles.imageWrapper, { backgroundColor: colors.surfaceCard }]}>
           <Image source={{ uri: imageUri }} style={styles.image} />
         </View>
-      ) : null}
+      )}
 
       {/* Bill Details Section */}
       <View style={[styles.section, { backgroundColor: colors.surfaceCard }]}>
@@ -449,6 +695,66 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Date Picker */}
+        <Text style={[styles.label, { color: colors.textSecondary, marginTop: 8 }]}>Date</Text>
+        <TouchableOpacity
+          style={[styles.dateButton, { borderColor: colors.borderSubtle }]}
+          onPress={() => setShowDatePicker(true)}
+        >
+          <Text style={[styles.dateText, { color: colors.textPrimary }]}>
+            {expenseDate.toLocaleDateString('en-IN', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            })}
+          </Text>
+          <Text style={[styles.dateIcon, { color: colors.textSecondary }]}>📅</Text>
+        </TouchableOpacity>
+        {Platform.OS === 'ios' && showDatePicker && (
+          <View style={styles.datePickerContainer}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Select Date</Text>
+            <TextInput
+              style={[styles.dateInput, { color: colors.textPrimary, borderColor: colors.borderSubtle }]}
+              value={expenseDate.toISOString().split('T')[0]}
+              onChangeText={(text) => {
+                const date = new Date(text);
+                if (!isNaN(date.getTime())) {
+                  setExpenseDate(date);
+                }
+              }}
+              placeholder="YYYY-MM-DD"
+            />
+            <Button
+              title="Done"
+              onPress={() => setShowDatePicker(false)}
+              variant="secondary"
+              style={styles.datePickerButton}
+            />
+          </View>
+        )}
+        {Platform.OS === 'android' && showDatePicker && (
+          <View style={styles.datePickerContainer}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Select Date</Text>
+            <TextInput
+              style={[styles.dateInput, { color: colors.textPrimary, borderColor: colors.borderSubtle }]}
+              value={expenseDate.toISOString().split('T')[0]}
+              onChangeText={(text) => {
+                const date = new Date(text);
+                if (!isNaN(date.getTime())) {
+                  setExpenseDate(date);
+                }
+              }}
+              placeholder="YYYY-MM-DD"
+            />
+            <Button
+              title="Done"
+              onPress={() => setShowDatePicker(false)}
+              variant="secondary"
+              style={styles.datePickerButton}
+            />
+          </View>
+        )}
 
         <Text style={[styles.label, { color: colors.textSecondary }]}>Category</Text>
         <View style={styles.chipRow}>
@@ -643,6 +949,26 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
             )}
           </View>
         )}
+
+        {/* Reimbursement Toggle */}
+        <TouchableOpacity
+          style={[
+            styles.reimbursementButton,
+            { 
+              borderColor: isReimbursement ? colors.accent : colors.borderSubtle,
+              backgroundColor: isReimbursement ? colors.accent + '20' : 'transparent'
+            }
+          ]}
+          onPress={() => setIsReimbursement(!isReimbursement)}
+        >
+          <Text style={styles.reimbursementIcon}>💰</Text>
+          <Text style={[
+            styles.reimbursementText,
+            { color: isReimbursement ? colors.accent : colors.textSecondary }
+          ]}>
+            Reimbursement
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Split Configuration Section */}
@@ -689,6 +1015,42 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
               Custom
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.modeChip,
+              { borderColor: colors.borderSubtle },
+              mode === 'percentage' && [styles.modeChipActive, { backgroundColor: colors.accent, borderColor: colors.accent }]
+            ]}
+            onPress={() => setMode('percentage')}
+          >
+            <Text
+              style={[
+                styles.modeLabel,
+                { color: mode === 'percentage' ? colors.white : colors.textSecondary },
+                mode === 'percentage' && styles.modeLabelActive
+              ]}
+            >
+              %
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.modeChip,
+              { borderColor: colors.borderSubtle },
+              mode === 'shares' && [styles.modeChipActive, { backgroundColor: colors.accent, borderColor: colors.accent }]
+            ]}
+            onPress={() => setMode('shares')}
+          >
+            <Text
+              style={[
+                styles.modeLabel,
+                { color: mode === 'shares' ? colors.white : colors.textSecondary },
+                mode === 'shares' && styles.modeLabelActive
+              ]}
+            >
+              Shares
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <FlatList
@@ -697,11 +1059,21 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
           scrollEnabled={false}
           renderItem={({ item }) => {
             const selected = selectedIds.includes(item.id);
-            const shareAmount = selected && totalAmount > 0
-              ? mode === 'equal'
-                ? totalAmount / selectedIds.length
-                : customAmounts[item.id] || 0
-              : 0;
+            let shareAmount = 0;
+            if (selected && totalAmount > 0) {
+              if (mode === 'equal') {
+                shareAmount = totalAmount / selectedIds.length;
+              } else if (mode === 'percentage') {
+                shareAmount = (totalAmount * (percentageAmounts[item.id] || 0)) / 100;
+              } else if (mode === 'shares') {
+                const totalShares = selectedIds.reduce((sum, id) => sum + (shareAmounts[id] || 0), 0);
+                if (totalShares > 0) {
+                  shareAmount = (totalAmount * (shareAmounts[item.id] || 0)) / totalShares;
+                }
+              } else {
+                shareAmount = customAmounts[item.id] || 0;
+              }
+            }
             
             return (
               <View style={[
@@ -727,6 +1099,50 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
                     showPercentage={true}
                     style={{ flex: 1, marginLeft: 8 }}
                   />
+                ) : selected && mode === 'percentage' ? (
+                  <View style={styles.percentageInputContainer}>
+                    <TextInput
+                      style={[styles.percentageInput, { 
+                        color: colors.textPrimary, 
+                        borderColor: colors.borderSubtle 
+                      }]}
+                      value={percentageAmounts[item.id]?.toString() || ''}
+                      onChangeText={(text) => {
+                        const num = parseFloat(text) || 0;
+                        const clamped = Math.max(0, Math.min(100, num));
+                        setPercentageAmounts(prev => ({ ...prev, [item.id]: clamped }));
+                      }}
+                      keyboardType="decimal-pad"
+                      placeholder="0"
+                      maxLength={6}
+                    />
+                    <Text style={[styles.percentageSymbol, { color: colors.textSecondary }]}>%</Text>
+                    <Text style={[styles.calculatedAmount, { color: colors.textSecondary }]}>
+                      = {formatMoney(shareAmount, false, currency)}
+                    </Text>
+                  </View>
+                ) : selected && mode === 'shares' ? (
+                  <View style={styles.sharesInputContainer}>
+                    <Text style={[styles.sharesLabel, { color: colors.textSecondary }]}>Shares:</Text>
+                    <TextInput
+                      style={[styles.sharesInput, { 
+                        color: colors.textPrimary, 
+                        borderColor: colors.borderSubtle 
+                      }]}
+                      value={shareAmounts[item.id]?.toString() || ''}
+                      onChangeText={(text) => {
+                        const num = parseInt(text) || 0;
+                        const clamped = Math.max(0, num);
+                        setShareAmounts(prev => ({ ...prev, [item.id]: clamped }));
+                      }}
+                      keyboardType="number-pad"
+                      placeholder="0"
+                      maxLength={3}
+                    />
+                    <Text style={[styles.calculatedAmount, { color: colors.textSecondary }]}>
+                      = {formatMoney(shareAmount, false, currency)}
+                    </Text>
+                  </View>
                 ) : (
                   <Text style={[styles.memberShare, { color: colors.textSecondary }]}>
                     {selected
@@ -750,6 +1166,19 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
               {Math.abs(selectedIds.reduce((sum, id) => sum + (customAmounts[id] || 0), 0) - totalAmount) > 0.01 && (
                 <Text style={{ color: colors.error }}> (doesn't match total)</Text>
               )}
+            </Text>
+          )}
+          {mode === 'percentage' && (
+            <Text style={[styles.summaryText, styles.summaryWarning, { color: colors.textSecondary }]}>
+              Total percentage: {selectedIds.reduce((sum, id) => sum + (percentageAmounts[id] || 0), 0).toFixed(1)}%
+              {Math.abs(selectedIds.reduce((sum, id) => sum + (percentageAmounts[id] || 0), 0) - 100) > 0.01 && (
+                <Text style={{ color: colors.error }}> (should equal 100%)</Text>
+              )}
+            </Text>
+          )}
+          {mode === 'shares' && (
+            <Text style={[styles.summaryText, { color: colors.textSecondary }]}>
+              Total shares: {selectedIds.reduce((sum, id) => sum + (shareAmounts[id] || 0), 0)}
             </Text>
           )}
         </View>
@@ -807,6 +1236,86 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
         >
           <Text style={[styles.addButtonText, { color: colors.primary }]}>+ Add extra item</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Comments Section */}
+      <View style={[styles.section, { backgroundColor: colors.surfaceCard }]}>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Comments</Text>
+        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+          Add notes or discuss this expense
+        </Text>
+
+        {/* Existing Comments */}
+        {comments.length > 0 && (
+          <View style={styles.commentsList}>
+            {comments.map((comment) => {
+              const member = group.members.find(m => m.id === comment.memberId);
+              return (
+                <View key={comment.id} style={[styles.commentItem, { backgroundColor: colors.surfaceLight }]}>
+                  <View style={styles.commentHeader}>
+                    <Text style={[styles.commentAuthor, { color: colors.textPrimary }]}>
+                      {member?.name || 'Unknown'}
+                    </Text>
+                    <Text style={[styles.commentDate, { color: colors.textSecondary }]}>
+                      {(() => {
+                        const date = new Date(comment.createdAt);
+                        const now = new Date();
+                        const diffMs = now.getTime() - date.getTime();
+                        const diffMins = Math.floor(diffMs / 60000);
+                        const diffHours = Math.floor(diffMs / 3600000);
+                        const diffDays = Math.floor(diffMs / 86400000);
+                        
+                        if (diffMins < 1) return 'Just now';
+                        if (diffMins < 60) return `${diffMins}m ago`;
+                        if (diffHours < 24) return `${diffHours}h ago`;
+                        if (diffDays < 7) return `${diffDays}d ago`;
+                        return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                      })()}
+                    </Text>
+                  </View>
+                  <Text style={[styles.commentText, { color: colors.textPrimary }]}>
+                    {comment.text}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Add Comment */}
+        <View style={styles.addCommentContainer}>
+          <TextInput
+            style={[styles.commentInput, { 
+              color: colors.textPrimary, 
+              borderColor: colors.borderSubtle,
+              backgroundColor: colors.surfaceLight
+            }]}
+            placeholder="Add a comment..."
+            placeholderTextColor={colors.textSecondary}
+            value={newComment}
+            onChangeText={setNewComment}
+            multiline
+            maxLength={500}
+          />
+          <Button
+            title="Add"
+            onPress={() => {
+              if (newComment.trim()) {
+                const newCommentObj = {
+                  id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+                  memberId: 'you',
+                  text: newComment.trim(),
+                  createdAt: new Date().toISOString(),
+                };
+                setComments([...comments, newCommentObj]);
+                setNewComment('');
+              }
+            }}
+            variant="secondary"
+            style={styles.addCommentButton}
+            disabled={!newComment.trim()}
+          />
+        </View>
       </View>
 
       <Button
@@ -886,6 +1395,16 @@ const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
   },
+  offlineIndicator: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  offlineText: {
+    ...typography.bodySmall,
+    ...typography.emphasis.medium,
+  },
   content: {
     paddingHorizontal: 24,
     paddingTop: 72,
@@ -908,6 +1427,62 @@ const createStyles = (colors: any) => StyleSheet.create({
   image: {
     flex: 1,
     resizeMode: 'cover',
+  },
+  receiptsScroll: {
+    marginVertical: 12,
+  },
+  receiptThumbnail: {
+    width: 120,
+    height: 120,
+    marginRight: 12,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  receiptImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  cloudBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  cloudBadgeText: {
+    fontSize: 12,
+  },
+  removeReceiptButton: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    backgroundColor: 'rgba(255, 0, 0, 0.8)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removeReceiptText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  addReceiptButton: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  addReceiptText: {
+    ...typography.body,
+    ...typography.emphasis.medium,
   },
   section: {
     borderRadius: 16,
@@ -1161,6 +1736,137 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   currencyOptionText: {
     ...typography.body,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 20,
+  },
+  dateText: {
+    ...typography.body,
+  },
+  dateIcon: {
+    fontSize: 20,
+  },
+  datePickerContainer: {
+    marginBottom: 20,
+  },
+  dateInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    ...typography.body,
+    marginBottom: 12,
+  },
+  datePickerButton: {
+    marginTop: 8,
+  },
+  reimbursementButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginTop: 16,
+    alignSelf: 'flex-start',
+  },
+  reimbursementIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  reimbursementText: {
+    ...typography.body,
+    ...typography.emphasis.semibold,
+  },
+  commentsList: {
+    marginBottom: 16,
+  },
+  commentItem: {
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  commentAuthor: {
+    ...typography.bodySmall,
+    ...typography.emphasis.semibold,
+  },
+  commentDate: {
+    ...typography.caption,
+  },
+  commentText: {
+    ...typography.body,
+  },
+  addCommentContainer: {
+    marginTop: 8,
+  },
+  commentInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    ...typography.body,
+    minHeight: 60,
+    marginBottom: 12,
+    textAlignVertical: 'top',
+  },
+  addCommentButton: {
+    alignSelf: 'flex-end',
+  },
+  percentageInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginLeft: 8,
+  },
+  percentageInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    ...typography.body,
+    minWidth: 60,
+    textAlign: 'center',
+  },
+  percentageSymbol: {
+    ...typography.body,
+    marginLeft: 4,
+    marginRight: 8,
+  },
+  calculatedAmount: {
+    ...typography.bodySmall,
+  },
+  sharesInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginLeft: 8,
+  },
+  sharesLabel: {
+    ...typography.bodySmall,
+    marginRight: 8,
+  },
+  sharesInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    ...typography.body,
+    minWidth: 50,
+    textAlign: 'center',
+    marginRight: 8,
   },
 });
 

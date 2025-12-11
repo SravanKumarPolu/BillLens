@@ -12,6 +12,8 @@ export interface CloudConfig {
   endpoint?: string;
   apiKey?: string;
   userId: string;
+  websocketUrl?: string; // WebSocket URL for real-time updates
+  enableRealtime?: boolean; // Enable WebSocket real-time sync
 }
 
 export interface CloudData {
@@ -21,14 +23,130 @@ export interface CloudData {
   lastSyncTimestamp: string;
 }
 
+type RealtimeListener = (data: { type: 'expense' | 'group' | 'settlement'; action: 'create' | 'update' | 'delete'; entity: any }) => void;
+
 class CloudService {
   private config: CloudConfig | null = null;
+  private websocket: WebSocket | null = null;
+  private realtimeListeners: Set<RealtimeListener> = new Set();
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectDelay = 1000;
 
   /**
    * Initialize cloud service with configuration
    */
   initialize(config: CloudConfig): void {
     this.config = config;
+    
+    // Initialize WebSocket for real-time updates if enabled
+    if (config.enableRealtime && config.websocketUrl) {
+      this.connectWebSocket();
+    }
+  }
+
+  /**
+   * Connect to WebSocket for real-time updates
+   */
+  private connectWebSocket(): void {
+    if (!this.config?.websocketUrl || !this.config.userId) return;
+
+    try {
+      // Close existing connection if any
+      this.disconnectWebSocket();
+
+      const wsUrl = `${this.config.websocketUrl}?userId=${this.config.userId}`;
+      this.websocket = new WebSocket(wsUrl);
+
+      this.websocket.onopen = () => {
+        console.log('WebSocket connected for real-time sync');
+        this.reconnectAttempts = 0;
+        
+        // Send authentication if needed
+        if (this.config?.apiKey) {
+          this.websocket?.send(JSON.stringify({
+            type: 'auth',
+            apiKey: this.config.apiKey,
+          }));
+        }
+      };
+
+      this.websocket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          
+          if (message.type === 'sync_update') {
+            // Notify all listeners of real-time update
+            this.realtimeListeners.forEach(listener => {
+              listener({
+                type: message.entityType,
+                action: message.action,
+                entity: message.entity,
+              });
+            });
+          }
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      this.websocket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+
+      this.websocket.onclose = () => {
+        console.log('WebSocket disconnected');
+        this.websocket = null;
+        
+        // Attempt to reconnect
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+          this.reconnectAttempts++;
+          const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+          setTimeout(() => this.connectWebSocket(), delay);
+        }
+      };
+    } catch (error) {
+      console.error('Failed to connect WebSocket:', error);
+    }
+  }
+
+  /**
+   * Disconnect WebSocket
+   */
+  disconnectWebSocket(): void {
+    if (this.websocket) {
+      this.websocket.close();
+      this.websocket = null;
+    }
+  }
+
+  /**
+   * Subscribe to real-time updates
+   */
+  subscribeRealtime(listener: RealtimeListener): () => void {
+    this.realtimeListeners.add(listener);
+    return () => {
+      this.realtimeListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Send real-time update notification to other devices
+   */
+  async notifyRealtimeUpdate(
+    type: 'expense' | 'group' | 'settlement',
+    action: 'create' | 'update' | 'delete',
+    entity: any
+  ): Promise<void> {
+    if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+      this.websocket.send(JSON.stringify({
+        type: 'sync_notify',
+        entityType: type,
+        action,
+        entity,
+        userId: this.config?.userId,
+      }));
+    }
   }
 
   /**
@@ -236,6 +354,15 @@ class CloudService {
     // TODO: Implement Supabase download
     await new Promise(resolve => setTimeout(resolve, 300));
     return { groups: [], expenses: [], settlements: [], errors: [] };
+  }
+
+  /**
+   * Cleanup resources
+   */
+  cleanup(): void {
+    this.disconnectWebSocket();
+    this.realtimeListeners.clear();
+    this.config = null;
   }
 
   /**

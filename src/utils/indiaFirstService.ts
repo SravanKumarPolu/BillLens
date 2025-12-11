@@ -50,6 +50,7 @@ export interface ItemizedFoodSplit {
   }>;
   total: number;
   deliveryFee?: number;
+  platformFee?: number; // Swiggy/Zomato platform fee
   tax?: number;
   discount?: number;
 }
@@ -351,10 +352,16 @@ export const parseItemizedFoodBill = (ocrText: string): ItemizedFoodSplit | null
 
   const items: Array<{ name: string; price: number; quantity?: number; splitBetween: string[] }> = [];
   
-  // Extract items (look for patterns like "Item Name ₹100" or "1x Item Name ₹100")
+  // Enhanced item extraction patterns for Swiggy/Zomato/Blinkit
   const itemPatterns = [
-    /(\d+)\s*x\s*([^₹]+?)\s*₹\s*([\d,]+\.?\d*)/gi, // "2x Pizza ₹500"
-    /([^₹]+?)\s*₹\s*([\d,]+\.?\d*)/gi, // "Pizza ₹500"
+    // Pattern 1: "2x Item Name ₹500" or "2 x Item Name ₹500"
+    /(\d+)\s*x\s*([^₹\n]+?)\s*₹\s*([\d,]+\.?\d*)/gi,
+    // Pattern 2: "Item Name ₹500" (single item)
+    /([A-Z][^₹\n]+?)\s*₹\s*([\d,]+\.?\d*)/gi,
+    // Pattern 3: "Item Name - ₹500" (with dash)
+    /([A-Z][^₹\n]+?)\s*-\s*₹\s*([\d,]+\.?\d*)/gi,
+    // Pattern 4: "Item Name (₹500)" (with parentheses)
+    /([A-Z][^₹\n]+?)\s*\(\s*₹\s*([\d,]+\.?\d*)\s*\)/gi,
   ];
 
   const lines = ocrText.split('\n');
@@ -392,18 +399,26 @@ export const parseItemizedFoodBill = (ocrText: string): ItemizedFoodSplit | null
 
   if (!foundItems || items.length === 0) return null;
 
-  // Extract delivery fee, tax, discount
-  const deliveryFeeMatch = normalized.match(/(?:delivery|delivery\s+fee)[\s:]*₹\s*([\d,]+\.?\d*)/i);
+  // Enhanced extraction for delivery fee, platform fee, tax, discount
+  const deliveryFeeMatch = normalized.match(/(?:delivery|delivery\s+fee|delivery\s+charges)[\s:]*₹\s*([\d,]+\.?\d*)/i);
   const deliveryFee = deliveryFeeMatch ? parseFloat(deliveryFeeMatch[1].replace(/,/g, '')) : undefined;
 
-  const taxMatch = normalized.match(/(?:tax|gst|vat)[\s:]*₹\s*([\d,]+\.?\d*)/i);
+  // Platform fee (Swiggy/Zomato specific)
+  const platformFeeMatch = normalized.match(/(?:platform\s+fee|convenience\s+fee|service\s+fee)[\s:]*₹\s*([\d,]+\.?\d*)/i);
+  const platformFee = platformFeeMatch ? parseFloat(platformFeeMatch[1].replace(/,/g, '')) : undefined;
+
+  // Tax (GST, VAT, etc.)
+  const taxMatch = normalized.match(/(?:tax|gst|vat|cgst|sgst|igst)[\s:]*₹\s*([\d,]+\.?\d*)/i);
   const tax = taxMatch ? parseFloat(taxMatch[1].replace(/,/g, '')) : undefined;
 
-  const discountMatch = normalized.match(/(?:discount|offer|promo)[\s:]*₹\s*([\d,]+\.?\d*)/i);
+  // Discount/Offer
+  const discountMatch = normalized.match(/(?:discount|offer|promo|savings|you\s+saved)[\s:]*₹\s*([\d,]+\.?\d*)/i);
   const discount = discountMatch ? parseFloat(discountMatch[1].replace(/,/g, '')) : undefined;
 
-  const total = items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0) +
+  const itemsTotal = items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
+  const total = itemsTotal +
     (deliveryFee || 0) +
+    (platformFee || 0) +
     (tax || 0) -
     (discount || 0);
 
@@ -411,6 +426,7 @@ export const parseItemizedFoodBill = (ocrText: string): ItemizedFoodSplit | null
     items,
     total,
     deliveryFee,
+    platformFee,
     tax,
     discount,
   };

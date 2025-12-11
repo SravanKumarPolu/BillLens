@@ -32,6 +32,10 @@ import SearchScreen from './screens/SearchScreen';
 import CollectionsScreen from './screens/CollectionsScreen';
 import CollectionDetailScreen from './screens/CollectionDetailScreen';
 import BudgetManagementScreen from './screens/BudgetManagementScreen';
+import ActivityFeedScreen from './screens/ActivityFeedScreen';
+import RecurringExpensesReportScreen from './screens/RecurringExpensesReportScreen';
+import ExpenseDetailScreen from './screens/ExpenseDetailScreen';
+import PersonalSpendingScreen from './screens/PersonalSpendingScreen';
 import { colors } from './theme/colors';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -80,6 +84,10 @@ export const AppNavigator = ({ initialRouteName }: AppNavigatorProps = {}) => {
         <Stack.Screen name="Collections" component={CollectionsScreen} />
         <Stack.Screen name="CollectionDetail" component={CollectionDetailScreen} />
         <Stack.Screen name="BudgetManagement" component={BudgetManagementScreen} />
+        <Stack.Screen name="ActivityFeed" component={ActivityFeedScreen} />
+        <Stack.Screen name="RecurringExpensesReport" component={RecurringExpensesReportScreen} />
+        <Stack.Screen name="ExpenseDetail" component={ExpenseDetailScreen} />
+        <Stack.Screen name="PersonalSpending" component={PersonalSpendingScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

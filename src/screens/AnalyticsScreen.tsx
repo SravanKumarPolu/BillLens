@@ -6,7 +6,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { formatMoney } from '../utils/formatMoney';
-import { Card, CalendarView, BarChart } from '../components';
+import { Card, CalendarView, BarChart, PieChart, LineChart } from '../components';
 import { Expense } from '../types/models';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Analytics'>;
@@ -33,17 +33,16 @@ const AnalyticsScreen: React.FC<Props> = ({ navigation, route }) => {
   const group = getGroup(groupId);
   const allExpenses = getExpensesForGroup(groupId);
 
-  // Calculate monthly totals - optimized with useMemo
+  // Calculate monthly totals - optimized with useMemo (last 6 months for trend)
   const monthlyTotals = useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
-    // Get last 3 months
+    // Get last 6 months for trend analysis
     const months: MonthlyTotal[] = [];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 5; i >= 0; i--) {
       const date = new Date(currentYear, currentMonth - i, 1);
-      const monthKey = date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
       
       const monthExpenses = allExpenses.filter(expense => {
         const expenseDate = new Date(expense.date);
@@ -63,7 +62,7 @@ const AnalyticsScreen: React.FC<Props> = ({ navigation, route }) => {
       });
     }
 
-    return months.reverse(); // Show oldest to newest
+    return months; // Show oldest to newest
   }, [allExpenses]);
 
   // Calculate category breakdown - optimized with useMemo
@@ -177,14 +176,24 @@ const AnalyticsScreen: React.FC<Props> = ({ navigation, route }) => {
             );
           }).length} expenses
         </Text>
-        <TouchableOpacity
-          style={styles.monthReportButton}
-          onPress={() => navigation.navigate('MonthlyReport', { groupId })}
-        >
-          <Text style={[styles.monthReportButtonText, { color: colors.primary }]}>
-            View Monthly Report →
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.reportButtons}>
+          <TouchableOpacity
+            style={styles.monthReportButton}
+            onPress={() => navigation.navigate('MonthlyReport', { groupId })}
+          >
+            <Text style={[styles.monthReportButtonText, { color: colors.primary }]}>
+              Monthly Report →
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.monthReportButton}
+            onPress={() => navigation.navigate('RecurringExpensesReport', { groupId })}
+          >
+            <Text style={[styles.monthReportButtonText, { color: colors.primary }]}>
+              Recurring Expenses →
+            </Text>
+          </TouchableOpacity>
+        </View>
       </Card>
 
       {/* Calendar View */}
@@ -211,10 +220,24 @@ const AnalyticsScreen: React.FC<Props> = ({ navigation, route }) => {
         />
       </Card>
 
-      {/* Monthly Totals */}
+      {/* Monthly Spending Graph with Trend Lines */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Last 3 months</Text>
-        {monthlyTotals.map((month, index) => (
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Monthly Spending Trend</Text>
+        <Card style={styles.chartCard}>
+          <LineChart
+            data={monthlyTotals.map(month => ({
+              label: month.month,
+              value: month.amount,
+            }))}
+            currency={group.currency || 'INR'}
+            showValues={true}
+            showTrendLine={true}
+            height={200}
+          />
+        </Card>
+        
+        {/* Monthly Totals List */}
+        {monthlyTotals.slice(-3).map((month, index) => (
           <Card key={`${month.month}-${month.year}`} style={styles.monthCard}>
             <View style={styles.monthHeader}>
               <Text style={[styles.monthName, { color: colors.textPrimary }]}>
@@ -238,7 +261,20 @@ const AnalyticsScreen: React.FC<Props> = ({ navigation, route }) => {
             This month by category
           </Text>
           
-          {/* Bar Chart */}
+          {/* Pie Chart for Categories */}
+          <Card style={styles.chartCard}>
+            <PieChart
+              data={categoryBreakdown.map(cat => ({
+                label: cat.category,
+                value: cat.amount,
+              }))}
+              total={currentMonthTotal}
+              currency={group.currency || 'INR'}
+              size={220}
+            />
+          </Card>
+          
+          {/* Bar Chart (alternative view) */}
           <Card style={styles.chartCard}>
             <BarChart
               data={categoryBreakdown.map(cat => ({
@@ -457,8 +493,11 @@ const createStyles = (colors: any) => StyleSheet.create({
     textAlign: 'center',
     marginTop: 80,
   },
-  monthReportButton: {
+  reportButtons: {
     marginTop: 16,
+    gap: 8,
+  },
+  monthReportButton: {
     paddingVertical: 8,
   },
   monthReportButtonText: {

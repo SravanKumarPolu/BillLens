@@ -16,10 +16,14 @@ import { BarChart } from '../components';
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
-  const { getAllGroupSummaries, getGroupSummary, getGroupInsights, getGroup } = useGroups();
-  const { user, syncData, isSyncing, lastSyncDate } = useAuth();
+  const { getAllGroupSummaries, getGroupSummary, getGroupInsights, getGroup, getGroupsExcludingType, getFriends, getFriendSummary } = useGroups();
+  const { user, syncData, isSyncing, lastSyncDate, syncStatus } = useAuth();
   const { colors } = useTheme();
-  const groupSummaries = getAllGroupSummaries() || [];
+  const allGroupSummaries = getAllGroupSummaries() || [];
+  // Separate groups and friends
+  const groupSummaries = allGroupSummaries.filter(summary => summary.group.type !== 'friend');
+  const friends = getFriends();
+  const friendSummaries = friends.map(friend => getFriendSummary(friend.id)).filter((s): s is typeof s => s !== null);
 
   // Handle Android hardware back button
   useEffect(() => {
@@ -94,6 +98,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           settleReminders: true,
           rentReminders: true,
           expenseNotifications: false,
+          expenseEditNotifications: false,
+          expenseDeleteNotifications: false,
+          commentNotifications: false,
+          settlementNotifications: false,
+          recurringExpenseNotifications: false,
           imbalanceAlerts: true,
           monthEndReports: true,
           upiReminders: true,
@@ -183,6 +192,21 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      {/* Sync Status Indicator */}
+      {isSyncing && (
+        <View style={[styles.syncIndicator, { backgroundColor: colors.primary + '20' }]}>
+          <Text style={[styles.syncText, { color: colors.primary }]}>
+            🔄 Syncing... {syncStatus.syncProgress > 0 ? `${syncStatus.syncProgress}%` : ''}
+          </Text>
+        </View>
+      )}
+      {!isSyncing && syncStatus.pendingChanges > 0 && (
+        <View style={[styles.syncIndicator, { backgroundColor: colors.warning + '20' }]}>
+          <Text style={[styles.syncText, { color: colors.warning }]}>
+            ⚠️ {syncStatus.pendingChanges} pending change{syncStatus.pendingChanges > 1 ? 's' : ''}
+          </Text>
+        </View>
+      )}
       <View style={styles.header}>
         <TouchableOpacity 
           onPress={() => {
@@ -346,7 +370,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             maxVisible={3}
             onInsightPress={(insight) => {
               // Find the group for this insight and navigate
-              const groupSummary = groupSummaries.find(summary => {
+              const groupSummary = allGroupSummaries.find(summary => {
                 const groupInsights = getGroupInsights(summary.group.id);
                 return groupInsights.some(i => i.id === insight.id);
               });
@@ -356,6 +380,38 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             }}
           />
         </View>
+      )}
+
+      {/* Friends Section */}
+      {friendSummaries.length > 0 && (
+        <>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Friends</Text>
+          <FlatList
+            data={friendSummaries}
+            keyExtractor={item => item?.group.id || ''}
+            renderItem={({ item }) => {
+              if (!item) return null;
+              return (
+                <Card
+                  onPress={() => navigation.navigate('GroupDetail', { groupId: item.group.id })}
+                  style={styles.groupCard}
+                  elevated
+                >
+                  <View style={styles.groupContent}>
+                    <Text style={styles.groupEmoji}>{item.group.emoji}</Text>
+                    <View style={styles.groupTextWrapper}>
+                      <Text style={[styles.groupName, { color: colors.textPrimary }]}>{item.group.name}</Text>
+                      <Text style={[styles.groupSummary, { color: colors.textSecondary }]}>{item.summaryText}</Text>
+                    </View>
+                  </View>
+                </Card>
+              );
+            }}
+            contentContainerStyle={styles.groupsList}
+            scrollEnabled={false}
+            showsVerticalScrollIndicator={false}
+          />
+        </>
       )}
 
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Your groups</Text>
@@ -378,15 +434,44 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         />
       )}
 
-      {groupSummaries.length > 0 && (
-        <Button
-          title="+ New group"
-          onPress={() => navigation.navigate('CreateGroup')}
-          variant="secondary"
-          fullWidth={false}
-          style={styles.newGroupButton}
-        />
+      {(groupSummaries.length > 0 || friendSummaries.length > 0) && (
+        <View style={styles.actionButtonsRow}>
+          <Button
+            title="+ New group"
+            onPress={() => navigation.navigate('CreateGroup')}
+            variant="secondary"
+            fullWidth={false}
+            style={styles.newGroupButton}
+          />
+          <Button
+            title="+ Add friend"
+            onPress={() => navigation.navigate('CreateGroup', { suggestedType: 'friend' })}
+            variant="secondary"
+            fullWidth={false}
+            style={styles.newGroupButton}
+          />
+        </View>
       )}
+
+      {/* Personal Spending Link */}
+      <Card
+        onPress={() => navigation.navigate('PersonalSpending')}
+        style={styles.personalSpendingCard}
+        elevated
+      >
+        <View style={styles.personalSpendingContent}>
+          <Text style={styles.personalSpendingIcon}>📊</Text>
+          <View style={styles.personalSpendingText}>
+            <Text style={[styles.personalSpendingTitle, { color: colors.textPrimary }]}>
+              Personal Spending Dashboard
+            </Text>
+            <Text style={[styles.personalSpendingSubtitle, { color: colors.textSecondary }]}>
+              View your personal expenses, trends, and analytics
+            </Text>
+          </View>
+          <Text style={[styles.personalSpendingArrow, { color: colors.primary }]}>→</Text>
+        </View>
+      </Card>
 
       <Button
         title="📷 Add from screenshot"
@@ -402,6 +487,16 @@ const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surfaceLight,
+  },
+  syncIndicator: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  syncText: {
+    ...typography.bodySmall,
+    ...typography.emphasis.medium,
   },
   summaryCardsScroll: {
     marginBottom: recommendedSpacing.comfortable,
@@ -551,15 +646,48 @@ const createStyles = (colors: any) => StyleSheet.create({
     ...typography.body,
     textAlign: 'center',
   },
-  newGroupButton: {
+  actionButtonsRow: {
+    flexDirection: 'row',
     marginHorizontal: 24,
     marginTop: recommendedSpacing.loose,
+    gap: recommendedSpacing.comfortable,
+  },
+  newGroupButton: {
+    flex: 1,
   },
   fab: {
     position: 'absolute',
     left: 24,
     right: 24,
     bottom: 32,
+  },
+  personalSpendingCard: {
+    marginHorizontal: 24,
+    marginTop: 16,
+    marginBottom: 80, // Space for FAB
+    padding: 20,
+  },
+  personalSpendingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  personalSpendingIcon: {
+    fontSize: 32,
+    marginRight: 16,
+  },
+  personalSpendingText: {
+    flex: 1,
+  },
+  personalSpendingTitle: {
+    ...typography.h4,
+    marginBottom: 4,
+  },
+  personalSpendingSubtitle: {
+    ...typography.bodySmall,
+  },
+  personalSpendingArrow: {
+    ...typography.h3,
+    marginLeft: 8,
   },
   insightCard: {
     marginBottom: 8,

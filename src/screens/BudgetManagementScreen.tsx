@@ -385,19 +385,29 @@ const BudgetManagementScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Recurring Expenses</Text>
-            <TouchableOpacity
-              onPress={() => {
-                setEditingRecurringId(null);
-                setRecurringName('');
-                setRecurringAmount('');
-                setRecurringCategory('');
-                setRecurringFrequency('monthly');
-                setShowRecurringModal(true);
-              }}
-              style={styles.addButton}
-            >
-              <Text style={[styles.addButtonText, { color: colors.primary }]}>+ Add</Text>
-            </TouchableOpacity>
+            <View style={styles.sectionHeaderRight}>
+              {groupId && groupRecurring.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('RecurringExpensesReport', { groupId })}
+                  style={styles.reportButton}
+                >
+                  <Text style={[styles.reportButtonText, { color: colors.primary }]}>Report →</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={() => {
+                  setEditingRecurringId(null);
+                  setRecurringName('');
+                  setRecurringAmount('');
+                  setRecurringCategory('');
+                  setRecurringFrequency('monthly');
+                  setShowRecurringModal(true);
+                }}
+                style={styles.addButton}
+              >
+                <Text style={[styles.addButtonText, { color: colors.primary }]}>+ Add</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {groupRecurring.length > 0 ? (
@@ -654,6 +664,11 @@ const createStyles = (colors: any) => StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  sectionHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   sectionTitle: {
     ...typography.h4,
   },
@@ -665,6 +680,14 @@ const createStyles = (colors: any) => StyleSheet.create({
     ...typography.body,
     ...typography.emphasis.semibold,
     color: colors.primary,
+  },
+  reportButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  reportButtonText: {
+    ...typography.body,
+    ...typography.emphasis.semibold,
   },
   budgetCard: {
     padding: 16,

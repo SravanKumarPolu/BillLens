@@ -73,11 +73,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Initialize cloud sync (can be configured based on provider)
       // For now, using mock/REST - in production, configure with actual provider
       // Environment variables can be set via react-native-config or similar
-      syncService.initializeCloud({
+      await syncService.initializeCloud({
         provider: 'rest', // or 'firebase', 'aws', 'supabase'
         endpoint: undefined, // Set via environment config in production
         apiKey: undefined, // Set via environment config in production
         userId: mockUser.id,
+        websocketUrl: undefined, // Set via environment config for real-time sync
+        enableRealtime: true, // Enable real-time sync when WebSocket URL is provided
       });
 
       // Enable real-time polling for sync
@@ -118,12 +120,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(mockUser);
       setLastSyncDate(new Date());
 
-      // Initialize cloud sync
-      syncService.initializeCloud({
+      // Initialize cloud sync with real-time support
+      await syncService.initializeCloud({
         provider: 'rest',
         endpoint: undefined, // Set via environment config in production
         apiKey: undefined, // Set via environment config in production
         userId: mockUser.id,
+        websocketUrl: undefined, // Set via environment config for real-time sync
+        enableRealtime: true, // Enable real-time sync when WebSocket URL is provided
       });
 
       // Enable real-time polling for sync

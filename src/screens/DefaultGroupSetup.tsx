@@ -73,11 +73,23 @@ const DefaultGroupSetup: React.FC<Props> = ({ navigation }) => {
 
     // Only create if it doesn't already exist (check by name)
     // For MVP, we'll just create it
+    let groupType: 'house' | 'trip' | 'event' | 'office' | 'custom' | 'friend' = 'custom';
+    if (selected === 'home') {
+      groupType = 'house';
+    } else if (selected === 'two') {
+      groupType = 'friend'; // 1-to-1 relationship
+    } else if (selected === 'trip') {
+      groupType = 'trip';
+    } else if (selected === 'custom') {
+      groupType = 'custom';
+    }
+
     addGroup({
       name: groupName,
       emoji,
       members,
       currency: 'INR',
+      type: groupType,
     });
 
     // Navigate to Home while preserving the navigation stack for back navigation

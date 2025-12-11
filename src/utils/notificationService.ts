@@ -14,21 +14,29 @@ import { formatMoney } from './formatMoney';
 
 export interface Notification {
   id: string;
-  type: 'settle_reminder' | 'rent_reminder' | 'expense_added' | 'imbalance_alert' | 'month_end' | 'upi_reminder' | 'priority_bill';
+  type: 'settle_reminder' | 'rent_reminder' | 'expense_added' | 'expense_edited' | 'expense_deleted' | 'comment_added' | 'settlement_added' | 'recurring_expense_added' | 'imbalance_alert' | 'month_end' | 'upi_reminder' | 'priority_bill';
   title: string;
   message: string;
   groupId: string;
+  expenseId?: string; // For expense-related notifications
+  memberId?: string; // Who performed the action
   severity: 'high' | 'medium' | 'low';
   priority: 'high' | 'medium' | 'low'; // Notification priority (for sorting)
   actionable: boolean;
   actionData?: any;
   createdAt: string;
+  read?: boolean; // Whether notification has been read
 }
 
 export interface NotificationSettings {
   settleReminders: boolean;
   rentReminders: boolean;
   expenseNotifications: boolean;
+  expenseEditNotifications: boolean;
+  expenseDeleteNotifications: boolean;
+  commentNotifications: boolean;
+  settlementNotifications: boolean;
+  recurringExpenseNotifications: boolean;
   imbalanceAlerts: boolean;
   monthEndReports: boolean;
   upiReminders: boolean;
@@ -40,6 +48,11 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   settleReminders: true,
   rentReminders: true,
   expenseNotifications: true,
+  expenseEditNotifications: true,
+  expenseDeleteNotifications: true,
+  commentNotifications: true,
+  settlementNotifications: true,
+  recurringExpenseNotifications: true,
   imbalanceAlerts: true,
   monthEndReports: true,
   upiReminders: true,
@@ -134,21 +147,169 @@ export const checkRentReminder = (
 export const generateExpenseAddedNotification = (
   groupId: string,
   expense: Expense,
-  groupName: string
+  groupName: string,
+  memberName?: string
 ): Notification => {
-  const payerName = expense.paidBy === 'you' ? 'You' : expense.paidBy;
+  const payerName = memberName || (expense.paidBy === 'you' ? 'You' : expense.paidBy);
   
   return {
-    id: `expense-${expense.id}`,
+    id: `expense-added-${expense.id}-${Date.now()}`,
     type: 'expense_added',
     title: 'New Expense Added',
     message: `${payerName} added ${formatMoney(expense.amount, false, expense.currency || 'INR')} for ${expense.merchant || expense.title} in ${groupName}`,
     groupId,
-    severity: expense.isPriority ? 'high' : 'low',
-    priority: expense.isPriority ? 'high' : 'low',
+    expenseId: expense.id,
+    memberId: expense.paidBy,
+    severity: expense.isPriority ? 'high' : 'medium',
+    priority: expense.isPriority ? 'high' : 'medium',
+    actionable: true,
+    actionData: { action: 'navigate', screen: 'ExpenseDetail', params: { expenseId: expense.id, groupId } },
+    createdAt: new Date().toISOString(),
+    read: false,
+  };
+};
+
+/**
+ * Generate notification when expense is edited
+ */
+export const generateExpenseEditedNotification = (
+  groupId: string,
+  expense: Expense,
+  groupName: string,
+  memberName?: string
+): Notification => {
+  const editorName = memberName || (expense.editHistory && expense.editHistory.length > 0 
+    ? (expense.editHistory[expense.editHistory.length - 1].editedBy === 'you' ? 'You' : expense.editHistory[expense.editHistory.length - 1].editedBy)
+    : 'Someone');
+  
+  return {
+    id: `expense-edited-${expense.id}-${Date.now()}`,
+    type: 'expense_edited',
+    title: 'Expense Updated',
+    message: `${editorName} edited ${expense.merchant || expense.title} (${formatMoney(expense.amount, false, expense.currency || 'INR')}) in ${groupName}`,
+    groupId,
+    expenseId: expense.id,
+    memberId: expense.editHistory && expense.editHistory.length > 0 
+      ? expense.editHistory[expense.editHistory.length - 1].editedBy 
+      : 'you',
+    severity: 'medium',
+    priority: 'medium',
+    actionable: true,
+    actionData: { action: 'navigate', screen: 'ExpenseDetail', params: { expenseId: expense.id, groupId } },
+    createdAt: new Date().toISOString(),
+    read: false,
+  };
+};
+
+/**
+ * Generate notification when expense is deleted
+ */
+export const generateExpenseDeletedNotification = (
+  groupId: string,
+  expenseTitle: string,
+  expenseAmount: number,
+  currency: string,
+  groupName: string,
+  deletedByName?: string
+): Notification => {
+  const deleterName = deletedByName || 'Someone';
+  
+  return {
+    id: `expense-deleted-${groupId}-${Date.now()}`,
+    type: 'expense_deleted',
+    title: 'Expense Deleted',
+    message: `${deleterName} deleted ${expenseTitle} (${formatMoney(expenseAmount, false, currency)}) from ${groupName}`,
+    groupId,
+    severity: 'medium',
+    priority: 'medium',
     actionable: true,
     actionData: { action: 'navigate', screen: 'GroupDetail', params: { groupId } },
     createdAt: new Date().toISOString(),
+    read: false,
+  };
+};
+
+/**
+ * Generate notification when comment is added
+ */
+export const generateCommentAddedNotification = (
+  groupId: string,
+  expenseId: string,
+  expenseTitle: string,
+  groupName: string,
+  commenterName?: string
+): Notification => {
+  const commenter = commenterName || 'Someone';
+  
+  return {
+    id: `comment-added-${expenseId}-${Date.now()}`,
+    type: 'comment_added',
+    title: 'New Comment',
+    message: `${commenter} commented on ${expenseTitle} in ${groupName}`,
+    groupId,
+    expenseId,
+    severity: 'low',
+    priority: 'low',
+    actionable: true,
+    actionData: { action: 'navigate', screen: 'ExpenseDetail', params: { expenseId, groupId } },
+    createdAt: new Date().toISOString(),
+    read: false,
+  };
+};
+
+/**
+ * Generate notification when settlement is added
+ */
+export const generateSettlementAddedNotification = (
+  groupId: string,
+  settlement: any,
+  groupName: string,
+  settlerName?: string
+): Notification => {
+  const settler = settlerName || 'Someone';
+  const amount = settlement.amount || 0;
+  const currency = settlement.currency || 'INR';
+  
+  return {
+    id: `settlement-added-${settlement.id || groupId}-${Date.now()}`,
+    type: 'settlement_added',
+    title: 'Settlement Recorded',
+    message: `${settler} recorded a settlement of ${formatMoney(amount, false, currency)} in ${groupName}`,
+    groupId,
+    severity: 'high',
+    priority: 'high',
+    actionable: true,
+    actionData: { action: 'navigate', screen: 'SettleUp', params: { groupId } },
+    createdAt: new Date().toISOString(),
+    read: false,
+  };
+};
+
+/**
+ * Generate notification when recurring expense is added
+ */
+export const generateRecurringExpenseAddedNotification = (
+  groupId: string,
+  recurringExpense: any,
+  groupName: string,
+  creatorName?: string
+): Notification => {
+  const creator = creatorName || 'Someone';
+  const amount = recurringExpense.amount || 0;
+  const currency = recurringExpense.currency || 'INR';
+  
+  return {
+    id: `recurring-expense-added-${recurringExpense.id || groupId}-${Date.now()}`,
+    type: 'recurring_expense_added',
+    title: 'Recurring Expense Added',
+    message: `${creator} added a recurring expense: ${recurringExpense.title || 'Untitled'} (${formatMoney(amount, false, currency)}) in ${groupName}`,
+    groupId,
+    severity: 'medium',
+    priority: 'medium',
+    actionable: true,
+    actionData: { action: 'navigate', screen: 'BudgetManagement', params: { groupId } },
+    createdAt: new Date().toISOString(),
+    read: false,
   };
 };
 
