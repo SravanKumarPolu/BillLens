@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, ScrollView } from 'react-native';
+import React, { useMemo, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ScrollView, BackHandler } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
@@ -17,6 +17,21 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { user, syncData, isSyncing, lastSyncDate } = useAuth();
   const { colors } = useTheme();
   const groupSummaries = getAllGroupSummaries() || [];
+
+  // Handle Android hardware back button
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // Check if we can go back in the navigation stack
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+        return true; // Prevent default back behavior
+      }
+      // If no back history, allow default behavior (exit app or go to system home)
+      return false;
+    });
+
+    return () => backHandler.remove();
+  }, [navigation]);
 
   // Calculate monthly total across all groups
   const monthlyTotal = useMemo(() => {
@@ -121,11 +136,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.header}>
         <TouchableOpacity 
           onPress={() => {
+            // Go back to DefaultGroupSetup screen (previous step in onboarding)
             if (navigation.canGoBack()) {
               navigation.goBack();
             } else {
-              // If no back history (e.g., after reset from DefaultGroupSetup), 
-              // navigate back to DefaultGroupSetup
+              // If no back history, navigate to DefaultGroupSetup
               navigation.navigate('DefaultGroupSetup');
             }
           }} 
@@ -282,7 +297,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   summaryValue: {
     ...typography.h3,
-    fontWeight: '700',
+    ...typography.emphasis.bold,
   },
   insightsSection: {
     paddingHorizontal: 24,
@@ -290,9 +305,9 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   sectionTitle: {
     ...typography.label,
+    ...typography.emphasis.semibold,
     paddingHorizontal: 24,
     marginBottom: recommendedSpacing.comfortable,
-    fontWeight: '600',
   },
   groupsList: {
     paddingHorizontal: 24,

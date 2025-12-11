@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, BackHandler } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
@@ -10,6 +10,21 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Permissions'>;
 
 const PermissionsScreen: React.FC<Props> = ({ navigation }) => {
   const { colors } = useTheme();
+  
+  // Handle Android hardware back button
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // Go back to OnboardingWelcome screen
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        navigation.navigate('OnboardingWelcome');
+      }
+      return true; // Prevent default back behavior
+    });
+
+    return () => backHandler.remove();
+  }, [navigation]);
   
   const handleContinue = () => {
     // TODO: request camera and gallery permissions
@@ -23,7 +38,17 @@ const PermissionsScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('OnboardingWelcome')} style={styles.backButton}>
+        <TouchableOpacity 
+          onPress={() => {
+            // Go back to OnboardingWelcome screen (previous step in onboarding)
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate('OnboardingWelcome');
+            }
+          }} 
+          style={styles.backButton}
+        >
           <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
         </TouchableOpacity>
       </View>

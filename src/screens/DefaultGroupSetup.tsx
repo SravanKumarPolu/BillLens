@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, Alert, BackHandler } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
@@ -15,6 +15,21 @@ const DefaultGroupSetup: React.FC<Props> = ({ navigation }) => {
   const { colors } = useTheme();
   const [selected, setSelected] = useState<Preset | null>('home');
   const [customName, setCustomName] = useState('');
+
+  // Handle Android hardware back button
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // Go back to Permissions screen
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        navigation.navigate('Permissions');
+      }
+      return true; // Prevent default back behavior
+    });
+
+    return () => backHandler.remove();
+  }, [navigation]);
 
   const handleContinue = () => {
     let groupName = '';
@@ -64,16 +79,24 @@ const DefaultGroupSetup: React.FC<Props> = ({ navigation }) => {
       members,
     });
 
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'Home' }],
-    });
+    // Navigate to Home while preserving the navigation stack for back navigation
+    navigation.navigate('Home');
   };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Permissions')} style={styles.backButton}>
+        <TouchableOpacity 
+          onPress={() => {
+            // Always go back to Permissions screen (previous step in onboarding)
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate('Permissions');
+            }
+          }} 
+          style={styles.backButton}
+        >
           <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
         </TouchableOpacity>
       </View>

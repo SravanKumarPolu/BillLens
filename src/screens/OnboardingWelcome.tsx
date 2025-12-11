@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, BackHandler } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
@@ -9,6 +9,23 @@ import { Button, Logo } from '../components';
 type Props = NativeStackScreenProps<RootStackParamList, 'OnboardingWelcome'>;
 
 const OnboardingWelcome: React.FC<Props> = ({ navigation }) => {
+  // Handle Android hardware back button
+  // On the first screen, if there's no back history, allow default behavior (exit app)
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // If we can go back in the navigation stack, do so
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+        return true; // Prevent default back behavior
+      }
+      // Otherwise, allow default behavior (exit app or go to system home)
+      // This ensures we don't skip intermediate screens that aren't on the stack yet
+      return false;
+    });
+
+    return () => backHandler.remove();
+  }, [navigation]);
+
   return (
     <View style={styles.container}>
       <View style={styles.logoContainer}>
