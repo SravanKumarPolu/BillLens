@@ -56,9 +56,13 @@ export const isBillSMS = (smsText: string): boolean => {
   const normalized = smsText.toLowerCase();
   
   const billIndicators = [
+    // General bill indicators
     'bill',
     'due',
     'payment',
+    'invoice',
+    'receipt',
+    // Utilities
     'electricity',
     'water',
     'internet',
@@ -70,6 +74,25 @@ export const isBillSMS = (smsText: string): boolean => {
     'bses',
     'tata power',
     'reliance',
+    // Food delivery apps (SMS notifications)
+    'swiggy',
+    'zomato',
+    'blinkit',
+    'zepto',
+    'bigbasket',
+    'instamart',
+    'dunzo',
+    // Payment apps (transaction SMS)
+    'phonepe',
+    'google pay',
+    'gpay',
+    'paytm',
+    'cred',
+    'bhim',
+    // E-commerce
+    'amazon',
+    'flipkart',
+    'myntra',
   ];
 
   return billIndicators.some(indicator => normalized.includes(indicator));

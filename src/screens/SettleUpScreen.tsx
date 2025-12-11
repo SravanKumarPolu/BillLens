@@ -29,6 +29,7 @@ const SettleUpScreen: React.FC<Props> = ({ navigation, route }) => {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [showUPIModal, setShowUPIModal] = useState(false);
   const [availableApps, setAvailableApps] = useState<UPIPaymentApp[]>(['upi']);
+  const [paymentMode, setPaymentMode] = useState<'cash' | 'upi' | 'bank_transfer' | 'card' | 'other' | undefined>('upi');
   
   const summary = getGroupSummary(groupId);
   const group = getGroup(groupId);
@@ -129,6 +130,7 @@ const SettleUpScreen: React.FC<Props> = ({ navigation, route }) => {
       toMemberId: payment.toMemberId,
       amount: payment.amount,
       currency: group?.currency || 'INR',
+      paymentMode: paymentMode || 'upi',
     });
 
     // Get balances after settlement
@@ -268,31 +270,69 @@ const SettleUpScreen: React.FC<Props> = ({ navigation, route }) => {
       <Modal
         visible={showUPIModal}
         onClose={() => setShowUPIModal(false)}
-        title="Choose payment app"
+        title="Choose payment method"
         subtitle={`Pay ${selectedPayment?.to} ${formatMoney(selectedPayment?.amount || 0)}`}
         variant="glass"
         animationType="slide"
       >
-        <View style={styles.modalButtonsContainer}>
-          {availableApps.map(app => (
-            <Button
-              key={app}
-              title={getAppDisplayName(app)}
-              onPress={() => handleUPIPayment(app)}
-              variant="primary"
-              style={styles.modalButton}
-            />
-          ))}
+        <ScrollView style={styles.modalContent}>
+          <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Payment Mode</Text>
+          <View style={styles.paymentModeRow}>
+            {[
+              { value: 'upi' as const, label: '📱 UPI' },
+              { value: 'cash' as const, label: '💵 Cash' },
+              { value: 'bank_transfer' as const, label: '🏦 Bank Transfer' },
+              { value: 'card' as const, label: '💳 Card' },
+              { value: 'other' as const, label: 'Other' },
+            ].map(mode => (
+              <TouchableOpacity
+                key={mode.value}
+                style={[
+                  styles.paymentModeChip,
+                  { 
+                    borderColor: paymentMode === mode.value ? colors.accent : colors.borderSubtle,
+                    backgroundColor: paymentMode === mode.value ? colors.accent + '20' : 'transparent'
+                  }
+                ]}
+                onPress={() => setPaymentMode(mode.value)}
+              >
+                <Text style={[
+                  styles.paymentModeText,
+                  { color: paymentMode === mode.value ? colors.accent : colors.textSecondary }
+                ]}>
+                  {mode.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {paymentMode === 'upi' && (
+            <>
+              <Text style={[styles.modalLabel, { color: colors.textSecondary, marginTop: 16 }]}>Choose UPI App</Text>
+              {availableApps.map(app => (
+                <Button
+                  key={app}
+                  title={getAppDisplayName(app)}
+                  onPress={() => {
+                    setPaymentMode('upi');
+                    handleUPIPayment(app);
+                  }}
+                  variant="primary"
+                  style={styles.modalButton}
+                />
+              ))}
+            </>
+          )}
           
           <Button
-            title="Mark as paid (no UPI)"
+            title="Mark as Paid"
             onPress={() => {
               if (selectedPayment) {
                 handleMarkAsPaid(selectedPayment);
               }
               setShowUPIModal(false);
             }}
-            variant="secondary"
+            variant="primary"
             style={styles.modalButton}
           />
           
@@ -302,7 +342,7 @@ const SettleUpScreen: React.FC<Props> = ({ navigation, route }) => {
             variant="ghost"
             style={styles.modalButton}
           />
-        </View>
+        </ScrollView>
       </Modal>
     </View>
   );
@@ -422,8 +462,33 @@ const createStyles = (colors: any) => StyleSheet.create({
   modalButtonsContainer: {
     gap: 12,
   },
+  modalContent: {
+    paddingVertical: 8,
+  },
+  modalLabel: {
+    ...typography.bodySmall,
+    marginBottom: 8,
+  },
+  paymentModeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 16,
+    gap: 8,
+  },
+  paymentModeChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  paymentModeText: {
+    ...typography.bodySmall,
+    ...typography.emphasis.semibold,
+  },
   modalButton: {
-    marginBottom: 0,
+    marginBottom: 12,
   },
 });
 

@@ -13,7 +13,7 @@ import { Group, Expense } from '../types/models';
 
 export interface UPIDetection {
   isUPI: boolean;
-  upiApp?: 'phonepe' | 'gpay' | 'paytm' | 'bhim' | 'other';
+  upiApp?: 'phonepe' | 'gpay' | 'paytm' | 'bhim' | 'cred' | 'other';
   amount?: number;
   merchant?: string;
   transactionId?: string;
@@ -70,9 +70,10 @@ export const detectUPIPayment = (ocrText: string, merchant?: string): UPIDetecti
     gpay: ['google pay', 'gpay', 'gp ay', 'tez'],
     paytm: ['paytm', 'pay tm'],
     bhim: ['bhim', 'bhim upi'],
+    cred: ['cred'],
   };
 
-  let detectedApp: 'phonepe' | 'gpay' | 'paytm' | 'bhim' | 'other' | undefined;
+  let detectedApp: 'phonepe' | 'gpay' | 'paytm' | 'bhim' | 'cred' | 'other' | undefined;
   
   for (const [app, patterns] of Object.entries(upiApps)) {
     if (patterns.some(pattern => normalized.includes(pattern))) {

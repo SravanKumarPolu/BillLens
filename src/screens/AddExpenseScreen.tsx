@@ -11,10 +11,9 @@ import { ExpensePayer, ExtraItem } from '../types/models';
 import { SUPPORTED_CURRENCIES, formatCurrency } from '../utils/currencyService';
 import { formatMoney } from '../utils/formatMoney';
 import { learnSplitPatterns, getSuggestedSplitPattern, suggestAmount, suggestCategory, learnCategoryPatterns } from '../utils/patternLearningService';
+import { getCategories } from '../utils/categoryService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddExpense'>;
-
-const categories = ['Food', 'Groceries', 'Utilities', 'Rent', 'WiFi', 'Maid', 'OTT', 'Other'];
 
 const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
   const { imageUri, groupId, parsedAmount, parsedMerchant, parsedDate, expenseId } = route.params || {};
@@ -61,8 +60,26 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
   const group = getGroup(currentGroupId);
   const [currency, setCurrency] = useState<string>(group?.currency || 'INR');
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
+  
+  // Priority and payment mode state
+  const [isPriority, setIsPriority] = useState<boolean>(false);
+  const [paymentMode, setPaymentMode] = useState<'cash' | 'upi' | 'bank_transfer' | 'card' | 'other' | undefined>(undefined);
+  const [categories, setCategories] = useState<string[]>(['Food', 'Groceries', 'Utilities', 'Rent', 'WiFi', 'Maid', 'OTT', 'Other']);
 
   const styles = createStyles(colors);
+
+  // Load dynamic categories
+  useEffect(() => {
+    const loadCategories = async () => {
+      const dynamicCategories = await getCategories(group?.id);
+      if (dynamicCategories.length > 0) {
+        setCategories(dynamicCategories);
+      }
+    };
+    if (group) {
+      loadCategories();
+    }
+  }, [group]);
   
   // Pattern learning - get suggestions
   const groupExpenses = useMemo(() => getExpensesForGroup(currentGroupId), [currentGroupId, getExpensesForGroup]);
@@ -127,6 +144,10 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
         if (expense.extraItems && expense.extraItems.length > 0) {
           setExtraItems(expense.extraItems);
         }
+        
+        // Load priority and payment mode
+        setIsPriority(expense.isPriority || false);
+        setPaymentMode(expense.paymentMode);
         
         // Load split configuration
         if (expense.splits && expense.splits.length > 0) {
@@ -347,6 +368,8 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
         payers: finalPayers,
         splits,
         extraItems: extraItems.length > 0 ? extraItems : undefined,
+        isPriority: isPriority || undefined,
+        paymentMode: paymentMode,
       });
       navigation.goBack();
       return;
@@ -365,6 +388,8 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
       splits,
       extraItems: extraItems.length > 0 ? extraItems : undefined,
       imageUri,
+      isPriority: isPriority || undefined,
+      paymentMode: paymentMode,
     });
 
     // Navigate back to group detail
@@ -448,6 +473,61 @@ const AddExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
               </Text>
             </TouchableOpacity>
           ))}
+        </View>
+
+        {/* Priority & Payment Mode */}
+        <View style={styles.priorityPaymentRow}>
+          <TouchableOpacity
+            style={[
+              styles.priorityButton,
+              { 
+                borderColor: isPriority ? colors.warning : colors.borderSubtle,
+                backgroundColor: isPriority ? colors.warning + '20' : 'transparent'
+              }
+            ]}
+            onPress={() => setIsPriority(!isPriority)}
+          >
+            <Text style={styles.priorityIcon}>⭐</Text>
+            <Text style={[
+              styles.priorityText,
+              { color: isPriority ? colors.warning : colors.textSecondary }
+            ]}>
+              Priority
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.paymentModeContainer}>
+            <Text style={[styles.label, { color: colors.textSecondary, marginBottom: 8 }]}>Payment Mode</Text>
+            <View style={styles.chipRow}>
+              {[
+                { value: 'cash' as const, label: '💵 Cash' },
+                { value: 'upi' as const, label: '📱 UPI' },
+                { value: 'bank_transfer' as const, label: '🏦 Bank' },
+                { value: 'card' as const, label: '💳 Card' },
+                { value: 'other' as const, label: 'Other' },
+              ].map(mode => (
+                <TouchableOpacity
+                  key={mode.value}
+                  style={[
+                    styles.chip,
+                    { borderColor: paymentMode === mode.value ? colors.accent : colors.borderSubtle },
+                    paymentMode === mode.value && [styles.chipSelected, { backgroundColor: colors.accent }]
+                  ]}
+                  onPress={() => setPaymentMode(paymentMode === mode.value ? undefined : mode.value)}
+                >
+                  <Text
+                    style={[
+                      styles.chipLabel,
+                      { color: paymentMode === mode.value ? colors.white : colors.textSecondary },
+                      paymentMode === mode.value && styles.chipLabelSelected
+                    ]}
+                  >
+                    {mode.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         </View>
 
         {/* Who Paid */}
@@ -894,6 +974,31 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   modeLabelActive: {
     ...typography.label,
+  },
+  priorityPaymentRow: {
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  priorityButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginBottom: 16,
+    alignSelf: 'flex-start',
+  },
+  priorityIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  priorityText: {
+    ...typography.body,
+    ...typography.emphasis.semibold,
+  },
+  paymentModeContainer: {
+    marginTop: 8,
   },
   membersList: {
     paddingVertical: 8,

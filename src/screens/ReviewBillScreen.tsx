@@ -7,6 +7,7 @@ import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { Input, Button, Card } from '../components';
 import { suggestGroup, parseItemizedFoodBill } from '../utils/indiaFirstService';
+import { getCategories } from '../utils/categoryService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ReviewBill'>;
 
@@ -14,12 +15,25 @@ const categories = ['Food', 'Groceries', 'Utilities', 'Rent', 'WiFi', 'Maid', 'O
 
 const ReviewBillScreen: React.FC<Props> = ({ navigation, route }) => {
   const { imageUri, groupId, parsedAmount, parsedMerchant, parsedDate, expenseId, ocrResult } = route.params || {};
-  const { getExpense, updateExpense, getAllGroupSummaries } = useGroups();
+  const { getExpense, updateExpense, getAllGroupSummaries, getGroup } = useGroups();
   const { colors } = useTheme();
   
   // Auto-fill with parsed OCR values, fallback to empty strings
   const [merchant, setMerchant] = useState(parsedMerchant || '');
   const [amount, setAmount] = useState(parsedAmount || '');
+  const [categories, setCategories] = useState<string[]>(['Food', 'Groceries', 'Utilities', 'Rent', 'WiFi', 'Maid', 'OTT', 'Other']);
+  
+  // Load dynamic categories
+  useEffect(() => {
+    const loadCategories = async () => {
+      const group = getGroup(groupId || '1');
+      const dynamicCategories = await getCategories(group?.id);
+      if (dynamicCategories.length > 0) {
+        setCategories(dynamicCategories);
+      }
+    };
+    loadCategories();
+  }, [groupId, getGroup]);
   
   // Determine category from merchant name if it matches a template
   const getCategoryFromMerchant = (merchantName: string): string => {

@@ -18,6 +18,10 @@ import com.christopherdro.htmltopdf.RNHTMLtoPDFPackage
 import com.rnfs.RNFSPackage
 
 class MainApplication : Application(), ReactApplication {
+    
+    // Expose reactNativeHost for SMSReceiver
+    val reactNativeHostInstance: ReactNativeHost
+        get() = reactNativeHost
 
   override val reactNativeHost: ReactNativeHost =
       object : DefaultReactNativeHost(this) {
@@ -32,6 +36,7 @@ class MainApplication : Application(), ReactApplication {
           packages.add(RNScreensPackage())
           packages.add(RNHTMLtoPDFPackage())
           packages.add(RNFSPackage())
+          packages.add(SMSReaderPackage())
           return packages
         }
 

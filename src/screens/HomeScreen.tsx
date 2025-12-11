@@ -97,6 +97,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           imbalanceAlerts: true,
           monthEndReports: true,
           upiReminders: true,
+          priorityReminders: true,
           reminderFrequency: 'weekly',
         }
       );
@@ -199,6 +200,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
         <Text style={[styles.appName, { color: colors.textPrimary }]}>BillLens</Text>
         <TouchableOpacity 
+          onPress={() => navigation.navigate('Search')}
+          style={styles.searchButton}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.searchIcon}>🔍</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
           onPress={() => navigation.navigate('Notifications')}
           style={styles.notificationButton}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -207,6 +215,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <NotificationBadge count={notificationsCount} />
         </TouchableOpacity>
         <View style={styles.headerRight}>
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('SMSSettings')}
+            style={styles.settingsButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.settingsIcon}>📱</Text>
+          </TouchableOpacity>
           <TouchableOpacity 
             onPress={() => navigation.navigate('Achievements')}
             style={styles.achievementsButton}
@@ -414,6 +429,16 @@ const createStyles = (colors: any) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  searchButton: {
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  searchIcon: {
+    fontSize: 24, // Emoji icon, not typography
+  },
   notificationButton: {
     minWidth: 44,
     minHeight: 44,
@@ -429,6 +454,15 @@ const createStyles = (colors: any) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  settingsButton: {
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  settingsIcon: {
+    fontSize: 24, // Emoji icon, not typography
   },
   achievementsButton: {
     minWidth: 44,

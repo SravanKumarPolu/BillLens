@@ -153,6 +153,33 @@ const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         </Pressable>
       )}
 
+      {/* Collections & Budget Quick Access */}
+      <View style={styles.quickAccessContainer}>
+        <TouchableOpacity
+          style={[styles.quickAccessButton, { backgroundColor: colors.surfaceCard }]}
+          onPress={() => navigation.navigate('Collections', { groupId })}
+        >
+          <Text style={styles.quickAccessIcon}>📁</Text>
+          <View style={styles.quickAccessText}>
+            <Text style={[styles.quickAccessTitle, { color: colors.textPrimary }]}>Collections</Text>
+            <Text style={[styles.quickAccessSubtitle, { color: colors.textSecondary }]}>Group related bills</Text>
+          </View>
+          <Text style={[styles.quickAccessArrow, { color: colors.textSecondary }]}>→</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.quickAccessButton, { backgroundColor: colors.surfaceCard }]}
+          onPress={() => navigation.navigate('BudgetManagement', { groupId })}
+        >
+          <Text style={styles.quickAccessIcon}>💰</Text>
+          <View style={styles.quickAccessText}>
+            <Text style={[styles.quickAccessTitle, { color: colors.textPrimary }]}>Budget & Planning</Text>
+            <Text style={[styles.quickAccessSubtitle, { color: colors.textSecondary }]}>Track spending limits</Text>
+          </View>
+          <Text style={[styles.quickAccessArrow, { color: colors.textSecondary }]}>→</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.actionButtons}>
         <Button
           title="Settle up"
@@ -614,6 +641,36 @@ const createStyles = (colors: any) => StyleSheet.create({
   settlementAmount: {
     ...typography.body,
     ...typography.emphasis.semibold,
+  },
+  quickAccessContainer: {
+    marginHorizontal: 24,
+    marginBottom: 24,
+    gap: 12,
+  },
+  quickAccessButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 8,
+  },
+  quickAccessIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  quickAccessText: {
+    flex: 1,
+  },
+  quickAccessTitle: {
+    ...typography.h4,
+    marginBottom: 4,
+  },
+  quickAccessSubtitle: {
+    ...typography.bodySmall,
+  },
+  quickAccessArrow: {
+    ...typography.bodyLarge,
+    marginLeft: 8,
   },
 });
 

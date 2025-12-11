@@ -43,6 +43,7 @@ const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
           imbalanceAlerts: true,
           monthEndReports: true,
           upiReminders: true,
+          priorityReminders: true,
           reminderFrequency: 'weekly',
         }
       );

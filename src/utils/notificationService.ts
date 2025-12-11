@@ -6,6 +6,7 @@
  * - Remind to add rent/recurring expenses
  * - Notify when expense added
  * - Notify when imbalance is high
+ * - Priority bill reminders
  */
 
 import { Group, GroupBalance, Expense } from '../types/models';
@@ -13,11 +14,12 @@ import { formatMoney } from './formatMoney';
 
 export interface Notification {
   id: string;
-  type: 'settle_reminder' | 'rent_reminder' | 'expense_added' | 'imbalance_alert' | 'month_end' | 'upi_reminder';
+  type: 'settle_reminder' | 'rent_reminder' | 'expense_added' | 'imbalance_alert' | 'month_end' | 'upi_reminder' | 'priority_bill';
   title: string;
   message: string;
   groupId: string;
   severity: 'high' | 'medium' | 'low';
+  priority: 'high' | 'medium' | 'low'; // Notification priority (for sorting)
   actionable: boolean;
   actionData?: any;
   createdAt: string;
@@ -30,6 +32,7 @@ export interface NotificationSettings {
   imbalanceAlerts: boolean;
   monthEndReports: boolean;
   upiReminders: boolean;
+  priorityReminders: boolean; // Priority bill reminders
   reminderFrequency: 'daily' | 'weekly' | 'never';
 }
 
@@ -40,6 +43,7 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   imbalanceAlerts: true,
   monthEndReports: true,
   upiReminders: true,
+  priorityReminders: true,
   reminderFrequency: 'weekly',
 };
 
@@ -77,6 +81,7 @@ export const checkSettlementReminder = (
     message,
     groupId,
     severity: balanceAmount > 1000 ? 'high' : 'medium',
+    priority: balanceAmount > 1000 ? 'high' : 'medium',
     actionable: true,
     actionData: { action: 'navigate', screen: 'SettleUp', params: { groupId } },
     createdAt: new Date().toISOString(),
@@ -116,6 +121,7 @@ export const checkRentReminder = (
     message: "It's the start of a new month. Don't forget to add this month's rent!",
     groupId,
     severity: 'medium',
+    priority: 'high',
     actionable: true,
     actionData: { action: 'navigate', screen: 'AddExpense', params: { groupId, category: 'Rent' } },
     createdAt: new Date().toISOString(),
@@ -138,11 +144,50 @@ export const generateExpenseAddedNotification = (
     title: 'New Expense Added',
     message: `${payerName} added ${formatMoney(expense.amount, false, expense.currency || 'INR')} for ${expense.merchant || expense.title} in ${groupName}`,
     groupId,
-    severity: 'low',
+    severity: expense.isPriority ? 'high' : 'low',
+    priority: expense.isPriority ? 'high' : 'low',
     actionable: true,
     actionData: { action: 'navigate', screen: 'GroupDetail', params: { groupId } },
     createdAt: new Date().toISOString(),
   };
+};
+
+/**
+ * Check for priority bills that need attention
+ */
+export const checkPriorityBills = (
+  groupId: string,
+  expenses: Expense[]
+): Notification[] => {
+  const notifications: Notification[] = [];
+  
+  // Find priority bills from last 7 days that haven't been settled
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  
+  const recentPriorityBills = expenses.filter(expense => {
+    const expenseDate = new Date(expense.date);
+    return expense.isPriority && expenseDate >= sevenDaysAgo;
+  });
+
+  if (recentPriorityBills.length > 0) {
+    recentPriorityBills.forEach(expense => {
+      notifications.push({
+        id: `priority-${expense.id}`,
+        type: 'priority_bill',
+        title: '⭐ Priority Bill',
+        message: `Priority bill: ${expense.merchant || expense.title} (${formatMoney(expense.amount, false, expense.currency || 'INR')})`,
+        groupId,
+        severity: 'high',
+        priority: 'high',
+        actionable: true,
+        actionData: { action: 'navigate', screen: 'GroupDetail', params: { groupId } },
+        createdAt: new Date().toISOString(),
+      });
+    });
+  }
+
+  return notifications;
 };
 
 /**
@@ -200,6 +245,7 @@ export const checkImbalanceAlert = (
     message: `Someone is paying ${maxImbalance.percentage.toFixed(0)}% more than their fair share. Consider redistributing expenses.`,
     groupId,
     severity: maxImbalance.percentage > 60 ? 'high' : 'medium',
+    priority: maxImbalance.percentage > 60 ? 'high' : 'medium',
     actionable: true,
     actionData: { action: 'navigate', screen: 'GroupDetail', params: { groupId } },
     createdAt: new Date().toISOString(),
@@ -222,6 +268,7 @@ export const generateMonthEndNotification = (
     message: `Your ${groupName} monthly report is ready. Total spent: ${formatMoney(totalSpent, false, currency)}`,
     groupId,
     severity: 'low',
+    priority: 'low',
     actionable: true,
     actionData: { action: 'navigate', screen: 'Analytics', params: { groupId } },
     createdAt: new Date().toISOString(),
@@ -245,6 +292,7 @@ export const generateUPIReminder = (
     message: `Reminder: Pay ${toMemberName} ${formatMoney(amount, false, currency)} via UPI`,
     groupId,
     severity: 'medium',
+    priority: 'medium',
     actionable: true,
     actionData: { action: 'navigate', screen: 'SettleUp', params: { groupId } },
     createdAt: new Date().toISOString(),
@@ -313,8 +361,17 @@ export const getPendingNotifications = (
     if (upiReminder) notifications.push(upiReminder);
   }
 
+  if (settings.priorityReminders) {
+    const priorityBills = checkPriorityBills(groupId, expenses);
+    notifications.push(...priorityBills);
+  }
+
   return notifications.sort((a, b) => {
+    // Sort by priority first, then severity
+    const priorityOrder = { high: 3, medium: 2, low: 1 };
     const severityOrder = { high: 3, medium: 2, low: 1 };
+    const priorityDiff = (priorityOrder[b.priority] || 1) - (priorityOrder[a.priority] || 1);
+    if (priorityDiff !== 0) return priorityDiff;
     return severityOrder[b.severity] - severityOrder[a.severity];
   });
 };

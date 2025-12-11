@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useMemo, useRef } from 'react';
-import { Group, Expense, Member, Settlement, GroupSummary, GroupBalance, ExpenseEdit, OcrHistory } from '../types/models';
+import { Group, Expense, Member, Settlement, GroupSummary, GroupBalance, ExpenseEdit, OcrHistory, GroupCollection, CategoryBudget, RecurringExpense } from '../types/models';
 import { saveAppData, loadAppData, type AppData } from '../utils/storageService';
 import { generateInsights, type Insight } from '../utils/insightsService';
 import { verifyBalancesSumToZero, normalizeAmount } from '../utils/mathUtils';
@@ -17,6 +17,9 @@ interface GroupsContextType {
   settlements: Settlement[];
   templateLastAmounts: TemplateLastAmount[];
   ocrHistory: OcrHistory[];
+  collections: GroupCollection[];
+  budgets: CategoryBudget[];
+  recurringExpenses: RecurringExpense[];
   isInitialized: boolean;
   
   // Group operations
@@ -35,6 +38,29 @@ interface GroupsContextType {
   getExpense: (expenseId: string) => Expense | undefined;
   getExpensesForGroup: (groupId: string) => Expense[];
   getExpenseEditHistory: (expenseId: string) => ExpenseEdit[];
+  
+  // Collection operations
+  addCollection: (collection: Omit<GroupCollection, 'id' | 'createdAt'>) => string;
+  updateCollection: (collectionId: string, updates: Partial<GroupCollection>) => void;
+  deleteCollection: (collectionId: string) => void;
+  getCollection: (collectionId: string) => GroupCollection | undefined;
+  getCollectionsForGroup: (groupId: string) => GroupCollection[];
+  addExpenseToCollection: (collectionId: string, expenseId: string) => void;
+  removeExpenseFromCollection: (collectionId: string, expenseId: string) => void;
+  
+  // Budget operations
+  addBudget: (budget: Omit<CategoryBudget, 'id' | 'createdAt'>) => string;
+  updateBudget: (budgetId: string, updates: Partial<CategoryBudget>) => void;
+  deleteBudget: (budgetId: string) => void;
+  getBudget: (budgetId: string) => CategoryBudget | undefined;
+  getBudgetsForGroup: (groupId?: string) => CategoryBudget[];
+  
+  // Recurring expense operations
+  addRecurringExpense: (recurring: Omit<RecurringExpense, 'id' | 'createdAt'>) => string;
+  updateRecurringExpense: (recurringId: string, updates: Partial<RecurringExpense>) => void;
+  deleteRecurringExpense: (recurringId: string) => void;
+  getRecurringExpense: (recurringId: string) => RecurringExpense | undefined;
+  getRecurringExpensesForGroup: (groupId?: string) => RecurringExpense[];
   
   // OCR History operations
   addOcrHistory: (history: Omit<OcrHistory, 'id' | 'timestamp'>) => string;
@@ -111,6 +137,9 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [templateLastAmounts, setTemplateLastAmounts] = useState<TemplateLastAmount[]>([]);
   const [ocrHistory, setOcrHistory] = useState<OcrHistory[]>([]);
+  const [collections, setCollections] = useState<GroupCollection[]>([]);
+  const [budgets, setBudgets] = useState<CategoryBudget[]>([]);
+  const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const syncCallbackRef = useRef<((localData: AppData, userId: string) => Promise<any>) | null>(null);
 
@@ -129,6 +158,9 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           setSettlements(savedData.settlements);
           setTemplateLastAmounts(savedData.templateLastAmounts);
           setOcrHistory(savedData.ocrHistory || []);
+          setCollections(savedData.collections || []);
+          setBudgets(savedData.budgets || []);
+          setRecurringExpenses(savedData.recurringExpenses || []);
         }
       } catch (error) {
         console.error('Error loading app data:', error);
@@ -152,6 +184,9 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           settlements,
           templateLastAmounts,
           ocrHistory,
+          collections,
+          budgets,
+          recurringExpenses,
         });
 
         // Track changes for sync (if user is authenticated)
@@ -166,7 +201,7 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     // Debounce saves to avoid too frequent writes
     const timeoutId = setTimeout(saveData, 500);
     return () => clearTimeout(timeoutId);
-  }, [groups, expenses, settlements, templateLastAmounts, ocrHistory, isInitialized]);
+  }, [groups, expenses, settlements, templateLastAmounts, ocrHistory, collections, budgets, recurringExpenses, isInitialized]);
 
   // Set up sync callback for real-time sync
   useEffect(() => {
@@ -193,6 +228,9 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
               settlements: result.mergedData.settlements,
               templateLastAmounts,
               ocrHistory,
+              collections,
+              budgets,
+              recurringExpenses,
             });
           }
           
@@ -680,12 +718,156 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return generateInsights(groupExpenses, group, balances, groupSettlements);
   }, [groups, getExpensesForGroup, getSettlementsForGroup, calculateGroupBalances]);
 
+  // Collection operations
+  const addCollection = useCallback((collectionData: Omit<GroupCollection, 'id' | 'createdAt'>): string => {
+    const newCollection: GroupCollection = {
+      ...collectionData,
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+      createdAt: new Date().toISOString(),
+    };
+    setCollections(prev => [...prev, newCollection]);
+    return newCollection.id;
+  }, []);
+
+  const updateCollection = useCallback((collectionId: string, updates: Partial<GroupCollection>) => {
+    setCollections(prev =>
+      prev.map(c =>
+        c.id === collectionId
+          ? { ...c, ...updates, updatedAt: new Date().toISOString() }
+          : c
+      )
+    );
+  }, []);
+
+  const deleteCollection = useCallback((collectionId: string) => {
+    setCollections(prev => prev.filter(c => c.id !== collectionId));
+    // Remove collectionId from expenses
+    setExpenses(prev =>
+      prev.map(e =>
+        e.collectionId === collectionId ? { ...e, collectionId: undefined } : e
+      )
+    );
+  }, []);
+
+  const getCollection = useCallback((collectionId: string): GroupCollection | undefined => {
+    return collections.find(c => c.id === collectionId);
+  }, [collections]);
+
+  const getCollectionsForGroup = useCallback((groupId: string): GroupCollection[] => {
+    return collections.filter(c => c.groupId === groupId);
+  }, [collections]);
+
+  const addExpenseToCollection = useCallback((collectionId: string, expenseId: string) => {
+    setCollections(prev =>
+      prev.map(c =>
+        c.id === collectionId
+          ? { ...c, expenseIds: [...c.expenseIds, expenseId], updatedAt: new Date().toISOString() }
+          : c
+      )
+    );
+    setExpenses(prev =>
+      prev.map(e =>
+        e.id === expenseId ? { ...e, collectionId } : e
+      )
+    );
+  }, []);
+
+  const removeExpenseFromCollection = useCallback((collectionId: string, expenseId: string) => {
+    setCollections(prev =>
+      prev.map(c =>
+        c.id === collectionId
+          ? { ...c, expenseIds: c.expenseIds.filter(id => id !== expenseId), updatedAt: new Date().toISOString() }
+          : c
+      )
+    );
+    setExpenses(prev =>
+      prev.map(e =>
+        e.id === expenseId ? { ...e, collectionId: undefined } : e
+      )
+    );
+  }, []);
+
+  // Budget operations
+  const addBudget = useCallback((budgetData: Omit<CategoryBudget, 'id' | 'createdAt'>): string => {
+    const newBudget: CategoryBudget = {
+      ...budgetData,
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+      createdAt: new Date().toISOString(),
+    };
+    setBudgets(prev => [...prev, newBudget]);
+    return newBudget.id;
+  }, []);
+
+  const updateBudget = useCallback((budgetId: string, updates: Partial<CategoryBudget>) => {
+    setBudgets(prev =>
+      prev.map(b =>
+        b.id === budgetId
+          ? { ...b, ...updates, updatedAt: new Date().toISOString() }
+          : b
+      )
+    );
+  }, []);
+
+  const deleteBudget = useCallback((budgetId: string) => {
+    setBudgets(prev => prev.filter(b => b.id !== budgetId));
+  }, []);
+
+  const getBudget = useCallback((budgetId: string): CategoryBudget | undefined => {
+    return budgets.find(b => b.id === budgetId);
+  }, [budgets]);
+
+  const getBudgetsForGroup = useCallback((groupId?: string): CategoryBudget[] => {
+    if (groupId === undefined) {
+      return budgets.filter(b => !b.groupId); // Personal budgets
+    }
+    return budgets.filter(b => b.groupId === groupId);
+  }, [budgets]);
+
+  // Recurring expense operations
+  const addRecurringExpense = useCallback((recurringData: Omit<RecurringExpense, 'id' | 'createdAt'>): string => {
+    const newRecurring: RecurringExpense = {
+      ...recurringData,
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+      createdAt: new Date().toISOString(),
+    };
+    setRecurringExpenses(prev => [...prev, newRecurring]);
+    return newRecurring.id;
+  }, []);
+
+  const updateRecurringExpense = useCallback((recurringId: string, updates: Partial<RecurringExpense>) => {
+    setRecurringExpenses(prev =>
+      prev.map(r =>
+        r.id === recurringId
+          ? { ...r, ...updates, updatedAt: new Date().toISOString() }
+          : r
+      )
+    );
+  }, []);
+
+  const deleteRecurringExpense = useCallback((recurringId: string) => {
+    setRecurringExpenses(prev => prev.filter(r => r.id !== recurringId));
+  }, []);
+
+  const getRecurringExpense = useCallback((recurringId: string): RecurringExpense | undefined => {
+    return recurringExpenses.find(r => r.id === recurringId);
+  }, [recurringExpenses]);
+
+  const getRecurringExpensesForGroup = useCallback((groupId?: string): RecurringExpense[] => {
+    if (groupId === undefined) {
+      return recurringExpenses.filter(r => !r.groupId); // Personal recurring expenses
+    }
+    return recurringExpenses.filter(r => r.groupId === groupId);
+  }, [recurringExpenses]);
+
   const value: GroupsContextType = {
     groups,
     expenses,
     settlements,
     templateLastAmounts,
     ocrHistory,
+    collections,
+    budgets,
+    recurringExpenses,
     isInitialized,
     addGroup,
     updateGroup,
@@ -700,6 +882,23 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     getExpense,
     getExpensesForGroup,
     getExpenseEditHistory,
+    addCollection,
+    updateCollection,
+    deleteCollection,
+    getCollection,
+    getCollectionsForGroup,
+    addExpenseToCollection,
+    removeExpenseFromCollection,
+    addBudget,
+    updateBudget,
+    deleteBudget,
+    getBudget,
+    getBudgetsForGroup,
+    addRecurringExpense,
+    updateRecurringExpense,
+    deleteRecurringExpense,
+    getRecurringExpense,
+    getRecurringExpensesForGroup,
     getTemplateLastAmount,
     updateTemplateLastAmount,
     addSettlement,

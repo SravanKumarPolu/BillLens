@@ -48,4 +48,9 @@ export type RootStackParamList = {
   Achievements: undefined;
   BackupRestore: undefined;
   AppLock: undefined;
+  SMSSettings: undefined;
+  Search: undefined;
+  Collections: { groupId: string };
+  CollectionDetail: { collectionId: string; groupId: string };
+  BudgetManagement: { groupId?: string };
 };

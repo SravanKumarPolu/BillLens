@@ -27,6 +27,11 @@ import ReceiptGalleryScreen from './screens/ReceiptGalleryScreen';
 import AchievementsScreen from './screens/AchievementsScreen';
 import BackupRestoreScreen from './screens/BackupRestoreScreen';
 import AppLockScreen from './screens/AppLockScreen';
+import SMSSettingsScreen from './screens/SMSSettingsScreen';
+import SearchScreen from './screens/SearchScreen';
+import CollectionsScreen from './screens/CollectionsScreen';
+import CollectionDetailScreen from './screens/CollectionDetailScreen';
+import BudgetManagementScreen from './screens/BudgetManagementScreen';
 import { colors } from './theme/colors';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -70,6 +75,11 @@ export const AppNavigator = ({ initialRouteName }: AppNavigatorProps = {}) => {
         <Stack.Screen name="Achievements" component={AchievementsScreen} />
         <Stack.Screen name="BackupRestore" component={BackupRestoreScreen} />
         <Stack.Screen name="AppLock" component={AppLockScreen} />
+        <Stack.Screen name="SMSSettings" component={SMSSettingsScreen} />
+        <Stack.Screen name="Search" component={SearchScreen} />
+        <Stack.Screen name="Collections" component={CollectionsScreen} />
+        <Stack.Screen name="CollectionDetail" component={CollectionDetailScreen} />
+        <Stack.Screen name="BudgetManagement" component={BudgetManagementScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

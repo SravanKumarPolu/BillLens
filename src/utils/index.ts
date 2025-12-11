@@ -158,6 +158,18 @@ export {
   type ParsedSMSBill,
 } from './smsParserService';
 export {
+  isSMSAutoFetchEnabled,
+  setSMSAutoFetchEnabled,
+  requestSMSPermissions,
+  checkSMSPermissions,
+  readRecentSMS,
+  processSMSForBills,
+  handleNewSMS,
+  clearProcessedSMSHistory,
+  type SMSMessage,
+  type ProcessedSMSBill,
+} from './smsReaderService';
+export {
   getBadges,
   getAchievements,
   calculateLevel,
@@ -201,4 +213,53 @@ export {
   cloudService,
   type CloudConfig,
 } from './cloudService';
+export {
+  searchExpenses,
+  searchGroups,
+  searchMembers,
+  globalSearch,
+  quickSearch,
+  type SearchResult,
+  type SearchOptions,
+} from './searchService';
+export {
+  getCategories,
+  getCustomCategories,
+  addCustomCategory,
+  deleteCustomCategory,
+  updateCustomCategory,
+  getCategoryEmoji,
+  getCategoryColor,
+  type CustomCategory,
+} from './categoryService';
+export {
+  isGroupAdmin,
+  hasAdminRole,
+  canManageGroup,
+  canManageMembers,
+  canSettleOnBehalf,
+  canEditExpenses,
+  canViewGroup,
+  setGroupAdmin,
+  transferAdmin,
+  updateMemberRole,
+} from './adminService';
+export {
+  importFromSplitwise,
+  parseSplitwiseCSV,
+  parseSplitwiseJSON,
+  createGroupsFromSplitwise,
+  type SplitwiseImportResult,
+  type SplitwiseExpense,
+  type SplitwiseGroup,
+} from './splitwiseImportService';
+export {
+  getCollectionsForGroup,
+  getCollection,
+  getExpensesInCollection,
+  getCollectionTotal,
+  getCollectionSummary,
+  validateCollection,
+  type CollectionSummary,
+} from './collectionService';
 

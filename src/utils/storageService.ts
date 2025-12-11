@@ -4,7 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Group, Expense, Settlement, OcrHistory } from '../types/models';
+import { Group, Expense, Settlement, OcrHistory, GroupCollection, CategoryBudget, RecurringExpense } from '../types/models';
 import { TemplateLastAmount } from '../context/GroupsContext';
 
 const STORAGE_KEYS = {
@@ -13,6 +13,9 @@ const STORAGE_KEYS = {
   SETTLEMENTS: '@billlens:settlements',
   TEMPLATE_AMOUNTS: '@billlens:templateAmounts',
   OCR_HISTORY: '@billlens:ocrHistory',
+  COLLECTIONS: '@billlens:collections',
+  BUDGETS: '@billlens:budgets',
+  RECURRING_EXPENSES: '@billlens:recurringExpenses',
   BACKUP: '@billlens:backup',
 };
 
@@ -22,6 +25,9 @@ export interface AppData {
   settlements: Settlement[];
   templateLastAmounts: TemplateLastAmount[];
   ocrHistory?: OcrHistory[];
+  collections?: GroupCollection[];
+  budgets?: CategoryBudget[];
+  recurringExpenses?: RecurringExpense[];
 }
 
 /**
@@ -35,6 +41,9 @@ export const saveAppData = async (data: AppData): Promise<void> => {
       AsyncStorage.setItem(STORAGE_KEYS.SETTLEMENTS, JSON.stringify(data.settlements)),
       AsyncStorage.setItem(STORAGE_KEYS.TEMPLATE_AMOUNTS, JSON.stringify(data.templateLastAmounts)),
       AsyncStorage.setItem(STORAGE_KEYS.OCR_HISTORY, JSON.stringify(data.ocrHistory || [])),
+      AsyncStorage.setItem(STORAGE_KEYS.COLLECTIONS, JSON.stringify(data.collections || [])),
+      AsyncStorage.setItem(STORAGE_KEYS.BUDGETS, JSON.stringify(data.budgets || [])),
+      AsyncStorage.setItem(STORAGE_KEYS.RECURRING_EXPENSES, JSON.stringify(data.recurringExpenses || [])),
     ]);
   } catch (error) {
     console.error('Error saving app data:', error);
@@ -47,12 +56,15 @@ export const saveAppData = async (data: AppData): Promise<void> => {
  */
 export const loadAppData = async (): Promise<AppData | null> => {
   try {
-    const [groupsStr, expensesStr, settlementsStr, templateAmountsStr, ocrHistoryStr] = await Promise.all([
+    const [groupsStr, expensesStr, settlementsStr, templateAmountsStr, ocrHistoryStr, collectionsStr, budgetsStr, recurringExpensesStr] = await Promise.all([
       AsyncStorage.getItem(STORAGE_KEYS.GROUPS),
       AsyncStorage.getItem(STORAGE_KEYS.EXPENSES),
       AsyncStorage.getItem(STORAGE_KEYS.SETTLEMENTS),
       AsyncStorage.getItem(STORAGE_KEYS.TEMPLATE_AMOUNTS),
       AsyncStorage.getItem(STORAGE_KEYS.OCR_HISTORY),
+      AsyncStorage.getItem(STORAGE_KEYS.COLLECTIONS),
+      AsyncStorage.getItem(STORAGE_KEYS.BUDGETS),
+      AsyncStorage.getItem(STORAGE_KEYS.RECURRING_EXPENSES),
     ]);
 
     if (!groupsStr) {
@@ -65,6 +77,9 @@ export const loadAppData = async (): Promise<AppData | null> => {
       settlements: settlementsStr ? JSON.parse(settlementsStr) : [],
       templateLastAmounts: templateAmountsStr ? JSON.parse(templateAmountsStr) : [],
       ocrHistory: ocrHistoryStr ? JSON.parse(ocrHistoryStr) : [],
+      collections: collectionsStr ? JSON.parse(collectionsStr) : [],
+      budgets: budgetsStr ? JSON.parse(budgetsStr) : [],
+      recurringExpenses: recurringExpensesStr ? JSON.parse(recurringExpensesStr) : [],
     };
   } catch (error) {
     console.error('Error loading app data:', error);
@@ -116,6 +131,9 @@ export const restoreBackup = async (backupString: string): Promise<void> => {
       settlements: backup.settlements || [],
       templateLastAmounts: backup.templateLastAmounts || [],
       ocrHistory: backup.ocrHistory || [],
+      collections: backup.collections || [],
+      budgets: backup.budgets || [],
+      recurringExpenses: backup.recurringExpenses || [],
     };
 
     await saveAppData(data);
@@ -136,6 +154,9 @@ export const clearAllData = async (): Promise<void> => {
       AsyncStorage.removeItem(STORAGE_KEYS.SETTLEMENTS),
       AsyncStorage.removeItem(STORAGE_KEYS.TEMPLATE_AMOUNTS),
       AsyncStorage.removeItem(STORAGE_KEYS.OCR_HISTORY),
+      AsyncStorage.removeItem(STORAGE_KEYS.COLLECTIONS),
+      AsyncStorage.removeItem(STORAGE_KEYS.BUDGETS),
+      AsyncStorage.removeItem(STORAGE_KEYS.RECURRING_EXPENSES),
       AsyncStorage.removeItem(STORAGE_KEYS.BACKUP),
     ]);
   } catch (error) {

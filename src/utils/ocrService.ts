@@ -21,7 +21,7 @@ export interface OcrResult {
   error?: string;
   rawText?: string; // Raw OCR text for debugging
   isUPI?: boolean; // India-first: UPI payment detection
-  upiApp?: 'phonepe' | 'gpay' | 'paytm' | 'bhim' | 'other';
+  upiApp?: 'phonepe' | 'gpay' | 'paytm' | 'bhim' | 'cred' | 'other';
   suggestedGroup?: string; // India-first: Suggested group based on merchant
 }
 
@@ -340,11 +340,13 @@ const extractMerchant = (text: string): ParsedMerchant | null => {
     { patterns: ['zepto'], name: 'Zepto', confidence: 0.95 },
     { patterns: ['dunzo'], name: 'Dunzo', confidence: 0.95 },
     { patterns: ['grofers'], name: 'Grofers', confidence: 0.95 },
+    { patterns: ['instamart'], name: 'Instamart', confidence: 0.95 },
     // Payment apps
     { patterns: ['phonepe'], name: 'PhonePe', confidence: 0.9 },
     { patterns: ['google pay', 'gpay', 'gp ay', 'tez'], name: 'Google Pay', confidence: 0.9 },
     { patterns: ['paytm'], name: 'Paytm', confidence: 0.9 },
     { patterns: ['bhim'], name: 'BHIM', confidence: 0.9 },
+    { patterns: ['cred'], name: 'CRED', confidence: 0.9 },
     // E-commerce
     { patterns: ['amazon', 'amazon pay'], name: 'Amazon', confidence: 0.85 },
     { patterns: ['flipkart'], name: 'Flipkart', confidence: 0.85 },
