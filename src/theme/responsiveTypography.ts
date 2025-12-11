@@ -4,11 +4,18 @@
  * Optimized for external monitors and various screen sizes/DPIs
  * 
  * Features:
- * - DPI-aware scaling for high-resolution displays
- * - Screen size responsive adjustments
- * - Contrast verification utilities
- * - Font smoothing and rendering optimizations
+ * - Enhanced DPI-aware scaling for external monitors
+ * - Screen size responsive adjustments with diagonal-based scaling
+ * - Minimum readable sizes (WCAG AA compliant)
+ * - Maximum size constraints to prevent text from becoming too large
+ * - Automatic optimization for low-DPI, standard, and high-DPI external monitors
  * - Accessibility-first approach (WCAG AA compliant)
+ * 
+ * External Monitor Optimization:
+ * - Low DPI (< 1.5): 1.15-1.25x scaling for readability
+ * - Standard (1.5-2.0): 1.1-1.15x scaling
+ * - High-DPI 4K (> 2.5): 1.05x scaling
+ * - Maximum scaling capped at 1.35x to maintain hierarchy
  * 
  * React Native handles font rendering automatically, but we provide
  * utilities for responsive scaling and contrast verification.
@@ -48,37 +55,77 @@ export const getDeviceType = (): DeviceType => {
 /**
  * Scale factor for typography based on device and DPI
  * 
- * High-DPI displays (Retina, 4K monitors) need larger base sizes
- * External monitors often have lower DPI, requiring careful scaling
+ * Enhanced algorithm for external monitor readability:
+ * - Low DPI external monitors (< 1.5): Aggressive scaling (1.15-1.25x)
+ * - Standard external monitors (1.5-2.0): Moderate scaling (1.1-1.15x)
+ * - High-DPI 4K monitors (> 2.5): Conservative scaling (1.05-1.1x)
+ * 
+ * This ensures optimal readability across all external monitor configurations
+ * while maintaining visual hierarchy and preventing text from becoming too large.
  */
 export const getScaleFactor = (): number => {
   const deviceType = getDeviceType();
   const pixelRatio = getPixelRatio();
-  const baseScale = pixelRatio;
+  const { width, height } = getScreenDimensions();
   
-  // Base scaling factors
+  // Base scaling factors by device type
   const scaleFactors: Record<DeviceType, number> = {
     [DeviceType.SMALL]: 1.0,      // Small phones: no scaling
     [DeviceType.MEDIUM]: 1.0,     // Standard phones: no scaling
     [DeviceType.LARGE]: 1.05,     // Tablets: slight increase
-    [DeviceType.XLARGE]: 1.1,     // External monitors: increase for readability
+    [DeviceType.XLARGE]: 1.0,     // External monitors: base (will be overridden by DPI-specific values)
   };
   
-  // Adjust for high-DPI displays
-  // High-DPI (Retina/4K) typically has pixelRatio > 2
-  // Lower DPI external monitors typically have pixelRatio ~1-1.5
-  let dpiAdjustment = 1.0;
-  
+  // For external monitors, use DPI-specific scale factors directly (not multiplied by base)
+  // These match the documented scale factors in TYPOGRAPHY_GUIDE.md
   if (deviceType === DeviceType.XLARGE) {
-    // For external monitors, scale up more if lower DPI
+    // Calculate screen diagonal (approximate) for better scaling decisions
+    // Account for pixel ratio: convert logical pixels to physical pixels, then to inches
+    // Physical pixels = logical pixels * pixelRatio
+    // Diagonal in inches = sqrt((width * pixelRatio)^2 + (height * pixelRatio)^2) / DPI
+    // Using 96 DPI as standard reference, but accounting for pixel ratio
+    const physicalWidth = width * pixelRatio;
+    const physicalHeight = height * pixelRatio;
+    const diagonal = Math.sqrt(physicalWidth * physicalWidth + physicalHeight * physicalHeight) / 96;
+    
+    // Low DPI external monitor (< 1.5 pixel ratio)
+    // Common on older or budget external monitors
     if (pixelRatio < 1.5) {
-      dpiAdjustment = 1.15; // Larger fonts for lower DPI external monitors
-    } else if (pixelRatio > 2.5) {
-      dpiAdjustment = 1.05; // Slight increase for 4K monitors
+      // Scale more aggressively for larger screens with low DPI
+      if (diagonal > 27) {
+        return 1.25; // Large low-DPI monitor (27"+)
+      } else {
+        return 1.15; // Standard low-DPI monitor
+      }
+    }
+    // Standard external monitor (1.5 - 2.0 pixel ratio)
+    // Most common external monitor configuration
+    else if (pixelRatio >= 1.5 && pixelRatio <= 2.0) {
+      if (diagonal > 27) {
+        return 1.15; // Large standard monitor
+      } else {
+        return 1.1; // Standard monitor
+      }
+    }
+    // High-DPI 4K monitor (> 2.5 pixel ratio)
+    // Retina-class displays, 4K monitors
+    else if (pixelRatio > 2.5) {
+      // 4K monitors have high pixel density, less scaling needed
+      return 1.05;
+    }
+    // Very high-DPI (2.0 - 2.5)
+    // QHD+ or high-resolution displays
+    else {
+      return 1.08;
     }
   }
   
-  return scaleFactors[deviceType] * dpiAdjustment;
+  // For non-XLARGE devices, use base scale factors
+  const finalScale = scaleFactors[deviceType];
+  
+  // Cap maximum scaling to prevent text from becoming too large
+  // Maximum 1.35x for very large, low-DPI external monitors
+  return Math.min(finalScale, 1.35);
 };
 
 /**
@@ -215,6 +262,13 @@ export const getResponsiveTypography = (): typeof typography => {
       fontSize: getResponsiveFontSize(14, 14, 18),
       lineHeight: getResponsiveFontSize(18, 18, 24),
     },
+    // Safely access emphasis - it should always be available, but add a fallback for safety
+    emphasis: typography.emphasis || {
+      bold: { fontWeight: '700' as const },
+      semibold: { fontWeight: '600' as const },
+      medium: { fontWeight: '500' as const },
+      italic: { fontStyle: 'italic' as const },
+    },
   };
 };
 
@@ -232,8 +286,38 @@ export const getResponsiveTypographyStyle = (key: TypographyKey) => {
 /**
  * Cached responsive typography (calculated once, use getResponsiveTypography() for dynamic)
  * Use this for static components that don't need real-time updates
+ * 
+ * NOTE: Lazily initialized to avoid module initialization order issues with typography.emphasis
  */
-export const responsiveTypography = getResponsiveTypography();
+let _cachedResponsiveTypography: ReturnType<typeof getResponsiveTypography> | null = null;
+
+function getCachedResponsiveTypography(): ReturnType<typeof getResponsiveTypography> {
+  if (!_cachedResponsiveTypography) {
+    _cachedResponsiveTypography = getResponsiveTypography();
+  }
+  return _cachedResponsiveTypography;
+}
+
+export const responsiveTypography = new Proxy({} as ReturnType<typeof getResponsiveTypography>, {
+  get(target, prop) {
+    const cached = getCachedResponsiveTypography();
+    const value = cached[prop as keyof typeof cached];
+    // If accessing a nested object (like emphasis), return it directly
+    if (typeof value === 'object' && value !== null) {
+      return value;
+    }
+    return value;
+  },
+  ownKeys() {
+    return Object.keys(getCachedResponsiveTypography());
+  },
+  getOwnPropertyDescriptor(target, prop) {
+    return Object.getOwnPropertyDescriptor(getCachedResponsiveTypography(), prop);
+  },
+  has(target, prop) {
+    return prop in getCachedResponsiveTypography();
+  },
+});
 
 /**
  * Get current screen information for debugging and testing

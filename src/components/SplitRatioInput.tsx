@@ -154,12 +154,11 @@ const createStyles = (colors: any, isFocused: boolean, isDark: boolean) => Style
   },
   memberName: {
     ...typography.body,
-    fontWeight: '500',
+    ...typography.emphasis.medium,
     marginBottom: 2,
   },
   percentage: {
     ...typography.captionSmall,
-    fontSize: 11,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -174,12 +173,12 @@ const createStyles = (colors: any, isFocused: boolean, isDark: boolean) => Style
   },
   currencySymbol: {
     ...typography.body,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
     marginRight: 4,
   },
   input: {
     ...typography.body,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
     flex: 1,
     textAlign: 'right',
     padding: 0,
@@ -194,7 +193,6 @@ const createStyles = (colors: any, isFocused: boolean, isDark: boolean) => Style
     marginLeft: 8,
   },
   removeButtonText: {
-    ...typography.display,
     fontSize: 24,
     lineHeight: 24,
     fontWeight: '300',

@@ -114,7 +114,12 @@ export const TypographyText: React.FC<TypographyTextProps> = ({
   
   // Build final style
   const finalStyle = React.useMemo(() => {
-    const styles: TextStyle[] = [typographyStyle];
+    const styles: TextStyle[] = [];
+    
+    // Add base typography style (ensure it's a TextStyle, not the emphasis object)
+    if (typographyStyle && typeof typographyStyle === 'object' && 'fontSize' in typographyStyle) {
+      styles.push(typographyStyle as TextStyle);
+    }
     
     // Apply color
     if (colorValue) {
@@ -123,7 +128,7 @@ export const TypographyText: React.FC<TypographyTextProps> = ({
     
     // Apply emphasis
     if (emphasis) {
-      const emphasisMap = {
+      const emphasisMap: Record<string, TextStyle> = {
         bold: { fontWeight: '700' as const },
         semibold: { fontWeight: '600' as const },
         medium: { fontWeight: '500' as const },
@@ -139,10 +144,14 @@ export const TypographyText: React.FC<TypographyTextProps> = ({
     
     // Apply custom styles (merged last)
     if (style) {
-      styles.push(style);
+      if (Array.isArray(style)) {
+        styles.push(...style);
+      } else {
+        styles.push(style);
+      }
     }
     
-    return styles;
+    return styles.length === 1 ? styles[0] : styles;
   }, [typographyStyle, colorValue, emphasis, align, style]);
   
   return (

@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   },
   chipLabelSelected: {
     ...typography.label,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
   },
   label: {
     ...typography.label,

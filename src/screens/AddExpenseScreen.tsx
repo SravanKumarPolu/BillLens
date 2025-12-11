@@ -504,7 +504,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   chipLabelSelected: {
     ...typography.label,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
   },
   modeRow: {
     flexDirection: 'row',

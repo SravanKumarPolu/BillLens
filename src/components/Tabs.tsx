@@ -100,10 +100,10 @@ const createStyles = (colors: any, variant: string, isDark: boolean) => StyleShe
   },
   tabLabel: {
     ...typography.body,
-    fontWeight: '500',
+    ...typography.emphasis.medium,
   },
   tabLabelActive: {
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
   },
   badge: {
     marginLeft: 6,
@@ -116,7 +116,7 @@ const createStyles = (colors: any, variant: string, isDark: boolean) => StyleShe
   },
   badgeText: {
     ...typography.captionSmall,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
   },
 });
 

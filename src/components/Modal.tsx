@@ -137,12 +137,10 @@ const createStyles = (colors: any, variant: string, isDark: boolean) => StyleShe
   },
   title: {
     ...typography.h2,
-    fontWeight: '600',
     marginBottom: 4,
   },
   subtitle: {
     ...typography.body,
-    fontSize: 14,
   },
   closeButton: {
     width: 32,
@@ -152,7 +150,6 @@ const createStyles = (colors: any, variant: string, isDark: boolean) => StyleShe
     justifyContent: 'center',
   },
   closeButtonText: {
-    ...typography.display,
     fontSize: 24,
     lineHeight: 24,
     fontWeight: '300',

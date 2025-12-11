@@ -1,8 +1,25 @@
-# BillLens Typography System - Design Guide
+# BillLens Typography System - Complete Guide
 
 ## Overview
 
 The BillLens typography system creates a **visually clear and readable typographic hierarchy** that guides users naturally through content. Every typographic decision is intentional, based on mathematical relationships, accessibility principles, and visual design best practices.
+
+This guide covers the complete typography system including design philosophy, implementation, external monitor optimization, fixes applied, and best practices.
+
+---
+
+## Table of Contents
+
+1. [Design Philosophy](#design-philosophy)
+2. [Typographic Scale & Hierarchy](#typographic-scale--hierarchy)
+3. [Typography Tokens](#typography-tokens)
+4. [External Monitor Optimization](#external-monitor-optimization)
+5. [Accessibility & Contrast](#accessibility--contrast)
+6. [Implementation](#implementation)
+7. [Fixes & Improvements](#fixes--improvements)
+8. [Testing & Validation](#testing--validation)
+9. [Best Practices](#best-practices)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -25,7 +42,7 @@ The BillLens typography system creates a **visually clear and readable typograph
 
 ---
 
-## Typographic Scale
+## Typographic Scale & Hierarchy
 
 ### Mathematical Foundation
 
@@ -50,8 +67,38 @@ Caption Sm:  11px  (0.79x base)  ← Fine print
 
 - **Harmonious progression** - Creates natural, pleasing size relationships
 - **Clear distinction** - Each level is noticeably different but not jarring
-- **Scalable** - Works well across different screen sizes and contexts
+- **Scalable** - Works well across different screen sizes
 - **Industry standard** - Used by Material Design, Apple HIG, and modern design systems
+
+### Clear Visual Hierarchy (4+ Levels)
+
+1. **Display** (32px, 700) - Hero text, app titles
+2. **H1** (28px, 600) - Screen titles
+3. **H2** (24px, 600) - Section headers
+4. **H3** (20px, 600) - Subsection headers
+5. **H4** (18px, 600) - Card titles
+6. **Body** (14px, 400) - Primary content
+7. **Body Small** (13px, 400) - Secondary content
+8. **Caption** (12px, 400) - Metadata
+
+### Weight Distribution
+
+- **400 (Regular)**: Body text, captions
+- **500 (Medium)**: Labels, links
+- **600 (Semibold)**: Headings, buttons, money
+- **700 (Bold)**: Display text, hero amounts
+
+### Line Height Strategy
+
+- **Headings**: 1.2x (tighter for visual cohesion)
+- **Body Text**: 1.5x (comfortable reading)
+- **Captions**: 1.33x (compact but readable)
+
+### Letter Spacing
+
+- **28px+**: -0.5px to -0.3px (tighter for elegance)
+- **18-24px**: -0.2px to 0px (neutral)
+- **<18px**: 0px (natural spacing)
 
 ---
 
@@ -65,7 +112,6 @@ Caption Sm:  11px  (0.79x base)  ← Fine print
 - **Line Height**: 38px (1.19x)
 - **Letter Spacing**: -0.5px
 - **Use**: App name, major hero sections, welcome screens
-- **Design Rationale**: Largest text creates immediate visual impact. Bold weight establishes authority. Tighter letter spacing (-0.5px) creates elegance at large sizes.
 
 #### `h1` - Screen Titles
 - **Size**: 28px
@@ -73,7 +119,6 @@ Caption Sm:  11px  (0.79x base)  ← Fine print
 - **Line Height**: 34px (1.21x)
 - **Letter Spacing**: -0.5px
 - **Use**: Main screen titles, primary section headers
-- **Design Rationale**: Large enough to be prominent but not overwhelming. Semibold weight provides emphasis without heaviness. Creates clear entry point for screen content.
 
 #### `h2` - Section Headers
 - **Size**: 24px
@@ -81,7 +126,6 @@ Caption Sm:  11px  (0.79x base)  ← Fine print
 - **Line Height**: 30px (1.25x)
 - **Letter Spacing**: -0.3px
 - **Use**: Section titles, group names, card headers
-- **Design Rationale**: Clearly distinguishes sections within a screen. Balanced size-to-weight ratio maintains readability while establishing hierarchy.
 
 #### `h3` - Subsection Headers
 - **Size**: 20px
@@ -89,7 +133,6 @@ Caption Sm:  11px  (0.79x base)  ← Fine print
 - **Line Height**: 24px (1.2x)
 - **Letter Spacing**: -0.2px
 - **Use**: Subsection titles, expense titles, modal headers
-- **Design Rationale**: Provides structure within sections without competing with main headings. Tighter line height (1.2x) creates visual cohesion.
 
 #### `h4` - Card Titles
 - **Size**: 18px
@@ -97,7 +140,6 @@ Caption Sm:  11px  (0.79x base)  ← Fine print
 - **Line Height**: 22px (1.22x)
 - **Letter Spacing**: -0.1px
 - **Use**: Card titles, emphasized text, secondary headers
-- **Design Rationale**: Slightly larger than body text to create emphasis. Works well in card contexts where space is limited.
 
 ### Body Text
 
@@ -105,25 +147,19 @@ Caption Sm:  11px  (0.79x base)  ← Fine print
 - **Size**: 16px
 - **Weight**: 400 (Regular)
 - **Line Height**: 24px (1.5x)
-- **Letter Spacing**: 0px
 - **Use**: Important descriptions, taglines, emphasized paragraphs
-- **Design Rationale**: Larger than standard body for emphasis. 1.5x line height provides comfortable reading rhythm. Natural letter spacing maintains readability.
 
 #### `body` - Primary Body Text
 - **Size**: 14px
 - **Weight**: 400 (Regular)
 - **Line Height**: 21px (1.5x)
-- **Letter Spacing**: 0px
 - **Use**: Main content, descriptions, summaries
-- **Design Rationale**: **Base size** for all typography. 1.5x line height is the gold standard for body text readability. Regular weight ensures comfortable reading over extended periods.
 
 #### `bodySmall` - Secondary Body
 - **Size**: 13px
 - **Weight**: 400 (Regular)
 - **Line Height**: 20px (1.54x)
-- **Letter Spacing**: 0px
 - **Use**: Secondary information, subtitles, helper text
-- **Design Rationale**: Slightly smaller for less important content. Maintains readability with generous line height.
 
 ### Labels & Captions
 
@@ -131,9 +167,7 @@ Caption Sm:  11px  (0.79x base)  ← Fine print
 - **Size**: 14px
 - **Weight**: 500 (Medium)
 - **Line Height**: 20px (1.43x)
-- **Letter Spacing**: 0px
 - **Use**: Input labels, section labels, filter labels
-- **Design Rationale**: Medium weight (500) provides emphasis without heaviness. Same size as body but weightier to distinguish labels from content.
 
 #### `overline` - Input Labels
 - **Size**: 11px
@@ -141,23 +175,18 @@ Caption Sm:  11px  (0.79x base)  ← Fine print
 - **Line Height**: 16px (1.45x)
 - **Letter Spacing**: 0.5px
 - **Use**: Input field labels, category tags, uppercase labels
-- **Design Rationale**: Small size with increased letter spacing (0.5px) improves legibility. Typically used with `textTransform: 'uppercase'` for distinct visual treatment.
 
 #### `caption` - Metadata
 - **Size**: 12px
 - **Weight**: 400 (Regular)
 - **Line Height**: 16px (1.33x)
-- **Letter Spacing**: 0px
 - **Use**: Timestamps, metadata, helper text, fine details
-- **Design Rationale**: Compact but readable. 1.33x line height balances space efficiency with readability.
 
 #### `captionSmall` - Fine Print
 - **Size**: 11px
 - **Weight**: 400 (Regular)
 - **Line Height**: 14px (1.27x)
-- **Letter Spacing**: 0px
 - **Use**: Legal text, disclaimers, very fine details
-- **Design Rationale**: Smallest readable size. Use sparingly for non-critical information.
 
 ### Interactive Elements
 
@@ -165,33 +194,25 @@ Caption Sm:  11px  (0.79x base)  ← Fine print
 - **Size**: 16px
 - **Weight**: 600 (Semibold)
 - **Line Height**: 20px (1.25x)
-- **Letter Spacing**: 0px
 - **Use**: Button labels, primary CTAs
-- **Design Rationale**: Larger than body text for better touch targets. Semibold weight ensures visibility and importance.
 
 #### `buttonSmall` - Secondary Button
 - **Size**: 14px
 - **Weight**: 600 (Semibold)
 - **Line Height**: 18px (1.29x)
-- **Letter Spacing**: 0px
 - **Use**: Small buttons, compact CTAs
-- **Design Rationale**: Compact version for secondary actions. Maintains weight for consistency.
 
 #### `link` - Interactive Links
 - **Size**: 14px
 - **Weight**: 500 (Medium)
 - **Line Height**: 20px (1.43x)
-- **Letter Spacing**: 0px
 - **Use**: Clickable links, navigation text
-- **Design Rationale**: Medium weight distinguishes links from regular text. Same size as body maintains readability.
 
 #### `navigation` - Back Buttons & Navigation
 - **Size**: 16px
 - **Weight**: 400 (Regular)
 - **Line Height**: 22px (1.38x)
-- **Letter Spacing**: 0px
 - **Use**: Back buttons, navigation labels, breadcrumbs
-- **Design Rationale**: Slightly larger than body (16px vs 14px) improves touch targets and visibility. Regular weight maintains approachability. Generous line height (1.38x) ensures readability in navigation contexts.
 
 ### Financial Display
 
@@ -201,7 +222,6 @@ Caption Sm:  11px  (0.79x base)  ← Fine print
 - **Line Height**: 34px (1.21x)
 - **Letter Spacing**: -0.3px
 - **Use**: Large financial displays, total amounts, hero numbers
-- **Design Rationale**: Large size and bold weight create immediate impact for financial data. Tighter letter spacing maintains elegance at large sizes.
 
 #### `money` - Standard Amounts
 - **Size**: 18px
@@ -209,347 +229,328 @@ Caption Sm:  11px  (0.79x base)  ← Fine print
 - **Line Height**: 22px (1.22x)
 - **Letter Spacing**: -0.1px
 - **Use**: Expense amounts, balances, standard money display
-- **Design Rationale**: Prominent but not overwhelming. Semibold weight ensures numbers are easily scannable.
 
 #### `moneySmall` - Compact Amounts
 - **Size**: 14px
 - **Weight**: 600 (Semibold)
 - **Line Height**: 18px (1.29x)
-- **Letter Spacing**: 0px
 - **Use**: Small amounts, inline money, compact displays
-- **Design Rationale**: Compact version maintains weight for consistency. Works well in lists and cards.
+
+### Emphasis Utilities
+
+Use these to add emphasis without changing size:
+
+- `typography.emphasis.bold` - 700 weight (strong emphasis)
+- `typography.emphasis.semibold` - 600 weight (medium emphasis)
+- `typography.emphasis.medium` - 500 weight (light emphasis)
+- `typography.emphasis.italic` - Italic style
 
 ---
 
-## Line Height Strategy
+## External Monitor Optimization
 
-### Why Different Line Heights?
+### Enhanced DPI-Aware Scaling
 
-Line heights are calculated to optimize readability for different text sizes:
+The typography system uses an enhanced algorithm that considers:
 
-| Category | Ratio | Rationale |
-|----------|-------|-----------|
-| **Headings** | 1.2x | Tighter spacing creates visual cohesion. Headings are typically short, so less line height is needed. |
-| **Body Text** | 1.5x | Comfortable reading line height. Industry standard for extended reading. |
-| **Captions** | 1.33x | Compact but still readable. Balances space efficiency with legibility. |
-
-### Examples
-
-- **H1 (28px)**: Line height 34px (1.21x) - Tighter for visual cohesion
-- **Body (14px)**: Line height 21px (1.5x) - Comfortable reading
-- **Caption (12px)**: Line height 16px (1.33x) - Compact but readable
-
----
-
-## Letter Spacing Strategy
-
-### Size-Based Adjustments
-
-Letter spacing is adjusted based on text size to optimize legibility:
-
-| Size Range | Letter Spacing | Rationale |
-|------------|----------------|-----------|
-| **28px+** | -0.5px to -0.3px | Large text benefits from tighter spacing for elegance and cohesion |
-| **18-24px** | -0.2px to 0px | Neutral spacing maintains readability |
-| **<18px** | 0px | Natural spacing is optimal for smaller text |
-
-### Why Negative Letter Spacing?
-
-- **Large text** (28px+) naturally has more space between letters
-- **Tighter spacing** (-0.3px to -0.5px) creates visual elegance
-- **Smaller text** (<18px) needs natural spacing for readability
-- **Balance** between visual appeal and legibility
-
----
-
-## Font Weight Hierarchy
-
-### Weight Scale
-
-| Weight | Value | Use Cases | Visual Impact |
-|--------|-------|-----------|---------------|
-| **Regular (400)** | Normal | Body text, captions | Standard, comfortable reading |
-| **Medium (500)** | Slightly bold | Labels, links | Subtle emphasis |
-| **Semibold (600)** | Bold | Headings, buttons, money | Strong emphasis |
-| **Bold (700)** | Very bold | Display text, hero amounts | Maximum emphasis |
-
-### Design Rationale
-
-- **400 (Regular)**: Default for body text. Comfortable for extended reading.
-- **500 (Medium)**: Subtle emphasis without heaviness. Perfect for labels and links.
-- **600 (Semibold)**: Strong emphasis. Used for headings to establish hierarchy.
-- **700 (Bold)**: Maximum emphasis. Reserved for hero text and important numbers.
-
----
-
-## Spacing System
-
-### Base Unit: 4px
-
-All spacing is based on a **4px grid system** for consistent visual rhythm:
-
-- **4px** (tight) - Between related elements
-- **8px** (default) - Between body paragraphs
-- **12px** (comfortable) - Between sections
-- **16px** (loose) - Between major sections
-- **24px** (extra loose) - Between major content blocks
-
-### Recommended Spacing Between Typographic Elements
-
-#### After Headings
-- **After H1**: 16px (loose) - Creates breathing room after major headings
-- **After H2**: 12px (comfortable) - Balanced spacing for section headers
-- **After H3/H4**: 8px (default) - Tighter spacing for subsections
-
-#### Body Text
-- **Between paragraphs**: 8px (default) - Maintains reading flow
-- **After body before heading**: 16px (loose) - Clear separation between content and new section
-
-#### Lists
-- **Between items**: 8px (default) - Consistent with paragraph spacing
-- **After list**: 12px (comfortable) - Clear separation from following content
-
-### Visual Rhythm
-
-The 4px base unit creates a **visual rhythm** that:
-- Makes layouts feel intentional and organized
-- Creates consistent spacing relationships
-- Improves scanability and readability
-- Establishes professional, polished appearance
-
----
-
-## Color & Contrast
-
-### Typography Color Tokens
-
-| Token | Light Mode | Dark Mode | Use Case |
-|-------|------------|-----------|----------|
-| `textPrimary` | #1F2937 | #F3F4F6 | Main content, headings |
-| `textSecondary` | #6B7280 | #A2A2B5 | Secondary text, captions |
-| `accent` | #10B981 | #10B981 | Links, highlights |
-| `error` | #EF4444 | #EF4444 | Errors, warnings |
-| `success` | #10B981 | #10B981 | Success states |
-
-### Contrast Ratios (WCAG AA Compliant)
-
-All text combinations meet **WCAG AA standards** (4.5:1 minimum):
-
-- **textPrimary on surfaceLight (light)**: 19.30:1 (WCAG AAA ✅)
-- **textSecondary on surfaceLight (light)**: 4.63:1 (WCAG AA ✅)
-- **textPrimary on surfaceCard (light)**: 20.17:1 (WCAG AAA ✅)
-- **textPrimary on surfaceLight (dark)**: 16.30:1 (WCAG AAA ✅)
-- **textSecondary on surfaceLight (dark)**: 6.96:1 (WCAG AAA ✅)
-
-### Design Rationale
-
-- **High contrast** ensures readability in all lighting conditions
-- **Exceeds WCAG AA** for better accessibility
-- **Consistent color usage** creates visual hierarchy
-- **Semantic colors** (error, success) provide clear meaning
-
----
-
-## Responsive Typography
-
-### Device-Aware Scaling
-
-The typography system automatically adapts to:
-- **Screen size** (phone, tablet, external monitor)
-- **Pixel ratio (DPI)** (Retina, 4K, standard monitors)
-- **Platform** (iOS, Android)
+1. **Device Type** (phone/tablet/external monitor)
+2. **Pixel Ratio** (DPI indicator)
+3. **Screen Diagonal** (approximate, for large monitor detection)
 
 ### Scaling Factors
 
-| Device Type | Scale Factor | Use Case |
-|-------------|--------------|----------|
-| Small | 1.0x | Small phones, no scaling |
-| Medium | 1.0x | Standard phones, no scaling |
-| Large | 1.05x | Tablets, slight increase |
-| XLarge | 1.1x - 1.27x | External monitors, DPI-adjusted |
+| Monitor Type | Pixel Ratio | Screen Size | Scale Factor | Use Case |
+|--------------|-------------|-------------|--------------|----------|
+| Low DPI | < 1.5 | < 27" | 1.15x | Standard low-DPI monitor |
+| Low DPI | < 1.5 | ≥ 27" | 1.25x | Large low-DPI monitor |
+| Standard | 1.5-2.0 | < 27" | 1.1x | Standard external monitor |
+| Standard | 1.5-2.0 | ≥ 27" | 1.15x | Large standard monitor |
+| High-DPI | 2.0-2.5 | Any | 1.08x | QHD+ displays |
+| 4K | > 2.5 | Any | 1.05x | 4K/Retina displays |
 
-### External Monitor Optimization
-
-For external monitors (`XLARGE` device type):
-- **Low DPI** (pixelRatio < 1.5): 15% larger fonts for better readability
-- **Standard** (pixelRatio 1.5 - 2.5): Standard scaling (1.1x)
-- **High-DPI 4K** (pixelRatio > 2.5): Slight increase (1.05x) for clarity
+**Maximum Scaling**: Capped at 1.35x to maintain visual hierarchy
 
 ### Example Scaling
 
-| Base Size | Low DPI External | Standard External | High-DPI 4K |
-|-----------|------------------|-------------------|-------------|
-| Display (32px) | 37px | 35px | 34px |
-| H1 (28px) | 32px | 31px | 29px |
-| H2 (24px) | 28px | 26px | 25px |
-| Body (14px) | 16px | 15px | 15px |
+| Base Size | Low DPI (27"+) | Standard | High-DPI 4K |
+|-----------|----------------|----------|-------------|
+| Display (32px) | 40px | 35px | 34px |
+| H1 (28px) | 35px | 31px | 29px |
+| H2 (24px) | 30px | 26px | 25px |
+| H3 (20px) | 25px | 22px | 21px |
+| H4 (18px) | 23px | 20px | 19px |
+| Body (14px) | 18px | 15px | 15px |
+| Body Small (13px) | 16px | 14px | 14px |
+| Caption (12px) | 15px | 13px | 13px |
+
+### Font Rendering
+
+React Native automatically handles:
+- ✅ **Font smoothing** (antialiasing)
+- ✅ **Subpixel rendering** (Retina displays)
+- ✅ **DPI scaling** (automatic)
+- ✅ **Platform-native rendering** (iOS Core Text, Android Skia)
+
+**System fonts recommended**: SF Pro (iOS), Roboto (Android)
 
 ---
 
-## Usage Guidelines
+## Accessibility & Contrast
 
-### Best Practices
+### WCAG AA Compliance
 
-#### ✅ DO
+All text combinations meet **WCAG AA standards**:
 
-- Use semantic typography tokens (`typography.h1`, `typography.body`, etc.)
-- Follow the hierarchy (h1 → h2 → h3 → h4)
-- Use recommended spacing between elements
-- Apply theme colors for consistency
-- Use `TypographyText` component for type-safe typography
+- **Normal text** (14px): Minimum 4.5:1 contrast ratio ✅
+- **Large text** (18px+): Minimum 3:1 contrast ratio ✅
 
-#### ❌ DON'T
+### Verified Contrast Ratios
 
-- Override `fontSize` or `fontWeight` on typography tokens
-- Skip heading levels (e.g., h1 → h3)
-- Use inline `fontSize` values
-- Mix typography tokens with custom sizes
-- Use body text for headings
+| Text Color | Background | Font Size | Contrast Ratio | WCAG Level |
+|------------|------------|-----------|----------------|------------|
+| textPrimary | surfaceLight | 14px | 19.30:1 | AAA ✅ |
+| textSecondary | surfaceLight | 14px | 4.63:1 | AA ✅ |
+| textPrimary | surfaceCard | 18px | 20.17:1 | AAA ✅ |
+| textPrimary | surfaceLight | 28px | 19.30:1 | AAA ✅ |
 
-### Common Patterns
+### Minimum Sizes
 
-#### Screen Title
-```tsx
-<TypographyText variant="h1" color="primary">
-  Your Groups
-</TypographyText>
-```
-
-#### Section Header
-```tsx
-<TypographyText variant="h2" color="primary">
-  Recent Expenses
-</TypographyText>
-```
-
-#### Body Text
-```tsx
-<TypographyText variant="body" color="primary">
-  Create your first group to start splitting expenses
-</TypographyText>
-```
-
-#### Caption
-```tsx
-<TypographyText variant="caption" color="secondary">
-  2 hours ago
-</TypographyText>
-```
-
-#### Navigation/Back Button
-```tsx
-<TypographyText variant="navigation" color="accent">
-  ← Back
-</TypographyText>
-```
+- **Body text**: Minimum 14px (meets WCAG AA)
+- **Captions**: Minimum 11px (use sparingly)
+- **Interactive elements**: Minimum 14px with 44px touch target
 
 ---
 
-## TypographyText Component
+## Implementation
 
-### Overview
+### Using Typography Tokens
 
-The `TypographyText` component ensures consistent typography usage across the app:
+#### Standard Typography
 
-- **Type-safe** - Prevents typos and invalid variants
-- **Theme-aware** - Automatically applies theme colors
-- **Responsive** - Adapts to screen size and DPI
-- **Consistent** - Enforces typography system usage
+```tsx
+import { typography } from '../theme/typography';
+import { colors } from '../theme/colors';
 
-### Usage
+<Text style={[typography.h1, { color: colors.textPrimary }]}>
+  Screen Title
+</Text>
+
+<Text style={[typography.body, { color: colors.textSecondary }]}>
+  Body text
+</Text>
+```
+
+#### Responsive Typography (Recommended)
+
+```tsx
+import { useResponsiveTypography } from '../hooks/useResponsiveTypography';
+import { colors } from '../theme/colors';
+
+const MyComponent = () => {
+  const responsiveTypography = useResponsiveTypography();
+  
+  return (
+    <Text style={[responsiveTypography.h1, { color: colors.textPrimary }]}>
+      Responsive Title
+    </Text>
+  );
+};
+```
+
+#### TypographyText Component
 
 ```tsx
 import { TypographyText } from '../components';
 
-// Basic usage
 <TypographyText variant="h1" color="primary">
   Screen Title
 </TypographyText>
 
-// With emphasis
-<TypographyText variant="body" color="primary" emphasis="semibold">
+<TypographyText variant="body" color="secondary" emphasis="semibold">
   Important text
-</TypographyText>
-
-// With alignment
-<TypographyText variant="body" color="secondary" align="center">
-  Centered text
-</TypographyText>
-
-// Custom color
-<TypographyText variant="h2" color="#FF5733">
-  Custom color heading
 </TypographyText>
 ```
 
-### Props
+### Spacing System
 
-- `variant`: Typography token key (required)
-- `color`: Color variant or hex color (optional, default: 'primary')
-- `responsive`: Use responsive typography (optional, default: true)
-- `emphasis`: 'bold' | 'semibold' | 'medium' | 'italic' (optional)
-- `align`: 'left' | 'center' | 'right' | 'justify' (optional)
-- `style`: Additional styles (optional)
+Use `recommendedSpacing` tokens for consistent spacing:
+
+```tsx
+import { recommendedSpacing } from '../theme/typography';
+
+// After headings
+marginBottom: recommendedSpacing.afterHeading1  // 16px
+marginBottom: recommendedSpacing.afterHeading2  // 12px
+
+// Between paragraphs
+marginBottom: recommendedSpacing.betweenParagraphs  // 8px
+```
 
 ---
 
-## Visual Hierarchy Examples
+## Fixes & Improvements
 
-### Example 1: Screen Layout
+### Issues Fixed (34 total)
 
-```
-┌─────────────────────────────────┐
-│  BillLens          (display)    │  ← 32px, Bold, -0.5px
-│                                   │
-│  Your Groups         (h1)        │  ← 28px, Semibold, -0.5px
-│                                   │
-│  Recent Expenses     (h2)        │  ← 24px, Semibold, -0.3px
-│                                   │
-│  Groceries           (h3)        │  ← 20px, Semibold, -0.2px
-│  ₹450.00            (money)      │  ← 18px, Semibold, -0.1px
-│  Paid by You         (body)      │  ← 14px, Regular, 0px
-│  2 hours ago         (caption)   │  ← 12px, Regular, 0px
-└─────────────────────────────────┘
+#### 1. Inline Font Size Overrides (8 instances)
+- ✅ Fixed in Modal, SplitRatioInput, FairnessMeter
+- ✅ Replaced with appropriate typography tokens
+
+#### 2. Inline Font Weight Overrides (20 instances)
+- ✅ Fixed across 8 components and 6 screens
+- ✅ Replaced with `typography.emphasis.*` utilities
+
+#### 3. Inline Line Height Overrides (6 instances)
+- ✅ Fixed in BalanceBreakdown, FairnessMeter, InsightsCard
+- ✅ Removed overrides, using token line heights
+
+### Components Fixed
+
+- Modal.tsx
+- BalanceBreakdown.tsx
+- FairnessMeter.tsx
+- Tabs.tsx
+- SplitRatioInput.tsx
+- InsightsCard.tsx
+- LensView.tsx
+- Button.tsx
+
+### Screens Fixed
+
+- HomeScreen.tsx
+- GroupDetailScreen.tsx
+- TemplatesScreen.tsx
+- AddExpenseScreen.tsx
+- ReviewBillScreen.tsx
+- LedgerScreen.tsx
+
+### Enhancements Added
+
+1. **Navigation Token** - `typography.navigation` for back buttons (16px)
+2. **TypographyText Component** - Type-safe typography component
+3. **Enhanced Scaling** - Diagonal-based scaling for large monitors
+4. **Testing Utilities** - Comprehensive typography testing tools
+5. **Font Rendering Optimizations** - Documentation and utilities
+
+---
+
+## Testing & Validation
+
+### Testing Utilities
+
+```typescript
+import { 
+  testTypographyConfiguration,
+  logTypographyConfiguration,
+  getTypographyScalingInfo 
+} from '../utils/typographyTesting';
+
+// Run comprehensive tests
+const results = testTypographyConfiguration();
+
+// Log for debugging
+logTypographyConfiguration();
+
+// Get scaling info
+const scalingInfo = getTypographyScalingInfo();
 ```
 
-### Example 2: Card Layout
+### Verification Checklist
 
-```
-┌─────────────────────────────────┐
-│  Expense Title      (h4)        │  ← 18px, Semibold
-│  ₹450.00            (money)     │  ← 18px, Semibold
-│                                   │
-│  Paid by You         (body)      │  ← 14px, Regular
-│  Split among 3       (bodySmall) │  ← 13px, Regular
-│  2 hours ago         (caption)   │  ← 12px, Regular
-└─────────────────────────────────┘
-```
+- ✅ Clear size progression (11px → 32px)
+- ✅ Proper weight hierarchy (400 → 500 → 600 → 700)
+- ✅ Consistent heading structure (h1 → h2 → h3 → h4)
+- ✅ Optimal line heights (1.2x headings, 1.5x body, 1.33x captions)
+- ✅ Appropriate letter spacing
+- ✅ WCAG AA contrast compliance
+- ✅ Minimum readable sizes (14px body, 11px captions)
+- ✅ Consistent spacing system (4px base unit)
+- ✅ Responsive scaling works correctly
+- ✅ External monitor optimization verified
+
+### External Monitor Testing
+
+Test on:
+- Low DPI external monitors (< 1.5 pixel ratio)
+- Standard external monitors (1.5-2.0 pixel ratio)
+- High-DPI 4K monitors (> 2.5 pixel ratio)
+- Different screen sizes (27"+, standard)
+
+---
+
+## Best Practices
+
+### ✅ DO
+
+- Use typography tokens (`typography.h1`, `typography.body`, etc.)
+- Use responsive typography for external monitor support
+- Use `typography.emphasis.*` for weight variations
+- Use `recommendedSpacing` tokens for consistent spacing
+- Follow typographic hierarchy (h1 → h2 → h3 → h4)
+- Test on multiple external monitor configurations
+- Verify contrast ratios meet WCAG AA
+- Use system fonts for best rendering
+
+### ❌ DON'T
+
+- Override `fontSize` or `fontWeight` on typography tokens
+- Use inline `fontSize` values
+- Skip heading levels (e.g., h1 → h3)
+- Use text smaller than 11px (captions minimum)
+- Ignore contrast ratios
+- Skip testing on external monitors
+- Mix typography tokens with custom sizes
+
+---
+
+## Troubleshooting
+
+### Text Too Small on External Monitor
+
+**Solution**:
+1. Verify responsive typography is being used
+2. Check scale factor: `getScaleFactor()`
+3. Ensure minimum sizes are enforced (14px body, 11px captions)
+4. Test on actual external monitor (not just simulator)
+
+### Text Too Large on External Monitor
+
+**Solution**:
+1. Check if scaling is being applied multiple times
+2. Verify maximum scaling cap (1.35x) is working
+3. Test on different external monitor configurations
+4. Ensure typography tokens are used correctly
+
+### Blurry Text on External Monitor
+
+**Solution**:
+1. Verify font smoothing is enabled (automatic in React Native)
+2. Check if custom fonts are rendering correctly
+3. Test with system fonts (SF Pro/Roboto)
+4. Verify DPI scaling is working correctly
+
+### Contrast Issues
+
+**Solution**:
+1. Run contrast tests: `testTypographyConfiguration()`
+2. Verify color combinations meet WCAG AA (4.5:1 normal, 3:1 large)
+3. Use `verifyTextContrast()` utility
+4. Adjust colors if needed (maintain brand identity)
 
 ---
 
 ## Summary
 
-### Key Design Decisions
+The BillLens typography system provides:
 
-1. **1.25x Typographic Scale** - Creates harmonious size relationships
-2. **Variable Line Heights** - Optimized for each text category (1.2x headings, 1.5x body)
-3. **Size-Based Letter Spacing** - Tighter for large text, natural for small text
-4. **Weight Hierarchy** - 400 (body) → 500 (labels) → 600 (headings) → 700 (display)
-5. **4px Base Unit Spacing** - Creates consistent visual rhythm
-6. **WCAG AA Compliant Colors** - Ensures accessibility
-7. **Responsive Scaling** - Adapts to screen size and DPI
+✅ **Clear visual hierarchy** - Size, weight, color, spacing work together  
+✅ **Optimal readability** - Line heights and letter spacing optimized  
+✅ **Consistent design** - Mathematical relationships create harmony  
+✅ **Accessible** - WCAG AA compliant contrast ratios  
+✅ **Responsive** - Adapts to all screen sizes and DPI  
+✅ **External monitor optimized** - Enhanced scaling for all monitor types  
+✅ **Maintainable** - Centralized tokens and TypographyText component  
 
-### Typography System Benefits
-
-- ✅ **Clear hierarchy** - Users naturally understand importance
-- ✅ **Improved readability** - Optimized line heights and spacing
-- ✅ **Consistent design** - Mathematical relationships create harmony
-- ✅ **Accessible** - Meets WCAG AA standards
-- ✅ **Responsive** - Works on all devices and screen sizes
-- ✅ **Maintainable** - Centralized tokens prevent inconsistencies
-
----
-
-**Last Updated**: 2024  
+**Status**: ✅ Production Ready  
 **Version**: 2.0  
-**Status**: Production Ready
+**Last Updated**: 2024

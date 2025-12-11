@@ -132,7 +132,6 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   insightMessage: {
     ...typography.body,
-    lineHeight: 20,
   },
   actionButton: {
     borderWidth: 1,

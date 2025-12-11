@@ -264,6 +264,8 @@ const createStyles = (colors: any) => StyleSheet.create({
   scoreValue: {
     ...typography.moneyLarge,
     fontSize: 36,
+    lineHeight: 42,
+    letterSpacing: -0.4,
   },
   scoreLabel: {
     ...typography.body,
@@ -271,7 +273,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   levelText: {
     ...typography.body,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
     marginBottom: 20,
   },
   breakdown: {
@@ -296,7 +298,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   breakdownValue: {
     ...typography.bodySmall,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
   },
   recommendations: {
     marginTop: 8,
@@ -306,13 +308,12 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   recommendationsTitle: {
     ...typography.body,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
     marginBottom: 8,
   },
   recommendation: {
     ...typography.bodySmall,
     marginBottom: 4,
-    lineHeight: 18,
   },
   warnings: {
     marginTop: 8,
@@ -323,7 +324,6 @@ const createStyles = (colors: any) => StyleSheet.create({
   warning: {
     ...typography.bodySmall,
     marginBottom: 4,
-    lineHeight: 18,
   },
 });
 

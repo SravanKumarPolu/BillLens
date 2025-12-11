@@ -278,7 +278,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   timelineChange: {
     ...typography.bodySmall,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
   },
   timelineBalance: {
     ...typography.caption,

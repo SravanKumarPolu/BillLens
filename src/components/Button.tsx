@@ -171,7 +171,6 @@ const styles = StyleSheet.create({
   },
   glassLabel: {
     color: colors.textPrimary,
-    fontWeight: '600',
   },
 
   disabledLabel: {},

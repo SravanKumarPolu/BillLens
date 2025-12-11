@@ -219,7 +219,6 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   balanceAmount: {
     ...typography.buttonSmall,
-    fontWeight: '600',
   },
   breakdown: {
     marginTop: recommendedSpacing.default,
@@ -236,7 +235,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   breakdownValue: {
     ...typography.body,
-    fontWeight: '500',
+    ...typography.emphasis.medium,
   },
   divider: {
     height: 1,
@@ -244,11 +243,11 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   finalBalanceLabel: {
     ...typography.body,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
   },
   finalBalanceValue: {
     ...typography.body,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
   },
   infoBox: {
     padding: 12,
@@ -257,7 +256,6 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   infoText: {
     ...typography.bodySmall,
-    lineHeight: 18,
   },
   allSettledText: {
     ...typography.body,

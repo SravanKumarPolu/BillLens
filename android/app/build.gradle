@@ -60,6 +60,7 @@ afterEvaluate {
 // Autolinking disabled for pnpm compatibility - using manual linking
 react {
     // autolinkLibrariesWithApp() // Disabled - see dependencies block below
+    entryFile = file("../../index.tsx")
 }
 
 // Proguard configuration

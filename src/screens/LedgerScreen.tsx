@@ -253,8 +253,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backButtonText: {
-    ...typography.body,
-    fontWeight: '600',
+    ...typography.navigation,
   },
   title: {
     ...typography.h2,
@@ -274,7 +273,7 @@ const styles = StyleSheet.create({
   },
   exportButtonText: {
     ...typography.body,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
   },
   sortButton: {
     paddingVertical: 8,
@@ -285,7 +284,7 @@ const styles = StyleSheet.create({
   },
   sortButtonText: {
     ...typography.bodySmall,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
   },
   filtersScroll: {
     maxHeight: 50,

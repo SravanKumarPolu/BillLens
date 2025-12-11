@@ -425,10 +425,10 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   sectionTitle: {
     ...typography.label,
+    ...typography.emphasis.semibold,
     paddingHorizontal: 24,
     marginTop: recommendedSpacing.extraLoose,
     marginBottom: recommendedSpacing.comfortable,
-    fontWeight: '600',
   },
   viewAllButton: {
     paddingHorizontal: 24,
@@ -437,7 +437,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   viewAllText: {
     ...typography.body,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
   },
   expensesList: {
     paddingBottom: 140,
@@ -488,7 +488,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   actionText: {
     ...typography.caption,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
   },
   actionTextDanger: {
     // Color applied inline
@@ -588,7 +588,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   settlementTitle: {
     ...typography.body,
-    fontWeight: '500',
+    ...typography.emphasis.medium,
   },
   settlementSubtitle: {
     ...typography.caption,
@@ -596,7 +596,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   settlementAmount: {
     ...typography.body,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
   },
 });
 

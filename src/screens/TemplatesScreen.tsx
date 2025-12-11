@@ -124,14 +124,14 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     ...typography.body,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
   },
   cardSubtitle: {
     ...typography.bodySmall,
   },
   addLabel: {
     ...typography.body,
-    fontWeight: '600',
+    ...typography.emphasis.semibold,
   },
 });
 

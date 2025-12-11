@@ -346,6 +346,41 @@ export const typography = {
     lineHeight: 18,
     letterSpacing: 0,
   },
+
+  // ============================================
+  // EMPHASIS VARIANTS
+  // ============================================
+  
+  /**
+   * Emphasis variants for body text
+   * Use these to add emphasis without changing size
+   */
+  emphasis: {
+    /**
+     * Bold - Strong emphasis
+     */
+    bold: {
+      fontWeight: '700' as const,
+    },
+    /**
+     * Semibold - Medium emphasis
+     */
+    semibold: {
+      fontWeight: '600' as const,
+    },
+    /**
+     * Medium - Light emphasis
+     */
+    medium: {
+      fontWeight: '500' as const,
+    },
+    /**
+     * Italic - Stylistic emphasis
+     */
+    italic: {
+      fontStyle: 'italic' as const,
+    },
+  },
 };
 
 // ============================================
@@ -354,9 +389,13 @@ export const typography = {
 
 /**
  * Get typography style by key
+ * 
+ * NOTE: 'emphasis' is excluded because it's not a complete TextStyle (it's an object
+ * containing emphasis variants like bold, semibold, etc.). Use the 'emphasis' prop
+ * on TypographyText component instead, or access typography.emphasis directly.
  */
-export type TypographyKey = keyof typeof typography;
-export const getTypography = (key: TypographyKey): TextStyle => typography[key];
+export type TypographyKey = Exclude<keyof typeof typography, 'emphasis'>;
+export const getTypography = (key: TypographyKey): TextStyle => typography[key] as TextStyle;
 
 /**
  * Create text style with color
@@ -370,35 +409,10 @@ export const createTextStyle = (
 };
 
 /**
- * Emphasis variants for body text
+ * Emphasis variants for body text (also available as typography.emphasis)
  * Use these to add emphasis without changing size
  */
-export const emphasis = {
-  /**
-   * Bold - Strong emphasis
-   */
-  bold: {
-    fontWeight: '700' as const,
-  },
-  /**
-   * Semibold - Medium emphasis
-   */
-  semibold: {
-    fontWeight: '600' as const,
-  },
-  /**
-   * Medium - Light emphasis
-   */
-  medium: {
-    fontWeight: '500' as const,
-  },
-  /**
-   * Italic - Stylistic emphasis
-   */
-  italic: {
-    fontStyle: 'italic' as const,
-  },
-};
+export const emphasis = typography.emphasis;
 
 /**
  * Text transform utilities
