@@ -109,7 +109,7 @@ const LedgerScreen: React.FC<Props> = ({ navigation, route }) => {
     return paidBy?.name || 'Someone';
   };
 
-  const renderExpense = ({ item }: { item: Expense }) => {
+  const renderExpense = ({ item, index }: { item: Expense; index: number }) => {
     const paidByName = getPaidByName(item);
     const memberNames = getMemberNames(item);
     const isYouPaid = item.paidBy === 'you';
@@ -162,6 +162,7 @@ const LedgerScreen: React.FC<Props> = ({ navigation, route }) => {
                   group,
                   allExpenses,
                   { format: 'text', includeSettlements: true, includeBalances: true },
+                  group.members,
                   settlements,
                   balances
                 );
@@ -224,7 +225,7 @@ const LedgerScreen: React.FC<Props> = ({ navigation, route }) => {
         <FlatList
           data={filteredAndSortedExpenses}
           keyExtractor={item => item.id}
-          renderItem={renderExpense}
+          renderItem={({ item, index }) => renderExpense({ item, index })}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
         />

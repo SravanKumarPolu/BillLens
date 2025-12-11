@@ -65,9 +65,74 @@ export {
   exportAsJSON,
   exportAsCSV,
   exportAsText,
+  exportAsPDF,
+  exportAsExcel,
   type ExportOptions,
   type ExportData,
 } from './exportService';
+export {
+  generatePDF,
+  sharePDF,
+  type PDFOptions,
+} from './pdfExportHelper';
+export {
+  generateExcelFile,
+  shareExcel,
+  type ExcelWorkbook,
+} from './excelExportHelper';
+export {
+  learnSplitPatterns,
+  getSuggestedSplitPattern,
+  suggestAmount,
+  learnCategoryPatterns,
+  suggestCategory,
+  type SplitPattern,
+  type AmountSuggestion,
+  type CategoryLearning,
+} from './patternLearningService';
+export {
+  generateMonthlyReport,
+  generateYouPaidExtraInsights,
+  type MonthlyReport,
+} from './monthlyReportService';
+export {
+  checkSettlementReminder,
+  checkRentReminder,
+  generateExpenseAddedNotification,
+  checkImbalanceAlert,
+  generateMonthEndNotification,
+  getPendingNotifications,
+  type Notification,
+  type NotificationSettings,
+} from './notificationService';
+export {
+  encryptData,
+  decryptData,
+  getSecuritySettings,
+  updateSecuritySettings,
+  shouldLockApp,
+  recordUnlock,
+  isBiometricAvailable,
+  authenticateWithBiometrics,
+  lockApp,
+  isAppLocked,
+  type SecuritySettings,
+} from './securityService';
+export {
+  detectUPIPayment,
+  suggestGroup,
+  calculateRentSplit,
+  parseItemizedFoodBill,
+  parseSMSBill,
+  type UPIDetection,
+  type GroupSuggestion,
+  type RentSplit,
+  type ItemizedFoodSplit,
+} from './indiaFirstService';
+export {
+  calculateDashboardStats,
+  type DashboardStats,
+} from './dashboardService';
 export {
   cacheBalances,
   getCachedBalances,
@@ -75,4 +140,65 @@ export {
   clearAllBalanceCaches,
   getCacheStats,
 } from './balanceCache';
+export {
+  formatCurrency,
+  parseCurrency,
+  convertCurrency,
+  convertCurrencySync,
+  getExchangeRate,
+  getCurrency,
+  SUPPORTED_CURRENCIES,
+  DEFAULT_CURRENCY,
+  type Currency,
+  type ExchangeRate,
+} from './currencyService';
+export {
+  parseSMS,
+  isBillSMS,
+  type ParsedSMSBill,
+} from './smsParserService';
+export {
+  getBadges,
+  getAchievements,
+  calculateLevel,
+  calculateStreak,
+  type Badge,
+  type UserLevel,
+  type Streak,
+  type Achievement,
+} from './gamificationService';
+export {
+  isPersonalExpense,
+  getPersonalExpenses,
+  getGroupExpenses,
+  calculateBlendedInsights,
+  type BlendedInsights,
+} from './personalExpenseService';
+export {
+  checkBudgetStatus,
+  getAllBudgetStatuses,
+  getBudgetAlerts,
+  type BudgetStatus,
+} from './categoryBudgetService';
+export {
+  syncGooglePay,
+  syncPaytm,
+  syncPhonePe,
+  syncSMS,
+  syncEmail,
+  syncBankStatement,
+  syncAllIntegrations,
+  type IntegrationResult,
+} from './apiIntegrationService';
+export {
+  syncService,
+  type SyncStatus,
+  type SyncConflict,
+  type SyncResult,
+  type PendingChange,
+} from './syncService';
+export {
+  cloudService,
+  type CloudConfig,
+} from './cloudService';
 

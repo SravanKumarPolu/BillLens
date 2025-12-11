@@ -135,6 +135,9 @@ const ConfigureSplitScreen: React.FC<Props> = ({ navigation, route }) => {
     const imageUri = params.imageUri;
     const paidBy = params.paidBy || 'you'; // Default to current user
 
+    // Get group to get currency
+    const groupForCurrency = getGroup(groupId);
+    
     // Create expense
     addExpense({
       groupId,
@@ -145,6 +148,7 @@ const ConfigureSplitScreen: React.FC<Props> = ({ navigation, route }) => {
       paidBy,
       splits,
       imageUri,
+      currency: groupForCurrency?.currency || 'INR',
     });
 
     // Navigate back to group detail

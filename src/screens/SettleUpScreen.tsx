@@ -119,12 +119,16 @@ const SettleUpScreen: React.FC<Props> = ({ navigation, route }) => {
     // Get balances before settlement for explanation
     const balancesBefore = calculateGroupBalances(groupId);
     
+    // Get group to get currency
+    const group = getGroup(groupId);
+    
     // Record the settlement
     const settlementId = addSettlement({
       groupId,
       fromMemberId: payment.fromMemberId,
       toMemberId: payment.toMemberId,
       amount: payment.amount,
+      currency: group?.currency || 'INR',
     });
 
     // Get balances after settlement

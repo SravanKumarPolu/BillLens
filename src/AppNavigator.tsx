@@ -19,6 +19,12 @@ import TemplatesScreen from './screens/TemplatesScreen';
 import LedgerScreen from './screens/LedgerScreen';
 import AnalyticsScreen from './screens/AnalyticsScreen';
 import LensViewScreen from './screens/LensViewScreen';
+import MonthlyReportScreen from './screens/MonthlyReportScreen';
+import NotificationsScreen from './screens/NotificationsScreen';
+import ItemizedSplitScreen from './screens/ItemizedSplitScreen';
+import RentSplitScreen from './screens/RentSplitScreen';
+import ReceiptGalleryScreen from './screens/ReceiptGalleryScreen';
+import AchievementsScreen from './screens/AchievementsScreen';
 import BackupRestoreScreen from './screens/BackupRestoreScreen';
 import { colors } from './theme/colors';
 
@@ -51,6 +57,12 @@ export const AppNavigator = () => {
         <Stack.Screen name="Ledger" component={LedgerScreen} />
         <Stack.Screen name="Analytics" component={AnalyticsScreen} />
         <Stack.Screen name="LensView" component={LensViewScreen} />
+        <Stack.Screen name="MonthlyReport" component={MonthlyReportScreen} />
+        <Stack.Screen name="Notifications" component={NotificationsScreen} />
+        <Stack.Screen name="ItemizedSplit" component={ItemizedSplitScreen} />
+        <Stack.Screen name="RentSplit" component={RentSplitScreen} />
+        <Stack.Screen name="ReceiptGallery" component={ReceiptGalleryScreen} />
+        <Stack.Screen name="Achievements" component={AchievementsScreen} />
         <Stack.Screen name="BackupRestore" component={BackupRestoreScreen} />
       </Stack.Navigator>
     </NavigationContainer>

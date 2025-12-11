@@ -251,12 +251,29 @@ const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         />
       </View>
 
-      <TouchableOpacity
-        style={styles.viewAllButton}
-        onPress={() => navigation.navigate('Ledger', { groupId })}
-      >
-        <Text style={styles.viewAllText}>View all expenses →</Text>
-      </TouchableOpacity>
+      <View style={styles.actionButtons}>
+        <Button
+          title="🏠 Split Rent"
+          onPress={() => navigation.navigate('RentSplit', { groupId })}
+          variant="secondary"
+          fullWidth={false}
+          style={styles.actionButton}
+        />
+        <Button
+          title="📷 Gallery"
+          onPress={() => navigation.navigate('ReceiptGallery', { groupId })}
+          variant="secondary"
+          fullWidth={false}
+          style={styles.actionButton}
+        />
+        <Button
+          title="View all expenses →"
+          onPress={() => navigation.navigate('Ledger', { groupId })}
+          variant="ghost"
+          fullWidth={false}
+          style={styles.actionButton}
+        />
+      </View>
 
       {summary.settlements && summary.settlements.length > 0 && (
         <>

@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { formatMoney } from '../utils/formatMoney';
-import { Card } from '../components';
+import { Card, CalendarView, BarChart } from '../components';
 import { Expense } from '../types/models';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Analytics'>;
@@ -177,6 +177,38 @@ const AnalyticsScreen: React.FC<Props> = ({ navigation, route }) => {
             );
           }).length} expenses
         </Text>
+        <TouchableOpacity
+          style={styles.monthReportButton}
+          onPress={() => navigation.navigate('MonthlyReport', { groupId })}
+        >
+          <Text style={[styles.monthReportButtonText, { color: colors.primary }]}>
+            View Monthly Report →
+          </Text>
+        </TouchableOpacity>
+      </Card>
+
+      {/* Calendar View */}
+      <Card style={styles.calendarCard}>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Calendar View</Text>
+        <CalendarView
+          expenses={allExpenses}
+          currency={group.currency || 'INR'}
+          onDatePress={(date) => {
+            // Navigate to expense detail or filter by date
+            const dateExpenses = allExpenses.filter(e => e.date.startsWith(date));
+            if (dateExpenses.length > 0) {
+              // Could navigate to a filtered expense list
+              Alert.alert(
+                'Expenses on this date',
+                `${dateExpenses.length} expense(s) totaling ${formatMoney(
+                  dateExpenses.reduce((sum, e) => sum + e.amount, 0),
+                  false,
+                  group.currency || 'INR'
+                )}`
+              );
+            }
+          }}
+        />
       </Card>
 
       {/* Monthly Totals */}
@@ -205,6 +237,20 @@ const AnalyticsScreen: React.FC<Props> = ({ navigation, route }) => {
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
             This month by category
           </Text>
+          
+          {/* Bar Chart */}
+          <Card style={styles.chartCard}>
+            <BarChart
+              data={categoryBreakdown.map(cat => ({
+                label: cat.category,
+                value: cat.amount,
+              }))}
+              currency={group.currency || 'INR'}
+              showValues={true}
+            />
+          </Card>
+
+          {/* Category List */}
           {categoryBreakdown.map(category => {
             const percentage = currentMonthTotal > 0 
               ? (category.amount / currentMonthTotal) * 100 
@@ -410,6 +456,22 @@ const createStyles = (colors: any) => StyleSheet.create({
     ...typography.body,
     textAlign: 'center',
     marginTop: 80,
+  },
+  monthReportButton: {
+    marginTop: 16,
+    paddingVertical: 8,
+  },
+  monthReportButtonText: {
+    ...typography.body,
+    ...typography.emphasis.semibold,
+  },
+  calendarCard: {
+    marginBottom: 32,
+    padding: 20,
+  },
+  chartCard: {
+    marginBottom: 16,
+    padding: 20,
   },
 });
 

@@ -1,30 +1,27 @@
 /**
  * Format money amounts for display
- * Handles Indian Rupee (₹) formatting
+ * Supports multi-currency formatting
  */
 
-export const formatMoney = (amount: number, showPositive = false): string => {
+import { formatCurrency, parseCurrency, DEFAULT_CURRENCY } from './currencyService';
+
+export const formatMoney = (
+  amount: number,
+  showPositive = false,
+  currencyCode: string = DEFAULT_CURRENCY
+): string => {
   const absAmount = Math.abs(amount);
   const sign = amount < 0 ? '-' : showPositive ? '+' : '';
   
-  // Format with Indian number system (lakhs, crores)
-  // For now, simple formatting with commas
-  const formatted = absAmount.toLocaleString('en-IN', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
-
-  return `${sign}₹${formatted}`;
+  const formatted = formatCurrency(absAmount, currencyCode);
+  return sign ? `${sign}${formatted}` : formatted;
 };
 
 /**
  * Parse money string to number
- * Handles ₹, commas, and various formats
+ * Handles currency symbols, commas, and various formats
  */
-export const parseMoney = (value: string): number => {
-  // Remove ₹, commas, spaces
-  const cleaned = value.replace(/[₹,\s]/g, '');
-  const parsed = parseFloat(cleaned);
-  return isNaN(parsed) ? 0 : parsed;
+export const parseMoney = (value: string, currencyCode: string = DEFAULT_CURRENCY): number => {
+  return parseCurrency(value, currencyCode);
 };
 

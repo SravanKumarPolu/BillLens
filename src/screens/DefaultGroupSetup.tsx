@@ -77,6 +77,7 @@ const DefaultGroupSetup: React.FC<Props> = ({ navigation }) => {
       name: groupName,
       emoji,
       members,
+      currency: 'INR',
     });
 
     // Navigate to Home while preserving the navigation stack for back navigation

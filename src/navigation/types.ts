@@ -4,7 +4,7 @@ export type RootStackParamList = {
   DefaultGroupSetup: undefined;
   Home: undefined;
   Login: undefined;
-  CreateGroup: undefined;
+  CreateGroup: { suggestedName?: string; suggestedEmoji?: string } | undefined;
   CaptureOptions: { groupId?: string } | undefined;
   OcrProcessing: { imageUri: string; groupId?: string };
   ReviewBill: { 
@@ -14,6 +14,7 @@ export type RootStackParamList = {
     parsedMerchant?: string;
     parsedDate?: string;
     expenseId?: string; // For editing existing expenses
+    ocrResult?: any; // Full OCR result for itemized split detection
   };
   ConfigureSplit: { 
     draftBillId?: string;
@@ -37,6 +38,13 @@ export type RootStackParamList = {
   Templates: { groupId: string };
   Ledger: { groupId: string };
   Analytics: { groupId: string };
+  PerPersonStats: { groupId: string };
   LensView: { groupId: string };
+  MonthlyReport: { groupId: string; month?: number; year?: number };
+  Notifications: undefined;
+  ItemizedSplit: { groupId: string; items: Array<{ name: string; price: number; quantity?: number }>; total: number; deliveryFee?: number; tax?: number; discount?: number };
+  RentSplit: { groupId: string };
+  ReceiptGallery: { groupId: string };
+  Achievements: undefined;
   BackupRestore: undefined;
 };

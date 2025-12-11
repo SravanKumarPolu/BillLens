@@ -1,19 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ScrollView, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
-import { Input, Button } from '../components';
+import { Input, Button, Card } from '../components';
+import { suggestGroup, parseItemizedFoodBill } from '../utils/indiaFirstService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ReviewBill'>;
 
 const categories = ['Food', 'Groceries', 'Utilities', 'Rent', 'WiFi', 'Maid', 'OTT', 'Other'];
 
 const ReviewBillScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { imageUri, groupId, parsedAmount, parsedMerchant, parsedDate, expenseId } = route.params || {};
-  const { getExpense, updateExpense } = useGroups();
+  const { imageUri, groupId, parsedAmount, parsedMerchant, parsedDate, expenseId, ocrResult } = route.params || {};
+  const { getExpense, updateExpense, getAllGroupSummaries } = useGroups();
   const { colors } = useTheme();
   
   // Auto-fill with parsed OCR values, fallback to empty strings
@@ -33,6 +34,24 @@ const ReviewBillScreen: React.FC<Props> = ({ navigation, route }) => {
   };
   
   const [category, setCategory] = useState<string>(getCategoryFromMerchant(merchant));
+  
+  // Get all groups for suggestion
+  const groupSummaries = getAllGroupSummaries() || [];
+  const allGroups = groupSummaries.map(s => s.group);
+  
+  // Auto-suggest group based on merchant/category
+  const groupSuggestion = useMemo(() => {
+    if (!parsedMerchant && !category) return null;
+    return suggestGroup(parsedMerchant || '', category, allGroups);
+  }, [parsedMerchant, category, allGroups]);
+  
+  // Check if this is itemized food delivery
+  const itemizedSplit = useMemo(() => {
+    if (!ocrResult?.rawText) return null;
+    return parseItemizedFoodBill(ocrResult.rawText);
+  }, [ocrResult?.rawText]);
+  
+  const styles = createStyles(colors);
 
   // Load existing expense data if editing
   useEffect(() => {
@@ -144,6 +163,83 @@ const ReviewBillScreen: React.FC<Props> = ({ navigation, route }) => {
         ))}
       </View>
 
+      {/* Group Suggestion */}
+      {groupSuggestion && !expenseId && (
+        <Card style={styles.suggestionCard}>
+          <Text style={[styles.suggestionTitle, { color: colors.textPrimary }]}>
+            💡 {groupSuggestion.reason}
+          </Text>
+          <TouchableOpacity
+            style={[styles.suggestionButton, { backgroundColor: colors.primary + '20' }]}
+            onPress={() => {
+              if (groupSuggestion.groupId) {
+                // Navigate with suggested group
+                navigation.navigate('ConfigureSplit', {
+                  groupId: groupSuggestion.groupId,
+                  amount: amount,
+                  merchant: merchant.trim() || 'Expense',
+                  category,
+                  imageUri,
+                  paidBy: 'you',
+                });
+              } else {
+                // Create new group
+                Alert.alert(
+                  'Create Group?',
+                  `Create "${groupSuggestion.suggestedGroupName}" group?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Create',
+                      onPress: () => {
+                        // Navigate to create group with pre-filled data
+                        navigation.navigate('CreateGroup', {
+                          suggestedName: groupSuggestion.suggestedGroupName,
+                          suggestedEmoji: groupSuggestion.suggestedEmoji,
+                        } as any);
+                      },
+                    },
+                  ]
+                );
+              }
+            }}
+          >
+            <Text style={[styles.suggestionButtonText, { color: colors.primary }]}>
+              {groupSuggestion.groupId ? 'Use this group' : `Create "${groupSuggestion.suggestedGroupName}"`}
+            </Text>
+          </TouchableOpacity>
+        </Card>
+      )}
+
+      {/* Itemized Split Option */}
+      {itemizedSplit && itemizedSplit.items.length > 0 && !expenseId && (
+        <Card style={styles.itemizedCard}>
+          <Text style={[styles.itemizedTitle, { color: colors.textPrimary }]}>
+            🍕 Itemized Split Available
+          </Text>
+          <Text style={[styles.itemizedText, { color: colors.textSecondary }]}>
+            Split this bill item by item (like SplitKaro)
+          </Text>
+          <TouchableOpacity
+            style={[styles.itemizedButton, { backgroundColor: colors.accent + '20' }]}
+            onPress={() => {
+              navigation.navigate('ItemizedSplit', {
+                groupId: groupId || '1',
+                items: itemizedSplit.items,
+                total: itemizedSplit.total,
+                deliveryFee: itemizedSplit.deliveryFee,
+                tax: itemizedSplit.tax,
+                discount: itemizedSplit.discount,
+              });
+            }}
+          >
+            <Text style={[styles.itemizedButtonText, { color: colors.accent }]}>
+              Split Item by Item
+            </Text>
+          </TouchableOpacity>
+        </Card>
+      )}
+
       <Button
         title={expenseId ? 'Save changes' : 'Next: split bill'}
         onPress={handleNext}
@@ -154,7 +250,7 @@ const ReviewBillScreen: React.FC<Props> = ({ navigation, route }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -216,6 +312,44 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     marginTop: 8,
+  },
+  suggestionCard: {
+    marginBottom: 16,
+    padding: 16,
+  },
+  suggestionTitle: {
+    ...typography.body,
+    marginBottom: 12,
+  },
+  suggestionButton: {
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  suggestionButtonText: {
+    ...typography.body,
+    ...typography.emphasis.semibold,
+  },
+  itemizedCard: {
+    marginBottom: 16,
+    padding: 16,
+  },
+  itemizedTitle: {
+    ...typography.h4,
+    marginBottom: 4,
+  },
+  itemizedText: {
+    ...typography.bodySmall,
+    marginBottom: 12,
+  },
+  itemizedButton: {
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  itemizedButtonText: {
+    ...typography.body,
+    ...typography.emphasis.semibold,
   },
 });
 

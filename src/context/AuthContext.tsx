@@ -3,7 +3,9 @@
  * App works fully without login, login is optional for sync
  */
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import { syncService, SyncStatus } from '../utils/syncService';
+import { CloudConfig } from '../utils/cloudService';
 
 export interface User {
   id: string;
@@ -26,6 +28,8 @@ interface AuthContextType {
   syncData: () => Promise<void>;
   isSyncing: boolean;
   lastSyncDate: Date | null;
+  syncStatus: SyncStatus;
+  enableAutoSync: (enabled: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,6 +39,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncDate, setLastSyncDate] = useState<Date | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(syncService.getStatus());
+
+  // Subscribe to sync status updates
+  useEffect(() => {
+    const unsubscribe = syncService.subscribe(status => {
+      setSyncStatus(status);
+      setIsSyncing(status.isSyncing);
+      setLastSyncDate(status.lastSyncDate);
+    });
+
+    return unsubscribe;
+  }, []);
 
   const signInWithGoogle = useCallback(async () => {
     setIsLoading(true);
@@ -52,6 +68,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       setUser(mockUser);
       setLastSyncDate(new Date());
+
+      // Initialize cloud sync (can be configured based on provider)
+      // For now, using mock/REST - in production, configure with actual provider
+      // Environment variables can be set via react-native-config or similar
+      syncService.initializeCloud({
+        provider: 'rest', // or 'firebase', 'aws', 'supabase'
+        endpoint: undefined, // Set via environment config in production
+        apiKey: undefined, // Set via environment config in production
+        userId: mockUser.id,
+      });
     } catch (error) {
       console.error('Google sign-in error:', error);
       throw error;
@@ -76,6 +102,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       setUser(mockUser);
       setLastSyncDate(new Date());
+
+      // Initialize cloud sync
+      syncService.initializeCloud({
+        provider: 'rest',
+        endpoint: undefined, // Set via environment config in production
+        apiKey: undefined, // Set via environment config in production
+        userId: mockUser.id,
+      });
     } catch (error) {
       console.error('Email sign-in error:', error);
       throw error;
@@ -102,23 +136,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw new Error('Must be signed in to sync');
     }
 
-    setIsSyncing(true);
     try {
-      // TODO: Implement cloud sync
-      // This would:
-      // 1. Upload local data to cloud
-      // 2. Download remote changes
-      // 3. Merge conflicts
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Get current app data for sync
+      const { loadAppData } = await import('../utils/storageService');
+      const localData = await loadAppData();
       
-      setLastSyncDate(new Date());
+      if (!localData) {
+        throw new Error('No local data to sync');
+      }
+
+      // Use sync service for comprehensive sync
+      const result = await syncService.sync(localData, user.id);
+      
+      if (!result.success) {
+        throw new Error(result.errors.join(', '));
+      }
+
+      // If there were conflicts, user might need to resolve them
+      if (result.conflicts.length > 0) {
+        console.warn(`Sync completed with ${result.conflicts.length} conflicts`);
+      }
     } catch (error) {
       console.error('Sync error:', error);
       throw error;
-    } finally {
-      setIsSyncing(false);
     }
   }, [user]);
+
+  const enableAutoSync = useCallback((enabled: boolean) => {
+    syncService.setAutoSync(enabled);
+  }, []);
 
   const value: AuthContextType = {
     user,
@@ -130,6 +176,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     syncData,
     isSyncing,
     lastSyncDate,
+    syncStatus,
+    enableAutoSync,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

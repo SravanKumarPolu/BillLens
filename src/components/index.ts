@@ -17,4 +17,8 @@ export { default as SplitRatioInput, type SplitRatioInputProps } from './SplitRa
 export { default as Modal, type ModalProps } from './Modal';
 export { ErrorBoundary } from './ErrorBoundary';
 export { default as TypographyText, type TypographyTextProps } from './TypographyText';
+export { default as CalendarView } from './CalendarView';
+export { PieChart, BarChart, type ChartDataPoint } from './Chart';
+export { NotificationBadge } from './NotificationBadge';
+export { AnimatedCard } from './AnimatedCard';
 

@@ -4,16 +4,19 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
-import { Card, Button, InsightsCard } from '../components';
+import { Card, Button, InsightsCard, NotificationBadge } from '../components';
 import { useGroups } from '../context/GroupsContext';
 import { useAuth } from '../context/AuthContext';
 import { formatMoney } from '../utils/formatMoney';
 import { generateInsights } from '../utils/insightsService';
+import { getPendingNotifications } from '../utils/notificationService';
+import { calculateDashboardStats } from '../utils/dashboardService';
+import { BarChart } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
-  const { getAllGroupSummaries, getGroupSummary, getGroupInsights } = useGroups();
+  const { getAllGroupSummaries, getGroupSummary, getGroupInsights, getGroup } = useGroups();
   const { user, syncData, isSyncing, lastSyncDate } = useAuth();
   const { colors } = useTheme();
   const groupSummaries = getAllGroupSummaries() || [];
@@ -32,6 +35,20 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
     return () => backHandler.remove();
   }, [navigation]);
+
+  // Calculate today's total
+  const todayTotal = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    return groupSummaries.reduce((total, summary) => {
+      const todayExpenses = summary.expenses.filter(expense => {
+        const expenseDate = new Date(expense.date);
+        return expenseDate >= today;
+      });
+      return total + todayExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    }, 0);
+  }, [groupSummaries]);
 
   // Calculate monthly total across all groups
   const monthlyTotal = useMemo(() => {
@@ -59,6 +76,38 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       // If user is owed money (positive balance), it's not "pending" for them to pay
       return total + (userBalance < 0 ? Math.abs(userBalance) : 0);
     }, 0);
+  }, [groupSummaries]);
+
+  // Get notifications count
+  const notificationsCount = useMemo(() => {
+    let count = 0;
+    groupSummaries.forEach(summary => {
+      const group = getGroup(summary.group.id);
+      if (!group) return;
+      const notifications = getPendingNotifications(
+        summary.group.id,
+        group,
+        summary.expenses,
+        summary.balances,
+        undefined,
+        {
+          settleReminders: true,
+          rentReminders: true,
+          expenseNotifications: false,
+          imbalanceAlerts: true,
+          monthEndReports: true,
+          upiReminders: true,
+          reminderFrequency: 'weekly',
+        }
+      );
+      count += notifications.length;
+    });
+    return count;
+  }, [groupSummaries, getGroup]);
+
+  // Calculate dashboard stats
+  const dashboardStats = useMemo(() => {
+    return calculateDashboardStats(groupSummaries);
   }, [groupSummaries]);
 
   // Get top insights across all groups
@@ -150,17 +199,34 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
         <Text style={[styles.appName, { color: colors.textPrimary }]}>BillLens</Text>
         <TouchableOpacity 
-          onPress={handleProfilePress}
-          style={styles.profileButton}
+          onPress={() => navigation.navigate('Notifications')}
+          style={styles.notificationButton}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={styles.profile}>
-            {user ? (isSyncing ? '🔄' : '☁️') : '☁️'}
-          </Text>
+          <Text style={styles.notificationIcon}>🔔</Text>
+          <NotificationBadge count={notificationsCount} />
         </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('Achievements')}
+            style={styles.achievementsButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.achievementsIcon}>🏆</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={handleProfilePress}
+            style={styles.profileButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.profile}>
+              {user ? (isSyncing ? '🔄' : '☁️') : '☁️'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Summary Cards */}
+      {/* Enhanced Dashboard */}
       {groupSummaries.length > 0 && (
         <ScrollView 
           horizontal 
@@ -168,21 +234,92 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           contentContainerStyle={styles.summaryCardsContainer}
         >
           <Card style={[styles.summaryCard, { backgroundColor: colors.primary }]}>
-            <Text style={[styles.summaryLabel, { color: colors.white }]}>Monthly Total</Text>
+            <Text style={[styles.summaryLabel, { color: colors.white }]}>Today</Text>
             <Text style={[styles.summaryValue, { color: colors.white }]}>
-              {formatMoney(monthlyTotal)}
+              {formatMoney(dashboardStats.totalSpentToday)}
+            </Text>
+          </Card>
+          
+          <Card style={[styles.summaryCard, { backgroundColor: colors.accent }]}>
+            <Text style={[styles.summaryLabel, { color: colors.white }]}>This Month</Text>
+            <Text style={[styles.summaryValue, { color: colors.white }]}>
+              {formatMoney(dashboardStats.totalSpentThisMonth)}
             </Text>
           </Card>
           
           <Card style={[styles.summaryCard, { 
-            backgroundColor: pendingAmount > 0 ? colors.warning : colors.success 
+            backgroundColor: dashboardStats.pendingAmount > 0 ? colors.warning : colors.success 
           }]}>
             <Text style={[styles.summaryLabel, { color: colors.white }]}>Pending</Text>
             <Text style={[styles.summaryValue, { color: colors.white }]}>
-              {formatMoney(pendingAmount)}
+              {formatMoney(dashboardStats.pendingAmount)}
+            </Text>
+          </Card>
+
+          <Card style={[styles.summaryCard, { 
+            backgroundColor: dashboardStats.moneyHealthScore >= 80 ? colors.success :
+                              dashboardStats.moneyHealthScore >= 60 ? colors.warning : colors.error
+          }]}>
+            <Text style={[styles.summaryLabel, { color: colors.white }]}>Money Health</Text>
+            <Text style={[styles.summaryValue, { color: colors.white }]}>
+              {dashboardStats.moneyHealthScore}/100
             </Text>
           </Card>
         </ScrollView>
+      )}
+
+      {/* Daily Insights */}
+      {dashboardStats.dailyInsights.length > 0 && (
+        <View style={styles.insightsSection}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Today's Insights</Text>
+          {dashboardStats.dailyInsights.slice(0, 2).map((insight, index) => (
+            <Card key={index} style={styles.insightCard}>
+              <Text style={[styles.insightTitle, { color: colors.textPrimary }]}>
+                {insight.title}
+              </Text>
+              <Text style={[styles.insightMessage, { color: colors.textSecondary }]}>
+                {insight.message}
+              </Text>
+            </Card>
+          ))}
+        </View>
+      )}
+
+      {/* Category Breakdown */}
+      {dashboardStats.categoryBreakdown.length > 0 && (
+        <View style={styles.categorySection}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Spending by Category</Text>
+          <Card style={styles.chartCard}>
+            <BarChart
+              data={dashboardStats.categoryBreakdown.slice(0, 5).map(cat => ({
+                label: cat.category,
+                value: cat.amount,
+              }))}
+              currency="INR"
+              showValues={true}
+            />
+          </Card>
+        </View>
+      )}
+
+      {/* Top Spending Group */}
+      {dashboardStats.topSpendingGroup.amount > 0 && (
+        <Card style={styles.topGroupCard}>
+          <Text style={[styles.topGroupLabel, { color: colors.textSecondary }]}>
+            You spend most with
+          </Text>
+          <View style={styles.topGroupRow}>
+            <Text style={styles.topGroupEmoji}>{dashboardStats.topSpendingGroup.group.emoji}</Text>
+            <View style={styles.topGroupInfo}>
+              <Text style={[styles.topGroupName, { color: colors.textPrimary }]}>
+                {dashboardStats.topSpendingGroup.group.name}
+              </Text>
+              <Text style={[styles.topGroupAmount, { color: colors.textSecondary }]}>
+                {formatMoney(dashboardStats.topSpendingGroup.amount)} ({dashboardStats.topSpendingGroup.percentage.toFixed(0)}%)
+              </Text>
+            </View>
+          </View>
+        </Card>
       )}
 
       {/* Insights Preview */}
@@ -277,6 +414,31 @@ const createStyles = (colors: any) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  notificationButton: {
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    position: 'relative',
+  },
+  notificationIcon: {
+    fontSize: 24, // Emoji icon, not typography
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  achievementsButton: {
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  achievementsIcon: {
+    fontSize: 24, // Emoji icon, not typography
+  },
   profile: {
     fontSize: 24, // Emoji icon, not typography
   },
@@ -364,6 +526,51 @@ const createStyles = (colors: any) => StyleSheet.create({
     left: 24,
     right: 24,
     bottom: 32,
+  },
+  insightCard: {
+    marginBottom: 8,
+    padding: 12,
+  },
+  insightTitle: {
+    ...typography.h4,
+    marginBottom: 4,
+  },
+  insightMessage: {
+    ...typography.bodySmall,
+  },
+  categorySection: {
+    paddingHorizontal: 24,
+    marginBottom: recommendedSpacing.comfortable,
+  },
+  chartCard: {
+    padding: 16,
+  },
+  topGroupCard: {
+    marginHorizontal: 24,
+    marginBottom: recommendedSpacing.comfortable,
+    padding: 16,
+  },
+  topGroupLabel: {
+    ...typography.bodySmall,
+    marginBottom: 8,
+  },
+  topGroupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  topGroupEmoji: {
+    fontSize: 32,
+    marginRight: 12,
+  },
+  topGroupInfo: {
+    flex: 1,
+  },
+  topGroupName: {
+    ...typography.h4,
+    marginBottom: 4,
+  },
+  topGroupAmount: {
+    ...typography.bodySmall,
   },
 });
 

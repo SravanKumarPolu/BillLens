@@ -71,37 +71,28 @@ const OcrProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
         }
 
         // For low confidence (0.3-0.5), still proceed but show a warning
-        // User can verify and edit in AddExpense screen
+        // User can verify and edit in ReviewBill screen
         if (result.confidence < 0.5 && result.confidence >= 0.3) {
-          Alert.alert(
-            'Low Confidence',
-            'Some information may not be accurate. Please verify the extracted details.',
-            [
-              {
-                text: 'Review & Edit',
-                onPress: () => {
-                  navigation.replace('AddExpense', {
-                    imageUri,
-                    groupId: groupId || undefined,
-                    parsedAmount: parseAmount(result.amount),
-                    parsedMerchant: normalizeMerchant(result.merchant),
-                    parsedDate: result.date || '',
-                  });
-                },
-              },
-            ],
-            { cancelable: false }
-          );
+          // Navigate to ReviewBill with low confidence warning
+          navigation.replace('ReviewBill', {
+            imageUri,
+            groupId: groupId || undefined,
+            parsedAmount: result.amount || '',
+            parsedMerchant: result.merchant || '',
+            parsedDate: result.date || '',
+            ocrResult: result, // Pass full result for itemized split detection
+          });
           return;
         }
 
-        // Navigate to AddExpense with parsed data (confidence >= 0.5)
-        navigation.replace('AddExpense', {
+        // High confidence (>= 0.5) - proceed to ReviewBill
+        navigation.replace('ReviewBill', {
           imageUri,
           groupId: groupId || undefined,
-          parsedAmount: parseAmount(result.amount),
-          parsedMerchant: normalizeMerchant(result.merchant),
+          parsedAmount: result.amount || '',
+          parsedMerchant: result.merchant || '',
           parsedDate: result.date || '',
+          ocrResult: result, // Pass full result for itemized split detection
         });
       } catch (error) {
         // Handle unexpected errors

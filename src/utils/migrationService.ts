@@ -8,8 +8,9 @@
  * - Migration 1: Add settlement immutability fields (createdAt, version)
  */
 
-import { Settlement } from '../types/models';
+import { Settlement, Group, Expense } from '../types/models';
 import { loadAppData, saveAppData, type AppData } from './storageService';
+import { DEFAULT_CURRENCY } from './currencyService';
 
 export interface Migration {
   version: number;
@@ -47,10 +48,61 @@ const migration1: Migration = {
 };
 
 /**
+ * Migration 2: Add currency fields
+ * Adds currency field to groups, expenses, and settlements
+ */
+const migration2: Migration = {
+  version: 2,
+  name: 'Add currency fields',
+  run: async (data: AppData): Promise<AppData> => {
+    // Migrate groups
+    const migratedGroups = data.groups.map((group: Group) => {
+      if ((group as any).currency) {
+        return group; // Already migrated
+      }
+      return {
+        ...group,
+        currency: DEFAULT_CURRENCY, // Default to INR
+      };
+    });
+
+    // Migrate expenses
+    const migratedExpenses = data.expenses.map((expense: Expense) => {
+      if ((expense as any).currency) {
+        return expense; // Already migrated
+      }
+      return {
+        ...expense,
+        currency: DEFAULT_CURRENCY, // Default to INR
+      };
+    });
+
+    // Migrate settlements
+    const migratedSettlements = data.settlements.map((settlement: Settlement) => {
+      if ((settlement as any).currency) {
+        return settlement; // Already migrated
+      }
+      return {
+        ...settlement,
+        currency: DEFAULT_CURRENCY, // Default to INR
+      };
+    });
+
+    return {
+      ...data,
+      groups: migratedGroups,
+      expenses: migratedExpenses,
+      settlements: migratedSettlements,
+    };
+  },
+};
+
+/**
  * All migrations in order
  */
 const migrations: Migration[] = [
   migration1,
+  migration2,
   // Add future migrations here
 ];
 
@@ -59,7 +111,17 @@ const migrations: Migration[] = [
  * Stored in a separate field or inferred from data structure
  */
 const getDataVersion = (data: AppData): number => {
-  // Check if settlements have been migrated (have createdAt and version)
+  // Check if currency migration has run (migration 2)
+  const hasCurrencyMigration = 
+    (data.groups.length === 0 || (data.groups[0] as any).currency) &&
+    (data.expenses.length === 0 || (data.expenses[0] as any).currency) &&
+    (data.settlements.length === 0 || (data.settlements[0] as any).currency);
+  
+  if (hasCurrencyMigration) {
+    return 2; // At least migration 2 has run
+  }
+  
+  // Check if settlement migration has run (migration 1)
   const hasSettlementMigration = data.settlements.length === 0 || 
     data.settlements.some(s => s.createdAt && s.version !== undefined);
   

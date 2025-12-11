@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Share, ActivityIndicator, TextInput, Modal } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -7,6 +7,14 @@ import { typography, recommendedSpacing } from '../theme/typography';
 import { useAuth } from '../context/AuthContext';
 import { useGroups } from '../context/GroupsContext';
 import { createBackup, restoreBackup, clearAllData } from '../utils/storageService';
+import { exportRawData, exportDashboardSummary } from '../utils/exportService';
+import { Card } from '../components';
+import {
+  getSecuritySettings,
+  updateSecuritySettings,
+  isBiometricAvailable,
+  type SecuritySettings,
+} from '../utils/securityService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BackupRestore'>;
 
@@ -16,6 +24,37 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [restoreText, setRestoreText] = useState('');
+  const [securitySettings, setSecuritySettings] = useState<SecuritySettings | null>(null);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+
+  useEffect(() => {
+    loadSecuritySettings();
+  }, []);
+
+  const loadSecuritySettings = async () => {
+    const settings = await getSecuritySettings();
+    setSecuritySettings(settings);
+    const available = await isBiometricAvailable();
+    setBiometricAvailable(available);
+  };
+
+  const handleToggleLock = async () => {
+    if (!securitySettings) return;
+    await updateSecuritySettings({ lockEnabled: !securitySettings.lockEnabled });
+    await loadSecuritySettings();
+  };
+
+  const handleToggleBiometric = async () => {
+    if (!securitySettings) return;
+    await updateSecuritySettings({ biometricEnabled: !securitySettings.biometricEnabled });
+    await loadSecuritySettings();
+  };
+
+  const handleToggleEncryption = async () => {
+    if (!securitySettings) return;
+    await updateSecuritySettings({ encryptionEnabled: !securitySettings.encryptionEnabled });
+    await loadSecuritySettings();
+  };
 
   const handleCreateBackup = async () => {
     setIsProcessing(true);
@@ -31,6 +70,42 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
       Alert.alert('Success', 'Backup created and ready to share');
     } catch (error) {
       Alert.alert('Error', 'Failed to create backup');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleExportRawData = async () => {
+    setIsProcessing(true);
+    try {
+      const rawData = exportRawData(groups, expenses, settlements);
+      
+      await Share.share({
+        message: rawData,
+        title: 'BillLens Raw Data Export',
+      });
+      
+      Alert.alert('Success', 'Raw data exported successfully');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to export raw data');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleExportDashboard = async () => {
+    setIsProcessing(true);
+    try {
+      const dashboard = exportDashboardSummary(groups, expenses, settlements);
+      
+      await Share.share({
+        message: dashboard,
+        title: 'BillLens Dashboard Summary',
+      });
+      
+      Alert.alert('Success', 'Dashboard summary exported successfully');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to export dashboard');
     } finally {
       setIsProcessing(false);
     }
@@ -179,6 +254,115 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.secondaryButtonText}>Restore from backup</Text>
         </TouchableOpacity>
       </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Export Options</Text>
+        <Text style={styles.sectionText}>
+          Export your data in different formats for backup or analysis.
+        </Text>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={handleExportRawData}
+          disabled={isProcessing}
+        >
+          <Text style={styles.secondaryButtonText}>
+            {isProcessing ? 'Exporting...' : 'Export Raw Data (JSON)'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.secondaryButton, { marginTop: 12 }]}
+          onPress={handleExportDashboard}
+          disabled={isProcessing}
+        >
+          <Text style={styles.secondaryButtonText}>
+            {isProcessing ? 'Exporting...' : 'Export Dashboard Summary'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Security Section */}
+      {securitySettings && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Security</Text>
+          
+          <Card style={styles.settingCard}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingContent}>
+                <Text style={styles.settingLabel}>App Lock</Text>
+                <Text style={styles.settingDescription}>
+                  Lock app after {securitySettings.lockTimeout} minutes of inactivity
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.toggle,
+                  securitySettings.lockEnabled && [styles.toggleActive, { backgroundColor: colors.primary }],
+                ]}
+                onPress={handleToggleLock}
+              >
+                <View
+                  style={[
+                    styles.toggleThumb,
+                    securitySettings.lockEnabled && styles.toggleThumbActive,
+                  ]}
+                />
+              </TouchableOpacity>
+            </View>
+          </Card>
+
+          {biometricAvailable && (
+            <Card style={styles.settingCard}>
+              <View style={styles.settingRow}>
+                <View style={styles.settingContent}>
+                  <Text style={styles.settingLabel}>Biometric Authentication</Text>
+                  <Text style={styles.settingDescription}>
+                    Use fingerprint or face ID to unlock
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.toggle,
+                    securitySettings.biometricEnabled && [styles.toggleActive, { backgroundColor: colors.primary }],
+                  ]}
+                  onPress={handleToggleBiometric}
+                >
+                  <View
+                    style={[
+                      styles.toggleThumb,
+                      securitySettings.biometricEnabled && styles.toggleThumbActive,
+                    ]}
+                  />
+                </TouchableOpacity>
+              </View>
+            </Card>
+          )}
+
+          <Card style={styles.settingCard}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingContent}>
+                <Text style={styles.settingLabel}>Data Encryption</Text>
+                <Text style={styles.settingDescription}>
+                  Encrypt local data (demo mode)
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.toggle,
+                  securitySettings.encryptionEnabled && [styles.toggleActive, { backgroundColor: colors.primary }],
+                ]}
+                onPress={handleToggleEncryption}
+              >
+                <View
+                  style={[
+                    styles.toggleThumb,
+                    securitySettings.encryptionEnabled && styles.toggleThumbActive,
+                  ]}
+                />
+              </TouchableOpacity>
+            </View>
+          </Card>
+        </View>
+      )}
 
       <View style={styles.statsSection}>
         <Text style={styles.statsTitle}>Your data</Text>
@@ -402,6 +586,49 @@ const styles = StyleSheet.create({
   modalButtonTextConfirm: {
     ...typography.button,
     color: colors.white,
+  },
+  settingCard: {
+    marginBottom: 12,
+    padding: 16,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  settingContent: {
+    flex: 1,
+    marginRight: 16,
+  },
+  settingLabel: {
+    ...typography.h4,
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  settingDescription: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  toggle: {
+    width: 50,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#ccc',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  toggleActive: {
+    backgroundColor: colors.primary,
+  },
+  toggleThumb: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#fff',
+    alignSelf: 'flex-start',
+  },
+  toggleThumbActive: {
+    alignSelf: 'flex-end',
   },
 });
 

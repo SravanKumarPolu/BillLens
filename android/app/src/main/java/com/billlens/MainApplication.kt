@@ -14,6 +14,8 @@ import com.reactnativecommunity.asyncstorage.AsyncStoragePackage
 import com.imagepicker.ImagePickerPackage
 import com.th3rdwave.safeareacontext.SafeAreaContextPackage
 import com.swmansion.rnscreens.RNScreensPackage
+import com.christopherdro.htmltopdf.RNHTMLtoPDFPackage
+import com.rnfs.RNFSPackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -28,6 +30,8 @@ class MainApplication : Application(), ReactApplication {
           packages.add(ImagePickerPackage())
           packages.add(SafeAreaContextPackage())
           packages.add(RNScreensPackage())
+          packages.add(RNHTMLtoPDFPackage())
+          packages.add(RNFSPackage())
           return packages
         }
 

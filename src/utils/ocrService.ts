@@ -20,6 +20,9 @@ export interface OcrResult {
   confidence: number; // 0-1, indicates quality/confidence of extraction
   error?: string;
   rawText?: string; // Raw OCR text for debugging
+  isUPI?: boolean; // India-first: UPI payment detection
+  upiApp?: 'phonepe' | 'gpay' | 'paytm' | 'bhim' | 'other';
+  suggestedGroup?: string; // India-first: Suggested group based on merchant
 }
 
 interface ParsedAmount {
@@ -171,6 +174,14 @@ export const extractBillInfo = async (imageUri: string): Promise<OcrResult> => {
       rawText.length
     );
 
+    // India-first: Detect UPI payment
+    const { detectUPIPayment } = await import('./indiaFirstService');
+    const upiDetection = detectUPIPayment(rawText, parsedMerchant?.value);
+
+    // India-first: Suggest group
+    const { suggestGroup } = await import('./indiaFirstService');
+    // Note: groups would need to be passed, but for now we'll do it in the screen
+
     // Format results
     const result: OcrResult = {
       amount: parsedAmount ? `₹${parsedAmount.value}` : null,
@@ -178,6 +189,8 @@ export const extractBillInfo = async (imageUri: string): Promise<OcrResult> => {
       date: parsedDate || null,
       confidence,
       rawText: rawText.substring(0, 200), // Store first 200 chars for debugging
+      isUPI: upiDetection.isUPI,
+      upiApp: upiDetection.upiApp,
     };
 
     // Log low confidence cases for debugging

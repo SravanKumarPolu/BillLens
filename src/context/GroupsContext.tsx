@@ -24,6 +24,9 @@ interface GroupsContextType {
   updateGroup: (groupId: string, updates: Partial<Group>) => void;
   deleteGroup: (groupId: string) => void;
   getGroup: (groupId: string) => Group | undefined;
+  addMemberToGroup: (groupId: string, member: Member) => void;
+  removeMemberFromGroup: (groupId: string, memberId: string) => void;
+  updateMemberInGroup: (groupId: string, memberId: string, updates: Partial<Member>) => void;
   
   // Expense operations
   addExpense: (expense: Omit<Expense, 'id' | 'date'>) => string;
@@ -49,6 +52,7 @@ interface GroupsContextType {
   
   // Balance calculations
   calculateGroupBalances: (groupId: string) => GroupBalance[];
+  getGroupBalances: (groupId: string) => GroupBalance[];
   getGroupSummary: (groupId: string) => GroupSummary | null;
   getAllGroupSummaries: () => GroupSummary[];
   
@@ -72,6 +76,7 @@ const DEFAULT_GROUPS: Group[] = [
     name: 'Our Home',
     emoji: '🏠',
     members: [DEFAULT_MEMBERS[0], DEFAULT_MEMBERS[1], DEFAULT_MEMBERS[2]],
+    currency: 'INR',
     createdAt: new Date().toISOString(),
   },
   {
@@ -79,6 +84,7 @@ const DEFAULT_GROUPS: Group[] = [
     name: 'Us Two',
     emoji: '👫',
     members: [DEFAULT_MEMBERS[0], DEFAULT_MEMBERS[1]],
+    currency: 'INR',
     createdAt: new Date().toISOString(),
   },
   {
@@ -86,6 +92,7 @@ const DEFAULT_GROUPS: Group[] = [
     name: 'Roommates',
     emoji: '🏘️',
     members: [DEFAULT_MEMBERS[0], DEFAULT_MEMBERS[1], DEFAULT_MEMBERS[2]],
+    currency: 'INR',
     createdAt: new Date().toISOString(),
   },
   {
@@ -93,6 +100,7 @@ const DEFAULT_GROUPS: Group[] = [
     name: 'Trips',
     emoji: '✈️',
     members: [DEFAULT_MEMBERS[0], DEFAULT_MEMBERS[1]],
+    currency: 'INR',
     createdAt: new Date().toISOString(),
   },
 ];
@@ -144,6 +152,11 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           templateLastAmounts,
           ocrHistory,
         });
+
+        // Track changes for sync (if user is authenticated)
+        const { syncService } = await import('../utils/syncService');
+        // Note: In production, this would track specific changes
+        // For now, sync service will handle incremental sync based on timestamps
       } catch (error) {
         console.error('Error saving app data:', error);
       }
@@ -195,6 +208,7 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const addGroup = useCallback((groupData: Omit<Group, 'id' | 'createdAt'>): string => {
     const newGroup: Group = {
       ...groupData,
+      currency: groupData.currency || 'INR', // Default to INR
       id: generateId(),
       createdAt: new Date().toISOString(),
     };
@@ -219,11 +233,53 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return groups.find(g => g.id === groupId);
   }, [groups]);
 
+  // Member management operations
+  const addMemberToGroup = useCallback((groupId: string, member: Member) => {
+    setGroups(prev =>
+      prev.map(group =>
+        group.id === groupId
+          ? { ...group, members: [...group.members, member] }
+          : group
+      )
+    );
+  }, []);
+
+  const removeMemberFromGroup = useCallback((groupId: string, memberId: string) => {
+    setGroups(prev =>
+      prev.map(group =>
+        group.id === groupId
+          ? { ...group, members: group.members.filter(m => m.id !== memberId) }
+          : group
+      )
+    );
+    // Also remove expenses/settlements where this member was involved?
+    // For now, we'll keep expenses but mark them as inactive
+  }, []);
+
+  const updateMemberInGroup = useCallback((groupId: string, memberId: string, updates: Partial<Member>) => {
+    setGroups(prev =>
+      prev.map(group =>
+        group.id === groupId
+          ? {
+              ...group,
+              members: group.members.map(m =>
+                m.id === memberId ? { ...m, ...updates } : m
+              ),
+            }
+          : group
+      )
+    );
+  }, []);
+
   // Expense operations
   const addExpense = useCallback((expenseData: Omit<Expense, 'id' | 'date'>): string => {
     const now = new Date().toISOString();
+    const group = groups.find(g => g.id === expenseData.groupId);
+    const groupCurrency = group?.currency || 'INR';
+    
     const newExpense: Expense = {
       ...expenseData,
+      currency: expenseData.currency || groupCurrency, // Use group currency if not specified
       id: generateId(),
       date: now,
       createdAt: now,
@@ -242,9 +298,16 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (templateId) {
       updateTemplateLastAmount(templateId, expenseData.amount);
     }
+
+    // Track for sync
+    import('../utils/syncService').then(({ syncService }) => {
+      syncService.addPendingChange('create', 'expense', newExpense.id, newExpense);
+    }).catch(() => {
+      // Ignore sync errors during local operations
+    });
     
     return newExpense.id;
-  }, [updateTemplateLastAmount]);
+  }, [updateTemplateLastAmount, groups]);
 
   const updateExpense = useCallback((expenseId: string, updates: Partial<Expense>, editedBy?: string) => {
     setExpenses(prev => {
@@ -328,10 +391,14 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, [expenses]);
 
   // Settlement operations - Settlement-proof: Immutable history
-  const addSettlement = useCallback((settlementData: Omit<Settlement, 'id' | 'date' | 'status' | 'createdAt' | 'version' | 'previousVersionId'>): string => {
+  const addSettlement = useCallback((settlementData: Omit<Settlement, 'id' | 'date' | 'status' | 'createdAt' | 'version' | 'previousVersionId' | 'currency'> & { currency?: string }): string => {
     const now = new Date().toISOString();
+    const group = groups.find(g => g.id === settlementData.groupId);
+    const groupCurrency = group?.currency || 'INR';
+    
     const newSettlement: Settlement = {
       ...settlementData,
+      currency: settlementData.currency || groupCurrency, // Use group currency if not specified
       id: generateId(),
       date: now,
       status: 'completed', // Mark as completed when added
@@ -346,7 +413,7 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       return updated;
     });
     return newSettlement.id;
-  }, []);
+  }, [groups]);
 
   // Get immutable settlement history (all settlements, ordered by creation)
   const getSettlementHistory = useCallback((groupId: string): Settlement[] => {
@@ -389,17 +456,60 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     // Process expenses: who paid gets credited, who owes gets debited
     groupExpenses.forEach(expense => {
-      const paidBy = expense.paidBy;
-      const paidAmount = normalizeAmount(expense.amount);
+      const groupCurrency = group.currency || 'INR';
+      const expenseCurrency = expense.currency || groupCurrency;
       
-      // Credit the person who paid
-      balances.set(paidBy, normalizeAmount((balances.get(paidBy) || 0) + paidAmount));
+      // Handle multiple payers (new) or single payer (backward compatibility)
+      if (expense.payers && expense.payers.length > 0) {
+        // Multiple payers: credit each payer for their contribution
+        expense.payers.forEach(payer => {
+          const paidAmount = normalizeAmount(payer.amount);
+          // Convert to group currency if needed
+          const convertedAmount = expenseCurrency === groupCurrency 
+            ? paidAmount 
+            : normalizeAmount(paidAmount); // TODO: Add currency conversion
+          balances.set(payer.memberId, normalizeAmount((balances.get(payer.memberId) || 0) + convertedAmount));
+        });
+      } else if (expense.paidBy) {
+        // Single payer (backward compatibility)
+        const paidAmount = normalizeAmount(expense.amount);
+        const convertedAmount = expenseCurrency === groupCurrency 
+          ? paidAmount 
+          : normalizeAmount(paidAmount); // TODO: Add currency conversion
+        balances.set(expense.paidBy, normalizeAmount((balances.get(expense.paidBy) || 0) + convertedAmount));
+      }
       
       // Debit those who owe (safely handle missing splits array)
       if (expense.splits && Array.isArray(expense.splits)) {
         expense.splits.forEach(split => {
           const splitAmount = normalizeAmount(split.amount);
-          balances.set(split.memberId, normalizeAmount((balances.get(split.memberId) || 0) - splitAmount));
+          const convertedAmount = expenseCurrency === groupCurrency 
+            ? splitAmount 
+            : normalizeAmount(splitAmount); // TODO: Add currency conversion
+          balances.set(split.memberId, normalizeAmount((balances.get(split.memberId) || 0) - convertedAmount));
+        });
+      }
+      
+      // Handle extra items (special case adjustments)
+      if (expense.extraItems && Array.isArray(expense.extraItems)) {
+        expense.extraItems.forEach(item => {
+          const itemAmount = normalizeAmount(item.amount);
+          const convertedAmount = expenseCurrency === groupCurrency 
+            ? itemAmount 
+            : normalizeAmount(itemAmount); // TODO: Add currency conversion
+          
+          // If item has specific payer, credit them
+          if (item.paidBy) {
+            balances.set(item.paidBy, normalizeAmount((balances.get(item.paidBy) || 0) + convertedAmount));
+          }
+          
+          // If item has specific split, debit those members
+          if (item.splitBetween && item.splitBetween.length > 0) {
+            const perPerson = convertedAmount / item.splitBetween.length;
+            item.splitBetween.forEach(memberId => {
+              balances.set(memberId, normalizeAmount((balances.get(memberId) || 0) - perPerson));
+            });
+          }
         });
       }
     });
@@ -526,6 +636,9 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     updateGroup,
     deleteGroup,
     getGroup,
+    addMemberToGroup,
+    removeMemberFromGroup,
+    updateMemberInGroup,
     addExpense,
     updateExpense,
     deleteExpense,
@@ -538,6 +651,7 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     completeSettlement,
     getSettlementsForGroup,
     calculateGroupBalances,
+    getGroupBalances: calculateGroupBalances, // Alias for convenience
     getGroupSummary,
     getAllGroupSummaries,
     getGroupInsights,

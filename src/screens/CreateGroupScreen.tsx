@@ -9,11 +9,12 @@ import { useGroups } from '../context/GroupsContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
-const CreateGroupScreen: React.FC<Props> = ({ navigation }) => {
+const CreateGroupScreen: React.FC<Props> = ({ navigation, route }) => {
   const { addGroup } = useGroups();
   const { colors } = useTheme();
-  const [name, setName] = useState('');
-  const [emoji, setEmoji] = useState('🏠');
+  const { suggestedName, suggestedEmoji } = route.params || {};
+  const [name, setName] = useState(suggestedName || '');
+  const [emoji, setEmoji] = useState(suggestedEmoji || '🏠');
 
   const handleCreate = () => {
     if (!name.trim()) {
@@ -31,6 +32,7 @@ const CreateGroupScreen: React.FC<Props> = ({ navigation }) => {
       name: name.trim(),
       emoji,
       members: defaultMembers,
+      currency: 'INR',
     });
 
     navigation.navigate('Home');

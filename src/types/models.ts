@@ -6,6 +6,21 @@ export interface Member {
   id: string;
   name: string;
   email?: string;
+  phone?: string; // For offline group support
+  hasAccount?: boolean; // Whether member has BillLens account
+}
+
+export interface ExpensePayer {
+  memberId: string;
+  amount: number; // Amount this member paid
+}
+
+export interface ExtraItem {
+  id: string;
+  name: string;
+  amount: number;
+  paidBy?: string; // Optional: specific member who paid for this item
+  splitBetween?: string[]; // Optional: specific members who share this item
 }
 
 export interface ExpenseSplit {
@@ -15,19 +30,23 @@ export interface ExpenseSplit {
 
 export interface Expense {
   id: string;
-  groupId: string;
+  groupId: string; // 'personal' for personal expenses
   title: string;
   merchant?: string;
   amount: number; // Total amount
+  currency: string; // Currency code (e.g., 'INR', 'USD', 'EUR')
   category: string;
-  paidBy: string; // Member ID who paid
+  paidBy: string; // Member ID who paid (for backward compatibility)
+  payers?: ExpensePayer[]; // Multiple payers support
   splits: ExpenseSplit[]; // How the expense is split
+  extraItems?: ExtraItem[]; // Extra items or special case adjustments
   date: string; // ISO date string
   imageUri?: string;
   // History tracking
   createdAt?: string; // When expense was created
   updatedAt?: string; // Last update timestamp
   editHistory?: ExpenseEdit[]; // Track all edits
+  isPersonal?: boolean; // Flag to mark personal expenses
 }
 
 export interface ExpenseEdit {
@@ -48,6 +67,7 @@ export interface Settlement {
   fromMemberId: string;
   toMemberId: string;
   amount: number;
+  currency: string; // Currency code for the settlement
   date: string; // ISO date string
   status: 'pending' | 'completed';
   // Settlement-proof: Immutable history tracking (optional for backward compatibility)
@@ -62,6 +82,7 @@ export interface Group {
   name: string;
   emoji: string;
   members: Member[];
+  currency: string; // Default currency for the group (e.g., 'INR', 'USD', 'EUR')
   createdAt: string; // ISO date string
 }
 
@@ -93,3 +114,29 @@ export interface OcrHistory {
   expenseId?: string; // If OCR resulted in an expense
 }
 
+/**
+ * Category Budget - Track spending limits per category
+ */
+export interface CategoryBudget {
+  id: string;
+  category: string;
+  monthlyLimit: number;
+  currency: string;
+  groupId?: string; // If null, applies to personal expenses
+  createdAt: string;
+  updatedAt?: string;
+}
+
+/**
+ * API Integration - Store integration settings
+ */
+export interface ApiIntegration {
+  id: string;
+  type: 'google_pay' | 'paytm' | 'phonepe' | 'sms' | 'email' | 'bank';
+  enabled: boolean;
+  settings: {
+    [key: string]: any; // Provider-specific settings
+  };
+  lastSync?: string;
+  createdAt: string;
+}
