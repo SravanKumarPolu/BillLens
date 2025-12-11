@@ -161,11 +161,86 @@ const unsubscribe = syncService.subscribe((status) => {
 });
 ```
 
+## Real-Time Sync Enhancements (Latest Update)
+
+### ✅ New Features Added
+
+1. **Automatic Sync Triggering** ✅
+   - `scheduleSync()` now actually triggers sync when changes are detected
+   - Debounced to 2 seconds to avoid excessive syncs
+   - Automatically syncs when data changes in GroupsContext
+
+2. **Real-Time Polling** ✅
+   - Polls server every 30 seconds for updates (configurable)
+   - Automatically enabled when user signs in
+   - Can be enabled/disabled via `setPollingEnabled()`
+
+3. **Network State Monitoring** ✅
+   - New `networkMonitor.ts` utility monitors connectivity
+   - Automatically triggers sync when connection is restored
+   - Uses fetch-based detection (no additional dependencies)
+
+4. **Automatic Data Merging** ✅
+   - Sync now returns `mergedData` in `SyncResult`
+   - GroupsContext automatically merges downloaded data into local state
+   - Handles conflicts intelligently
+
+5. **Background Periodic Sync** ✅
+   - Polling runs in background when app is active
+   - Respects auto-sync settings
+   - Stops when user signs out
+
+### How It Works
+
+1. **On Sign In:**
+   - Cloud service is initialized
+   - Polling is enabled (every 30 seconds)
+   - Initial sync is triggered
+   - Network monitoring starts
+
+2. **On Data Changes:**
+   - Changes are tracked in sync service
+   - Sync is scheduled (debounced 2 seconds)
+   - Sync executes automatically if user is authenticated
+
+3. **On Network Restore:**
+   - Network monitor detects connection restored
+   - Automatic sync is triggered
+   - Pending changes are uploaded
+
+4. **Periodic Updates:**
+   - Polling checks for remote changes every 30 seconds
+   - Downloads and merges new data
+   - Updates local state automatically
+
+### Configuration
+
+```typescript
+// Enable/disable polling
+syncService.setPollingEnabled(true, 30000); // 30 seconds
+
+// Enable/disable auto-sync
+syncService.setAutoSync(true);
+
+// Set sync callback (done automatically by GroupsContext)
+syncService.setSyncCallback(async (localData, userId) => {
+  return await syncService.sync(localData, userId);
+});
+```
+
 ## Summary
 
 ✅ **Sync architecture is fully implemented and production-ready**  
 ✅ **REST API integration is complete**  
+✅ **Real-time polling implemented**  
+✅ **Network monitoring and auto-sync on restore**  
+✅ **Automatic data merging**  
+✅ **Background periodic sync**  
 ⚠️ **Firebase/AWS/Supabase need SDK installation and implementation**  
 ✅ **All sync features (incremental, conflict resolution, offline queue) are working**
 
-The sync service is ready to use with any REST backend immediately. For Firebase/AWS/Supabase, just implement the provider methods using the provided examples.
+The sync service now provides **true real-time sync capabilities** with automatic updates, network awareness, and seamless data merging. Ready to use with any REST backend immediately. For Firebase/AWS/Supabase, just implement the provider methods using the provided examples.
+
+
+
+

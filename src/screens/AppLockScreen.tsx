@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { Button } from '../components';
@@ -10,11 +12,9 @@ import {
   type SecuritySettings,
 } from '../utils/securityService';
 
-interface AppLockScreenProps {
-  onUnlock: () => void;
-}
+type AppLockScreenProps = NativeStackScreenProps<RootStackParamList, 'AppLock'>;
 
-const AppLockScreen: React.FC<AppLockScreenProps> = ({ onUnlock }) => {
+const AppLockScreen: React.FC<AppLockScreenProps> = ({ navigation }) => {
   const { colors } = useTheme();
   const styles = createStyles(colors);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
@@ -31,13 +31,18 @@ const AppLockScreen: React.FC<AppLockScreenProps> = ({ onUnlock }) => {
     setBiometricAvailable(available);
   };
 
+  const handleUnlock = async () => {
+    await recordUnlock();
+    // Navigate to Home screen after unlock
+    navigation.replace('Home');
+  };
+
   const handleBiometricAuth = async () => {
     setIsAuthenticating(true);
     try {
       const success = await authenticateWithBiometrics();
       if (success) {
-        await recordUnlock();
-        onUnlock();
+        await handleUnlock();
       } else {
         Alert.alert('Authentication Failed', 'Please try again');
       }
@@ -51,8 +56,7 @@ const AppLockScreen: React.FC<AppLockScreenProps> = ({ onUnlock }) => {
   const handleSkip = async () => {
     // For demo purposes, allow skipping
     // In production, this should require password or PIN
-    await recordUnlock();
-    onUnlock();
+    await handleUnlock();
   };
 
   return (

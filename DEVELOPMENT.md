@@ -90,3 +90,7 @@ cd android && ./gradlew clean
 
 ### Native module issues
 Check `android/app/build.gradle` for proper linking.
+
+
+
+

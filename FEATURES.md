@@ -97,3 +97,7 @@
 ## 🎯 Market Position
 
 BillLens is positioned to **dominate the Indian expense-splitting market** with superior features that Splid lacks, including screenshot-first OCR, India-first optimizations, and comprehensive AI insights.
+
+
+
+

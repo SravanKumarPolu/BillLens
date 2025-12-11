@@ -2,64 +2,34 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
-// Override autolinking task for pnpm compatibility
+// Completely disable autolinking to prevent duplicate project name conflicts
+// This must be done BEFORE the react {} block
+def autolinkEnabled = false
+
+// Disable autolinking tasks
 afterEvaluate {
-    def autolinkTask = tasks.findByName("generateAutolinkingPackageList")
-    if (autolinkTask) {
-        // Create required directories
-        def autolinkDir = new File(project.buildDir, "generated/autolinking")
-        autolinkDir.mkdirs()
-        
-        // Create required input file
-        def inputFile = new File(autolinkDir, "autolinking.json")
-        if (!inputFile.exists()) {
-            inputFile.write('{}')
-        }
-        
-        // Create output file
-        def outputFile = new File(autolinkDir, "package-list.json")
-        
-        autolinkTask.actions.clear()
-        autolinkTask.doFirst {
-            def jsonContent = """{
-  "project": {
-    "android": {
-      "packageName": "com.billlens"
+    // Disable all autolinking tasks
+    tasks.matching { 
+        it.name.contains("autolink") || 
+        it.name.contains("Autolink") || 
+        it.name.contains("generateAutolinking")
+    }.all {
+        it.enabled = false
     }
-  },
-  "dependencies": {}
-}"""
-            outputFile.write(jsonContent)
-        }
-        
-        // Ensure output file exists even if task fails
-        autolinkTask.doLast {
-            if (!outputFile.exists()) {
-                def jsonContent = """{
-  "project": {
-    "android": {
-      "packageName": "com.billlens"
-    }
-  },
-  "dependencies": {}
-}"""
-                outputFile.write(jsonContent)
-            }
-        }
-        
-        // Set input file property if it exists
-        try {
-            autolinkTask.autolinkInputFile = inputFile
-        } catch (Exception e) {
-            // Property might not exist in all RN versions, ignore
-        }
+    
+    // Create empty autolinking output to satisfy dependencies
+    def autolinkDir = new File(project.buildDir, "generated/autolinking")
+    autolinkDir.mkdirs()
+    def outputFile = new File(autolinkDir, "package-list.json")
+    if (!outputFile.exists()) {
+        outputFile.write('{"project":{"android":{"packageName":"com.billlens"}},"dependencies":{}}')
     }
 }
 
 // React Native configuration
 // Autolinking disabled for pnpm compatibility - using manual linking
 react {
-    // autolinkLibrariesWithApp() // Disabled - see dependencies block below
+    // autolinkLibrariesWithApp() is NOT called - autolinking is disabled
     entryFile = file("../../index.tsx")
 }
 
@@ -75,6 +45,17 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace "com.billlens"
+    
+    // Java/Kotlin compatibility settings
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+    
     defaultConfig {
         applicationId "com.billlens"
         minSdkVersion rootProject.ext.minSdkVersion

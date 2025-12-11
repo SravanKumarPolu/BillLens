@@ -26,15 +26,20 @@ import RentSplitScreen from './screens/RentSplitScreen';
 import ReceiptGalleryScreen from './screens/ReceiptGalleryScreen';
 import AchievementsScreen from './screens/AchievementsScreen';
 import BackupRestoreScreen from './screens/BackupRestoreScreen';
+import AppLockScreen from './screens/AppLockScreen';
 import { colors } from './theme/colors';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-export const AppNavigator = () => {
+interface AppNavigatorProps {
+  initialRouteName?: keyof RootStackParamList;
+}
+
+export const AppNavigator = ({ initialRouteName }: AppNavigatorProps = {}) => {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="OnboardingWelcome"
+        initialRouteName={initialRouteName || "OnboardingWelcome"}
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.surfaceLight },
@@ -64,6 +69,7 @@ export const AppNavigator = () => {
         <Stack.Screen name="ReceiptGallery" component={ReceiptGalleryScreen} />
         <Stack.Screen name="Achievements" component={AchievementsScreen} />
         <Stack.Screen name="BackupRestore" component={BackupRestoreScreen} />
+        <Stack.Screen name="AppLock" component={AppLockScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -47,4 +47,5 @@ export type RootStackParamList = {
   ReceiptGallery: { groupId: string };
   Achievements: undefined;
   BackupRestore: undefined;
+  AppLock: undefined;
 };

@@ -1,5 +1,4 @@
 const { execSync } = require('child_process');
-const fs = require('fs');
 const path = require('path');
 
 try {
@@ -8,10 +7,11 @@ try {
   
   Object.values(config.dependencies || {}).forEach(dep => {
     if (dep.platforms?.android?.sourceDir) {
-      const sourceDir = path.relative(
+      // Calculate relative path (used for reference, though not directly in output)
+      path.relative(
         path.join(__dirname, '..', 'android'),
         dep.platforms.android.sourceDir
-      ).replace(/\\/g, '/');
+      );
       androidDeps.push(`project(':${dep.name.replace(/[@\/]/g, '_')}')`);
     }
   });

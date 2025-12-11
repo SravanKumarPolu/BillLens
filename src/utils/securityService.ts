@@ -35,6 +35,62 @@ const DEFAULT_SETTINGS: SecuritySettings = {
 };
 
 /**
+ * Base64 encoding/decoding for React Native
+ * Pure JavaScript implementation compatible with React Native
+ */
+const base64Encode = (str: string): string => {
+  // Use btoa if available (web), otherwise use pure JS implementation
+  if (typeof btoa !== 'undefined') {
+    try {
+      return btoa(unescape(encodeURIComponent(str)));
+    } catch (e) {
+      // Fall through to pure JS implementation
+    }
+  }
+  
+  // Pure JavaScript base64 implementation for React Native
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  let output = '';
+  for (let i = 0; i < str.length; i += 3) {
+    const a = str.charCodeAt(i);
+    const b = i + 1 < str.length ? str.charCodeAt(i + 1) : 0;
+    const c = i + 2 < str.length ? str.charCodeAt(i + 2) : 0;
+    const bitmap = (a << 16) | (b << 8) | c;
+    output += chars.charAt((bitmap >> 18) & 63);
+    output += chars.charAt((bitmap >> 12) & 63);
+    output += i + 1 < str.length ? chars.charAt((bitmap >> 6) & 63) : '=';
+    output += i + 2 < str.length ? chars.charAt(bitmap & 63) : '=';
+  }
+  return output;
+};
+
+const base64Decode = (str: string): string => {
+  // Use atob if available (web), otherwise use pure JS implementation
+  if (typeof atob !== 'undefined') {
+    try {
+      return decodeURIComponent(escape(atob(str)));
+    } catch (e) {
+      // Fall through to pure JS implementation
+    }
+  }
+  
+  // Pure JavaScript base64 decode implementation for React Native
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  let output = '';
+  str = str.replace(/[^A-Za-z0-9\+\/\=]/g, '');
+  for (let i = 0; i < str.length; i += 4) {
+    const enc1 = chars.indexOf(str.charAt(i));
+    const enc2 = chars.indexOf(str.charAt(i + 1));
+    const enc3 = chars.indexOf(str.charAt(i + 2));
+    const enc4 = chars.indexOf(str.charAt(i + 3));
+    const bitmap = (enc1 << 18) | (enc2 << 12) | (enc3 << 6) | enc4;
+    if (enc3 !== 64) output += String.fromCharCode((bitmap >> 16) & 255);
+    if (enc4 !== 64) output += String.fromCharCode((bitmap >> 8) & 255);
+  }
+  return output;
+};
+
+/**
  * Simple encryption/decryption (XOR cipher for demo)
  * In production, use react-native-crypto-js or similar
  */
@@ -43,12 +99,12 @@ const simpleEncrypt = (text: string, key: string): string => {
   for (let i = 0; i < text.length; i++) {
     result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
   }
-  return btoa(result); // Base64 encode
+  return base64Encode(result); // Base64 encode
 };
 
 const simpleDecrypt = (encrypted: string, key: string): string => {
   try {
-    const text = atob(encrypted); // Base64 decode
+    const text = base64Decode(encrypted); // Base64 decode
     let result = '';
     for (let i = 0; i < text.length; i++) {
       result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));

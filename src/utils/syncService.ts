@@ -58,6 +58,11 @@ export interface SyncResult {
   };
   conflicts: SyncConflict[];
   errors: string[];
+  mergedData?: {
+    groups: Group[];
+    expenses: Expense[];
+    settlements: Settlement[];
+  };
 }
 
 type SyncListener = (status: SyncStatus) => void;
@@ -79,6 +84,11 @@ class SyncService {
   private syncInProgress = false;
   private autoSyncEnabled = true;
   private syncInterval: ReturnType<typeof setTimeout> | null = null;
+  private pollingInterval: ReturnType<typeof setInterval> | null = null;
+  private syncCallback: ((localData: AppData, userId: string) => Promise<SyncResult>) | null = null;
+  private currentUserId: string | null = null;
+  private pollingEnabled = false;
+  private pollingIntervalMs = 30000; // 30 seconds default
 
   /**
    * Subscribe to sync status updates
@@ -221,6 +231,63 @@ class SyncService {
    */
   initializeCloud(config: CloudConfig): void {
     cloudService.initialize(config);
+    this.currentUserId = config.userId;
+  }
+
+  /**
+   * Set callback for triggering sync (called by GroupsContext)
+   */
+  setSyncCallback(callback: (localData: AppData, userId: string) => Promise<SyncResult>): void {
+    this.syncCallback = callback;
+  }
+
+  /**
+   * Enable/disable real-time polling
+   */
+  setPollingEnabled(enabled: boolean, intervalMs: number = 30000): void {
+    this.pollingEnabled = enabled;
+    this.pollingIntervalMs = intervalMs;
+    
+    if (enabled && this.currentUserId && this.syncCallback) {
+      this.startPolling();
+    } else {
+      this.stopPolling();
+    }
+  }
+
+  /**
+   * Start polling for real-time updates
+   */
+  private startPolling(): void {
+    this.stopPolling(); // Clear any existing polling
+    
+    if (!this.syncCallback || !this.currentUserId) return;
+
+    this.pollingInterval = setInterval(async () => {
+      if (this.syncInProgress || !this.autoSyncEnabled) return;
+      
+      try {
+        // Get current local data
+        const { loadAppData } = await import('./storageService');
+        const localData = await loadAppData();
+        
+        if (localData && this.syncCallback) {
+          await this.syncCallback(localData, this.currentUserId!);
+        }
+      } catch (error) {
+        console.error('Polling sync error:', error);
+      }
+    }, this.pollingIntervalMs);
+  }
+
+  /**
+   * Stop polling for real-time updates
+   */
+  private stopPolling(): void {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
   }
 
   /**
@@ -371,12 +438,74 @@ class SyncService {
       const conflicts = this.detectConflicts(localData, downloadResult);
       result.conflicts = conflicts;
 
-      // Step 5: Resolve conflicts
+      // Step 5: Resolve conflicts and merge data
+      const mergedData = {
+        groups: [...localData.groups],
+        expenses: [...localData.expenses],
+        settlements: [...localData.settlements],
+      };
+
       if (conflicts.length > 0) {
         const resolved = await this.resolveConflicts(conflicts, conflictResolver);
-        // Apply resolved conflicts to local data
-        // (implementation would merge resolved data)
+        
+        // Apply resolved conflicts
+        resolved.forEach((resolvedData, entityId) => {
+          const conflict = conflicts.find(c => c.localId === entityId);
+          if (!conflict) return;
+
+          switch (conflict.type) {
+            case 'expense':
+              const expenseIndex = mergedData.expenses.findIndex(e => e.id === entityId);
+              if (expenseIndex >= 0) {
+                mergedData.expenses[expenseIndex] = resolvedData;
+              } else {
+                mergedData.expenses.push(resolvedData);
+              }
+              break;
+            case 'group':
+              const groupIndex = mergedData.groups.findIndex(g => g.id === entityId);
+              if (groupIndex >= 0) {
+                mergedData.groups[groupIndex] = resolvedData;
+              } else {
+                mergedData.groups.push(resolvedData);
+              }
+              break;
+            case 'settlement':
+              const settlementIndex = mergedData.settlements.findIndex(s => s.id === entityId);
+              if (settlementIndex >= 0) {
+                mergedData.settlements[settlementIndex] = resolvedData;
+              } else {
+                mergedData.settlements.push(resolvedData);
+              }
+              break;
+          }
+        });
       }
+
+      // Merge new remote data (non-conflicting)
+      const localExpenseIds = new Set(localData.expenses.map(e => e.id));
+      const localGroupIds = new Set(localData.groups.map(g => g.id));
+      const localSettlementIds = new Set(localData.settlements.map(s => s.id));
+
+      downloadResult.expenses.forEach(expense => {
+        if (!localExpenseIds.has(expense.id) && !conflicts.some(c => c.localId === expense.id)) {
+          mergedData.expenses.push(expense);
+        }
+      });
+
+      downloadResult.groups.forEach(group => {
+        if (!localGroupIds.has(group.id) && !conflicts.some(c => c.localId === group.id)) {
+          mergedData.groups.push(group);
+        }
+      });
+
+      downloadResult.settlements.forEach(settlement => {
+        if (!localSettlementIds.has(settlement.id) && !conflicts.some(c => c.localId === settlement.id)) {
+          mergedData.settlements.push(settlement);
+        }
+      });
+
+      result.mergedData = mergedData;
 
       // Step 6: Clear pending changes
       this.updateStatus({ syncProgress: 90 });
@@ -417,9 +546,22 @@ class SyncService {
     }
 
     // Debounce: wait 2 seconds before syncing
-    this.syncInterval = setTimeout(() => {
+    this.syncInterval = setTimeout(async () => {
       this.syncInterval = null;
-      // Sync will be triggered by GroupsContext
+      
+      // Actually trigger sync if callback is set
+      if (this.syncCallback && this.currentUserId && !this.syncInProgress) {
+        try {
+          const { loadAppData } = await import('./storageService');
+          const localData = await loadAppData();
+          
+          if (localData) {
+            await this.syncCallback(localData, this.currentUserId);
+          }
+        } catch (error) {
+          console.error('Scheduled sync error:', error);
+        }
+      }
     }, 2000);
   }
 
@@ -432,6 +574,33 @@ class SyncService {
       clearTimeout(this.syncInterval);
       this.syncInterval = null;
     }
+    
+    // Update polling based on auto-sync state
+    if (enabled && this.pollingEnabled) {
+      this.startPolling();
+    } else {
+      this.stopPolling();
+    }
+  }
+
+  /**
+   * Cleanup on sign out
+   */
+  cleanup(): void {
+    this.stopPolling();
+    if (this.syncInterval) {
+      clearTimeout(this.syncInterval);
+      this.syncInterval = null;
+    }
+    this.syncCallback = null;
+    this.currentUserId = null;
+    this.pendingChanges.clear();
+    this.updateStatus({
+      isSyncing: false,
+      pendingChanges: 0,
+      syncProgress: 0,
+      currentOperation: 'idle',
+    });
   }
 
   /**
@@ -474,3 +643,7 @@ class SyncService {
 
 // Singleton instance
 export const syncService = new SyncService();
+
+
+
+

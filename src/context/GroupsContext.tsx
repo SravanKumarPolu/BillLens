@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useMemo, useRef } from 'react';
 import { Group, Expense, Member, Settlement, GroupSummary, GroupBalance, ExpenseEdit, OcrHistory } from '../types/models';
 import { saveAppData, loadAppData, type AppData } from '../utils/storageService';
 import { generateInsights, type Insight } from '../utils/insightsService';
@@ -112,6 +112,7 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [templateLastAmounts, setTemplateLastAmounts] = useState<TemplateLastAmount[]>([]);
   const [ocrHistory, setOcrHistory] = useState<OcrHistory[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  const syncCallbackRef = useRef<((localData: AppData, userId: string) => Promise<any>) | null>(null);
 
   // Load data from storage on mount and run migrations
   useEffect(() => {
@@ -155,8 +156,8 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
         // Track changes for sync (if user is authenticated)
         const { syncService } = await import('../utils/syncService');
-        // Note: In production, this would track specific changes
-        // For now, sync service will handle incremental sync based on timestamps
+        // Add pending change tracking for specific entities
+        // The sync service will handle incremental sync based on timestamps
       } catch (error) {
         console.error('Error saving app data:', error);
       }
@@ -166,6 +167,60 @@ export const GroupsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const timeoutId = setTimeout(saveData, 500);
     return () => clearTimeout(timeoutId);
   }, [groups, expenses, settlements, templateLastAmounts, ocrHistory, isInitialized]);
+
+  // Set up sync callback for real-time sync
+  useEffect(() => {
+    if (!isInitialized) return; // Wait for initialization
+    
+    const setupSync = async () => {
+      try {
+        const { syncService } = await import('../utils/syncService');
+        
+        // Create sync callback that merges downloaded data
+        const syncCallback = async (localData: AppData, userId: string) => {
+          const result = await syncService.sync(localData, userId);
+          
+          // Merge downloaded data into local state
+          if (result.mergedData) {
+            setGroups(result.mergedData.groups);
+            setExpenses(result.mergedData.expenses);
+            setSettlements(result.mergedData.settlements);
+            
+            // Save merged data
+            await saveAppData({
+              groups: result.mergedData.groups,
+              expenses: result.mergedData.expenses,
+              settlements: result.mergedData.settlements,
+              templateLastAmounts,
+              ocrHistory,
+            });
+          }
+          
+          return result;
+        };
+        
+        syncCallbackRef.current = syncCallback;
+        syncService.setSyncCallback(syncCallback);
+      } catch (error) {
+        console.error('Error setting up sync:', error);
+      }
+    };
+
+    setupSync();
+    
+    return () => {
+      // Cleanup on unmount
+      const cleanup = async () => {
+        try {
+          const { syncService } = await import('../utils/syncService');
+          syncService.setSyncCallback(null as any);
+        } catch (error) {
+          // Ignore cleanup errors
+        }
+      };
+      cleanup();
+    };
+  }, [isInitialized, templateLastAmounts, ocrHistory]);
 
   // Generate unique ID
   const generateId = () => `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;

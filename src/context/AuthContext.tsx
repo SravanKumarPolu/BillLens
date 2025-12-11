@@ -6,6 +6,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { syncService, SyncStatus } from '../utils/syncService';
 import { CloudConfig } from '../utils/cloudService';
+import { networkMonitor } from '../utils/networkMonitor';
 
 export interface User {
   id: string;
@@ -78,6 +79,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         apiKey: undefined, // Set via environment config in production
         userId: mockUser.id,
       });
+
+      // Enable real-time polling for sync
+      syncService.setPollingEnabled(true, 30000); // Poll every 30 seconds
+      
+      // Trigger initial sync
+      try {
+        const { loadAppData } = await import('../utils/storageService');
+        const localData = await loadAppData();
+        if (localData) {
+          await syncService.sync(localData, mockUser.id);
+        }
+      } catch (error) {
+        console.error('Initial sync error:', error);
+      }
     } catch (error) {
       console.error('Google sign-in error:', error);
       throw error;
@@ -110,6 +125,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         apiKey: undefined, // Set via environment config in production
         userId: mockUser.id,
       });
+
+      // Enable real-time polling for sync
+      syncService.setPollingEnabled(true, 30000); // Poll every 30 seconds
+      
+      // Trigger initial sync
+      try {
+        const { loadAppData } = await import('../utils/storageService');
+        const localData = await loadAppData();
+        if (localData) {
+          await syncService.sync(localData, mockUser.id);
+        }
+      } catch (error) {
+        console.error('Initial sync error:', error);
+      }
     } catch (error) {
       console.error('Email sign-in error:', error);
       throw error;
@@ -121,6 +150,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signOut = useCallback(async () => {
     setIsLoading(true);
     try {
+      // Disable polling and cleanup sync
+      syncService.setPollingEnabled(false);
+      syncService.cleanup();
+      
       // TODO: Implement sign out
       setUser(null);
       setLastSyncDate(null);
@@ -165,6 +198,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const enableAutoSync = useCallback((enabled: boolean) => {
     syncService.setAutoSync(enabled);
   }, []);
+
+  // Monitor network state and trigger sync when connection is restored
+  useEffect(() => {
+    let lastNetworkState: 'online' | 'offline' | 'unknown' = 'unknown';
+    
+    const unsubscribeNetwork = networkMonitor.subscribe(async (state) => {
+      // If network just came back online and user is authenticated, trigger sync
+      if (
+        state === 'online' &&
+        lastNetworkState === 'offline' &&
+        user &&
+        !isSyncing
+      ) {
+        try {
+          await syncData();
+        } catch (error) {
+          console.error('Auto-sync on network restore failed:', error);
+        }
+      }
+      
+      lastNetworkState = state;
+    });
+
+    return () => {
+      unsubscribeNetwork();
+    };
+  }, [user, isSyncing, syncData]);
 
   const value: AuthContextType = {
     user,
