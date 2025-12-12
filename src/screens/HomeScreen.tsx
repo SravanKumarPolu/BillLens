@@ -210,67 +210,32 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       )}
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => {
-            // Go back to DefaultGroupSetup screen (previous step in onboarding)
-            if (navigation.canGoBack()) {
-              navigation.goBack();
-            } else {
-              // If no back history, navigate to DefaultGroupSetup
-              navigation.navigate('DefaultGroupSetup');
-            }
-          }} 
-          style={styles.backButton}
-        >
-          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={[styles.appName, { color: colors.textPrimary }]}>BillLens</Text>
-        <TouchableOpacity 
-          onPress={() => navigation.navigate('Search')}
-          style={styles.searchButton}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.searchIcon}>🔍</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          onPress={() => navigation.navigate('Notifications')}
-          style={styles.notificationButton}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.notificationIcon}>🔔</Text>
-          <NotificationBadge count={notificationsCount} />
-        </TouchableOpacity>
+        <View style={styles.headerLeft}>
+          <Text style={[styles.appName, { color: colors.textPrimary }]}>BillLens</Text>
+        </View>
         <View style={styles.headerRight}>
           <TouchableOpacity 
-            onPress={() => navigation.navigate('SMSSettings')}
-            style={styles.settingsButton}
+            onPress={() => navigation.navigate('Search')}
+            style={styles.headerIconButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.settingsIcon}>📱</Text>
+            <Text style={styles.headerIcon}>🔍</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            onPress={() => navigation.navigate('Achievements')}
-            style={styles.achievementsButton}
+            onPress={() => navigation.navigate('Notifications')}
+            style={styles.headerIconButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.achievementsIcon}>🏆</Text>
+            <Text style={styles.headerIcon}>🔔</Text>
+            <NotificationBadge count={notificationsCount} />
           </TouchableOpacity>
           <TouchableOpacity 
             onPress={handleProfilePress}
-            style={styles.profileButton}
+            style={styles.headerIconButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.profile}>
+            <Text style={styles.headerIcon}>
               {user ? (isSyncing ? '🔄' : '☁️') : '☁️'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            onPress={toggleTheme}
-            style={styles.themeToggleButton}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.themeToggleIcon}>
-              {theme === 'dark' ? '🌙' : '☀️'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -559,81 +524,32 @@ const createStyles = (colors: any) => StyleSheet.create({
   header: {
     paddingTop: 56,
     paddingHorizontal: 24,
-    paddingBottom: recommendedSpacing.loose,
+    paddingBottom: recommendedSpacing.comfortable,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  backButton: {
-    marginRight: 16,
-  },
-  backButtonText: {
-    ...typography.navigation,
+  headerLeft: {
+    flex: 1,
   },
   appName: {
     ...typography.display,
-  },
-  profileButton: {
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchButton: {
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  searchIcon: {
-    fontSize: 24, // Emoji icon, not typography
-  },
-  notificationButton: {
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-    position: 'relative',
-  },
-  notificationIcon: {
-    fontSize: 24, // Emoji icon, not typography
+    ...typography.emphasis.bold,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 4,
   },
-  settingsButton: {
+  headerIconButton: {
     minWidth: 44,
     minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
-  settingsIcon: {
-    fontSize: 24, // Emoji icon, not typography
-  },
-  achievementsButton: {
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  achievementsIcon: {
-    fontSize: 24, // Emoji icon, not typography
-  },
-  profile: {
-    fontSize: 24, // Emoji icon, not typography
-  },
-  themeToggleButton: {
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  themeToggleIcon: {
-    fontSize: 20, // Emoji icon, not typography
+  headerIcon: {
+    fontSize: 22,
   },
   summaryCardsContainer: {
     paddingHorizontal: 24,

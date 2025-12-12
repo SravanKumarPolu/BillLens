@@ -1,7 +1,8 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
+import { useTheme } from '../theme/ThemeProvider';
+import { typography, recommendedSpacing } from '../theme/typography';
+import Button from './Button';
 
 interface Props {
   children: ReactNode;
@@ -46,24 +47,43 @@ export class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
 
-      return (
-        <View style={styles.container}>
-          <Text style={styles.title}>Something went wrong</Text>
-          <Text style={styles.message}>
-            {this.state.error?.message || 'An unexpected error occurred'}
-          </Text>
-          <TouchableOpacity style={styles.button} onPress={this.handleReset}>
-            <Text style={styles.buttonText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      );
+      return <ErrorFallback error={this.state.error} onReset={this.handleReset} />;
     }
 
     return this.props.children;
   }
 }
 
-const styles = StyleSheet.create({
+// Error Fallback Component with improved UI
+interface ErrorFallbackProps {
+  error: Error | null;
+  onReset: () => void;
+}
+
+const ErrorFallback: React.FC<ErrorFallbackProps> = ({ error, onReset }) => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.emoji}>⚠️</Text>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>
+        Something went wrong
+      </Text>
+      <Text style={[styles.message, { color: colors.textSecondary }]}>
+        {error?.message || 'An unexpected error occurred. Please try again.'}
+      </Text>
+      <Button
+        title="Try Again"
+        onPress={onReset}
+        variant="primary"
+        style={styles.button}
+      />
+    </View>
+  );
+};
+
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -71,25 +91,23 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: colors.surfaceLight,
   },
+  emoji: {
+    fontSize: 64,
+    marginBottom: recommendedSpacing.loose,
+  },
   title: {
     ...typography.h2,
-    color: colors.textPrimary,
-    marginBottom: 16,
+    ...typography.emphasis.bold,
+    marginBottom: recommendedSpacing.default,
+    textAlign: 'center',
   },
   message: {
     ...typography.body,
-    color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: recommendedSpacing.extraLoose,
+    paddingHorizontal: 24,
   },
   button: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  buttonText: {
-    ...typography.button,
-    color: colors.white,
+    minWidth: 200,
   },
 });

@@ -1,8 +1,9 @@
-import React from 'react';
-import { Modal as RNModal, View, Text, StyleSheet, TouchableOpacity, ViewStyle, ScrollView } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Modal as RNModal, View, Text, StyleSheet, TouchableOpacity, ViewStyle, ScrollView, Animated } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { createGlassStyle } from '../theme/glassmorphism';
 import { typography, recommendedSpacing } from '../theme/typography';
+import { transitions } from '../theme/transitions';
 
 export interface ModalProps {
   visible: boolean;
@@ -20,6 +21,7 @@ export interface ModalProps {
  * 
  * Reusable modal component matching BillLens brand identity.
  * Supports glassmorphism variant for modern, elegant overlays.
+ * Enhanced with smooth animations and better interactions.
  */
 const Modal: React.FC<ModalProps> = ({
   visible,
@@ -29,71 +31,138 @@ const Modal: React.FC<ModalProps> = ({
   children,
   variant = 'default',
   showCloseButton = true,
-  animationType = 'slide',
+  animationType = 'fade',
 }) => {
   const { colors, theme } = useTheme();
   const isDark = theme === 'dark';
   const styles = createStyles(colors, variant, isDark);
+  
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+
+  useEffect(() => {
+    if (visible) {
+      // Animate in
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: transitions.modal.duration,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          damping: 20,
+          stiffness: 300,
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          damping: 20,
+          stiffness: 300,
+        }),
+      ]).start();
+    } else {
+      // Animate out
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: transitions.fast.duration,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 0.9,
+          duration: transitions.fast.duration,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 50,
+          duration: transitions.fast.duration,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible]);
 
   const modalContentStyle = variant === 'glass' 
     ? [styles.modalContent, createGlassStyle(isDark)]
     : styles.modalContent;
 
+  const animatedContentStyle = {
+    opacity: fadeAnim,
+    transform: [
+      { scale: scaleAnim },
+      { translateY: slideAnim },
+    ],
+  };
+
   return (
     <RNModal
       visible={visible}
       transparent
-      animationType={animationType}
+      animationType="none"
       onRequestClose={onClose}
+      statusBarTranslucent
     >
-      <TouchableOpacity
-        style={styles.overlay}
-        activeOpacity={1}
-        onPress={onClose}
+      <Animated.View
+        style={[
+          styles.overlay,
+          {
+            opacity: fadeAnim,
+          },
+        ]}
       >
         <TouchableOpacity
+          style={StyleSheet.absoluteFill}
           activeOpacity={1}
-          onPress={(e) => e.stopPropagation()}
-        >
-          <View style={modalContentStyle}>
-            {(title || subtitle || showCloseButton) && (
-              <View style={styles.header}>
-                <View style={styles.headerText}>
-                  {title && (
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>
-                      {title}
-                    </Text>
-                  )}
-                  {subtitle && (
-                    <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                      {subtitle}
-                    </Text>
+          onPress={onClose}
+        />
+        <Animated.View style={animatedContentStyle}>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={modalContentStyle}>
+              {(title || subtitle || showCloseButton) && (
+                <View style={styles.header}>
+                  <View style={styles.headerText}>
+                    {title && (
+                      <Text style={[styles.title, { color: colors.textPrimary }]}>
+                        {title}
+                      </Text>
+                    )}
+                    {subtitle && (
+                      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                        {subtitle}
+                      </Text>
+                    )}
+                  </View>
+                  {showCloseButton && (
+                    <TouchableOpacity
+                      style={[styles.closeButton, { backgroundColor: colors.surfaceLight }]}
+                      onPress={onClose}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>
+                        ×
+                      </Text>
+                    </TouchableOpacity>
                   )}
                 </View>
-                {showCloseButton && (
-                  <TouchableOpacity
-                    style={[styles.closeButton, { backgroundColor: colors.surfaceLight }]}
-                    onPress={onClose}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>
-                      ×
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
+              )}
 
-            <ScrollView
-              style={styles.content}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              {children}
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </TouchableOpacity>
+              <ScrollView
+                style={styles.content}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                {children}
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+      </Animated.View>
     </RNModal>
   );
 };

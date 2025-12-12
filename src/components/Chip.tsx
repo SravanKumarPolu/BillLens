@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ViewStyle, TextStyle, Animated } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography } from '../theme/typography';
 
@@ -23,6 +23,27 @@ const Chip: React.FC<ChipProps> = ({
   textStyle,
 }) => {
   const { colors } = useTheme();
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    if (!onPress) return;
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      useNativeDriver: true,
+      damping: 15,
+      stiffness: 400,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    if (!onPress) return;
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      damping: 15,
+      stiffness: 400,
+    }).start();
+  };
 
   const getChipStyle = (): (ViewStyle | undefined)[] => {
     const baseStyle: ViewStyle[] = [styles.base];
@@ -85,13 +106,17 @@ const Chip: React.FC<ChipProps> = ({
   const Component = onPress ? TouchableOpacity : View;
 
   return (
-    <Component
-      style={getChipStyle()}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <Text style={getLabelStyle()}>{label}</Text>
-    </Component>
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <Component
+        style={getChipStyle()}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={1}
+      >
+        <Text style={getLabelStyle()}>{label}</Text>
+      </Component>
+    </Animated.View>
   );
 };
 

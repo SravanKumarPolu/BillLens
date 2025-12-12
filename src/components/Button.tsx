@@ -37,14 +37,14 @@ const Button: React.FC<ButtonProps> = ({
     styles.base,
     variant === 'glass' ? createGlassStyle(isDark) : styles[variant],
     fullWidth && styles.fullWidth,
-    (disabled || loading) && styles.disabled,
+    (disabled || loading) && styles.disabledContainer,
     {
       transform: [{ scale: scaleAnim }],
     },
     style,
   ];
 
-  // Fluid press animation
+  // Fluid press animation with haptic-like feedback
   const handlePressIn = () => {
     if (disabled || loading) return;
     Animated.spring(scaleAnim, {
@@ -163,6 +163,9 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.5,
+  },
+  disabledContainer: {
+    opacity: 0.6,
   },
 
   // Primary (Indigo)

@@ -38,23 +38,39 @@ const Card: React.FC<CardProps> = ({
     }).start();
   }, [opacityAnim]);
 
-  // Scale animation on press
+  // Enhanced scale animation on press with better feedback
   const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.98,
-      useNativeDriver: true,
-      damping: 15,
-      stiffness: 300,
-    }).start();
+    if (!onPress) return;
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 0.97,
+        useNativeDriver: true,
+        damping: 12,
+        stiffness: 350,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 0.9,
+        duration: transitions.fast.duration,
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
 
   const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      damping: 15,
-      stiffness: 300,
-    }).start();
+    if (!onPress) return;
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        damping: 12,
+        stiffness: 350,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: transitions.fast.duration,
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
   
   // Determine elevation style

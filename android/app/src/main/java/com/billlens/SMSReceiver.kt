@@ -25,16 +25,14 @@ class SMSReceiver : BroadcastReceiver() {
             return
         }
 
-        val pdus = bundle.get("pdus") as? Array<*> ?: return
+        // Use getSerializable instead of deprecated get() method
+        val pdus = bundle.getSerializable("pdus") as? Array<*> ?: return
         val messages = arrayOfNulls<SmsMessage>(pdus.size)
 
         for (i in pdus.indices) {
-            val format = bundle.getString("format")
-            messages[i] = if (format != null) {
-                SmsMessage.createFromPdu(pdus[i] as ByteArray, format)
-            } else {
-                SmsMessage.createFromPdu(pdus[i] as ByteArray)
-            }
+            val format = bundle.getString("format") ?: "3gpp" // Default to 3gpp format
+            // Always use the format-aware version (non-deprecated)
+            messages[i] = SmsMessage.createFromPdu(pdus[i] as ByteArray, format)
         }
 
         // Process each SMS message
