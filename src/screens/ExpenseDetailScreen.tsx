@@ -5,7 +5,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
-import { Card, Button } from '../components';
+import { Card, Button, BackButton } from '../components';
 import { formatMoney } from '../utils/formatMoney';
 import { ExpenseComment } from '../types/models';
 
@@ -62,9 +62,7 @@ const ExpenseDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     return (
       <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-          </TouchableOpacity>
+          <BackButton style={styles.backButtonContainer} />
         </View>
         <View style={styles.errorContainer}>
           <Text style={[styles.errorText, { color: colors.error }]}>Expense not found</Text>
@@ -230,9 +228,7 @@ const ExpenseDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
+        <BackButton style={styles.backButtonContainer} />
         <TouchableOpacity onPress={handleEditExpense} style={styles.editButton}>
           <Text style={[styles.editButtonText, { color: colors.primary }]}>Edit</Text>
         </TouchableOpacity>
@@ -547,8 +543,8 @@ const createStyles = (colors: any) => StyleSheet.create({
   backButton: {
     minWidth: 60,
   },
-  backButtonText: {
-    ...typography.navigation,
+  backButtonContainer: {
+    minWidth: 60,
   },
   editButton: {
     minWidth: 60,

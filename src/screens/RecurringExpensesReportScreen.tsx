@@ -6,7 +6,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { formatMoney } from '../utils/formatMoney';
-import { Card, BarChart, LineChart } from '../components';
+import { Card, BarChart, LineChart, BackButton } from '../components';
 import { RecurringExpense } from '../types/models';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RecurringExpensesReport'>;
@@ -118,9 +118,7 @@ const RecurringExpensesReportScreen: React.FC<Props> = ({ navigation, route }) =
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
+        <BackButton style={styles.backButtonContainer} />
         <View style={styles.headerContent}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>Recurring Expenses</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
@@ -280,11 +278,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 16,
   },
-  backButton: {
+  backButtonContainer: {
     marginBottom: 16,
-  },
-  backButtonText: {
-    ...typography.navigation,
   },
   headerContent: {
     marginBottom: 8,

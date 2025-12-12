@@ -5,6 +5,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
+import { BackButton } from '../components';
 import { formatMoney } from '../utils/formatMoney';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Templates'>;
@@ -46,9 +47,7 @@ const TemplatesScreen: React.FC<Props> = ({ navigation, route }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
+        <BackButton style={styles.backButtonContainer} />
         <View style={styles.headerContent}>
       <Text style={[styles.title, { color: colors.textPrimary }]}>Quick add</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Zero-typing templates for your shared life.</Text>
@@ -92,12 +91,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 24,
   },
-  backButton: {
+  backButtonContainer: {
     marginRight: 16,
     marginTop: 4,
-  },
-  backButtonText: {
-    ...typography.navigation,
   },
   headerContent: {
     flex: 1,

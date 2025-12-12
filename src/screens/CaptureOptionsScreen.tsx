@@ -5,6 +5,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { launchCamera, launchImageLibrary, ImagePickerResponse, MediaType, PhotoQuality } from 'react-native-image-picker';
+import { BackButton } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CaptureOptions'>;
 
@@ -135,12 +136,7 @@ const CaptureOptionsScreen: React.FC<Props> = ({ navigation, route }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Text style={[styles.backButtonText, { color: colors.textPrimary }]}>←</Text>
-        </TouchableOpacity>
+        <BackButton style={styles.backButtonContainer} />
         <Text style={[styles.title, { color: colors.textPrimary }]}>Add from screenshot</Text>
         <View style={styles.placeholder} />
       </View>
@@ -196,9 +192,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'flex-start',
   },
-  backButtonText: {
-    fontSize: 28, // Icon-style back button
-    fontWeight: '300',
+  backButtonContainer: {
+    marginRight: 12,
   },
   title: {
     ...typography.h2,

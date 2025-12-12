@@ -5,7 +5,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
-import { LensView } from '../components';
+import { LensView, BackButton } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LensView'>;
 
@@ -30,9 +30,7 @@ const LensViewScreen: React.FC<Props> = ({ navigation, route }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
+        <BackButton style={styles.backButtonContainer} />
         <View style={styles.headerContent}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>Lens View</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
@@ -63,12 +61,9 @@ const createStyles = (colors: any) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
-  backButton: {
+  backButtonContainer: {
     marginRight: 16,
     marginTop: 4,
-  },
-  backButtonText: {
-    ...typography.navigation,
   },
   headerContent: {
     flex: 1,

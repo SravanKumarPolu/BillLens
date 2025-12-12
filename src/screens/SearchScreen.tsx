@@ -5,7 +5,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
-import { Card } from '../components';
+import { Card, BackButton } from '../components';
 import { formatMoney } from '../utils/formatMoney';
 import { globalSearch, SearchResult, SearchOptions } from '../utils/searchService';
 import { Expense, Group } from '../types/models';
@@ -117,9 +117,7 @@ const SearchScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
+        <BackButton style={styles.backButtonContainer} />
         <Text style={[styles.title, { color: colors.textPrimary }]}>Search</Text>
         <View style={styles.placeholder} />
       </View>
@@ -274,11 +272,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  backButton: {
+  backButtonContainer: {
     minWidth: 60,
-  },
-  backButtonText: {
-    ...typography.navigation,
   },
   title: {
     ...typography.h2,

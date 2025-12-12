@@ -9,7 +9,7 @@ import { formatMoney } from '../utils/formatMoney';
 import { openUPIApp, getAvailableUPIApps, getAppDisplayName, type UPIPaymentApp } from '../utils/upiService';
 import { optimizeSettlements } from '../utils/insightsService';
 import { explainSettlement } from '../utils/settlementExplanation';
-import { Modal, Button } from '../components';
+import { Modal, Button, BackButton } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SettleUp'>;
 
@@ -240,9 +240,7 @@ const SettleUpScreen: React.FC<Props> = ({ navigation, route }) => {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
+        <BackButton style={styles.backButtonContainer} />
         <View style={styles.headerContent}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>Settle up</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
@@ -493,12 +491,9 @@ const createStyles = (colors: any) => StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 24,
   },
-  backButton: {
+  backButtonContainer: {
     marginRight: 16,
     marginTop: 4,
-  },
-  backButtonText: {
-    ...typography.navigation,
   },
   headerContent: {
     flex: 1,

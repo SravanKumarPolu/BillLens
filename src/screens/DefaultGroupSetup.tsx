@@ -5,6 +5,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
+import { BackButton } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DefaultGroupSetup'>;
 
@@ -109,7 +110,7 @@ const DefaultGroupSetup: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
       <View style={styles.header}>
-        <TouchableOpacity 
+        <BackButton 
           onPress={() => {
             // Always go back to Permissions screen (previous step in onboarding)
             if (navigation.canGoBack()) {
@@ -117,11 +118,9 @@ const DefaultGroupSetup: React.FC<Props> = ({ navigation }) => {
             } else {
               navigation.navigate('Permissions');
             }
-          }} 
-          style={styles.backButton}
-        >
-          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
+          }}
+          style={styles.backButtonContainer}
+        />
       </View>
       <Text style={[styles.title, { color: colors.textPrimary }]}>Who are you sharing with?</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Pick a default group. You can change this anytime.</Text>
@@ -201,11 +200,8 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 24,
   },
-  backButton: {
+  backButtonContainer: {
     marginBottom: 8,
-  },
-  backButtonText: {
-    ...typography.navigation,
   },
   title: {
     ...typography.h1,

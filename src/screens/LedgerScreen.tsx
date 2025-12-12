@@ -6,7 +6,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { formatMoney } from '../utils/formatMoney';
-import { Card, Chip, Button } from '../components';
+import { Card, Chip, Button, BackButton } from '../components';
 import { Expense } from '../types/models';
 import { exportGroupHistory } from '../utils/exportService';
 
@@ -162,9 +162,7 @@ const LedgerScreen: React.FC<Props> = ({ navigation, route }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
+        <BackButton style={styles.backButtonContainer} />
         <Text style={[styles.title, { color: colors.textPrimary }]}>Expense history</Text>
         <View style={styles.headerRight}>
           <TouchableOpacity
@@ -347,15 +345,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  backButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  backButtonText: {
-    ...typography.navigation,
+  backButtonContainer: {
+    marginRight: 12,
   },
   title: {
     ...typography.h2,

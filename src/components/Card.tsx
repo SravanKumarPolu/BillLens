@@ -42,7 +42,7 @@ const Card: React.FC<CardProps> = ({
   const handlePressIn = () => {
     if (!onPress) return;
     Animated.parallel([
-      Animated.spring(scaleAnim, {
+    Animated.spring(scaleAnim, {
         toValue: 0.97,
         useNativeDriver: true,
         damping: 12,
@@ -51,7 +51,7 @@ const Card: React.FC<CardProps> = ({
       Animated.timing(opacityAnim, {
         toValue: 0.9,
         duration: transitions.fast.duration,
-        useNativeDriver: true,
+      useNativeDriver: true,
       }),
     ]).start();
   };
@@ -59,9 +59,9 @@ const Card: React.FC<CardProps> = ({
   const handlePressOut = () => {
     if (!onPress) return;
     Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
         damping: 12,
         stiffness: 350,
       }),

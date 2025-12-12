@@ -84,17 +84,17 @@ const Input: React.FC<InputProps> = ({
           },
         ]}
       >
-        <TextInput
-          style={[
-            styles.input,
+      <TextInput
+        style={[
+          styles.input,
             { color: themeColors.textPrimary, backgroundColor: themeColors.surfaceCard },
-            style,
-          ]}
+          style,
+        ]}
           placeholderTextColor={themeColors.textSecondary}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          {...textInputProps}
-        />
+        {...textInputProps}
+      />
       </Animated.View>
       {error && (
         <View style={styles.errorContainer}>

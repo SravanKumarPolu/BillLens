@@ -4,7 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
-import { Button, Input } from '../components';
+import { Button, Input, BackButton } from '../components';
 import { useGroups } from '../context/GroupsContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
@@ -62,9 +62,7 @@ const CreateGroupScreen: React.FC<Props> = ({ navigation, route }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
+        <BackButton style={styles.backButtonContainer} />
         <View style={styles.headerContent}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>
             {suggestedType === 'friend' ? 'Add friend' : 'New group'}
@@ -129,12 +127,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 24,
   },
-  backButton: {
+  backButtonContainer: {
     marginRight: 16,
     marginTop: 4,
-  },
-  backButtonText: {
-    ...typography.navigation,
   },
   headerContent: {
     flex: 1,

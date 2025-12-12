@@ -19,13 +19,45 @@ const InsightsCard: React.FC<InsightsCardProps> = ({
   const { colors } = useTheme();
   const styles = createStyles(colors);
 
+  // Show empty state if no insights at all
+  if (!insights || insights.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>Insights</Text>
+        <Card style={styles.emptyStateCard}>
+          <Text style={styles.emptyStateIcon}>💡</Text>
+          <Text style={[styles.emptyStateTitle, { color: colors.textPrimary }]}>
+            No insights yet
+          </Text>
+          <Text style={[styles.emptyStateMessage, { color: colors.textSecondary }]}>
+            Insights will appear here as you add expenses and track your spending patterns.
+          </Text>
+        </Card>
+      </View>
+    );
+  }
+
   // Filter to show only high/medium severity insights, limit to maxVisible
   const visibleInsights = insights
-    .filter(insight => insight.severity !== 'low' || insights.length <= maxVisible)
+    .filter(insight => insight && insight.severity && (insight.severity !== 'low' || insights.length <= maxVisible))
     .slice(0, maxVisible);
 
+  // Show empty state if no visible insights after filtering
   if (visibleInsights.length === 0) {
-    return null;
+    return (
+      <View style={styles.container}>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>Insights</Text>
+        <Card style={styles.emptyStateCard}>
+          <Text style={styles.emptyStateIcon}>💡</Text>
+          <Text style={[styles.emptyStateTitle, { color: colors.textPrimary }]}>
+            No insights yet
+          </Text>
+          <Text style={[styles.emptyStateMessage, { color: colors.textSecondary }]}>
+            Insights will appear here as you add expenses and track your spending patterns.
+          </Text>
+        </Card>
+      </View>
+    );
   }
 
   const getSeverityColor = (severity: Insight['severity']) => {
@@ -61,17 +93,24 @@ const InsightsCard: React.FC<InsightsCardProps> = ({
   return (
     <View style={styles.container}>
       <Text style={[styles.title, { color: colors.textPrimary }]}>Insights</Text>
-      {visibleInsights.map((insight, index) => (
+      <View style={styles.insightsList}>
+        {visibleInsights.map((insight, index) => {
+          // Ensure insight has all required properties
+          if (!insight || !insight.title || !insight.message) {
+            return null;
+          }
+          
+          return (
         <Card
-          key={`${insight.id}-${index}`}
+              key={`${insight.id || `insight-${index}`}-${index}`}
           style={[
             styles.insightCard,
-            { borderLeftColor: getSeverityColor(insight.severity) },
+                { borderLeftColor: getSeverityColor(insight.severity || 'low') },
           ]}
           onPress={insight.actionable && onInsightPress ? () => onInsightPress(insight) : undefined}
         >
           <View style={styles.insightHeader}>
-            <Text style={styles.insightIcon}>{getTypeIcon(insight.type)}</Text>
+                <Text style={styles.insightIcon}>{getTypeIcon(insight.type || 'info')}</Text>
             <View style={styles.insightContent}>
               <Text style={[styles.insightTitle, { color: colors.textPrimary }]}>
                 {insight.title}
@@ -92,7 +131,9 @@ const InsightsCard: React.FC<InsightsCardProps> = ({
             </TouchableOpacity>
           )}
         </Card>
-      ))}
+          );
+        })}
+      </View>
       {insights.length > maxVisible && (
         <Text style={[styles.moreText, { color: colors.textSecondary }]}>
           +{insights.length - maxVisible} more insight{insights.length - maxVisible > 1 ? 's' : ''}
@@ -105,15 +146,23 @@ const InsightsCard: React.FC<InsightsCardProps> = ({
 const createStyles = (colors: any) => StyleSheet.create({
   container: {
     marginBottom: recommendedSpacing.loose,
+    paddingHorizontal: 24,
   },
   title: {
     ...typography.h4,
-    marginBottom: recommendedSpacing.default,
+    ...typography.emphasis.semibold,
+    marginBottom: recommendedSpacing.comfortable,
+    marginTop: recommendedSpacing.default,
+  },
+  insightsList: {
+    gap: recommendedSpacing.default,
   },
   insightCard: {
-    marginBottom: recommendedSpacing.default,
     padding: 16,
     borderLeftWidth: 4,
+    marginBottom: 0,
+    backgroundColor: colors.surfaceCard,
+    minHeight: 80, // Ensure cards have minimum height
   },
   insightHeader: {
     flexDirection: 'row',
@@ -148,6 +197,30 @@ const createStyles = (colors: any) => StyleSheet.create({
     ...typography.bodySmall,
     textAlign: 'center',
     marginTop: recommendedSpacing.tight,
+  },
+  emptyStateCard: {
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 180,
+    backgroundColor: colors.surfaceCard,
+  },
+  emptyStateIcon: {
+    fontSize: 56,
+    marginBottom: recommendedSpacing.comfortable,
+  },
+  emptyStateTitle: {
+    ...typography.h4,
+    ...typography.emphasis.semibold,
+    marginBottom: recommendedSpacing.default,
+    textAlign: 'center',
+  },
+  emptyStateMessage: {
+    ...typography.body,
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 8,
+    maxWidth: '100%',
   },
 });
 

@@ -21,4 +21,5 @@ export { default as CalendarView } from './CalendarView';
 export { PieChart, BarChart, LineChart, type ChartDataPoint } from './Chart';
 export { NotificationBadge } from './NotificationBadge';
 export { AnimatedCard } from './AnimatedCard';
+export { default as BackButton, type BackButtonProps } from './BackButton';
 

@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, Pressable, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { formatMoney } from '../utils/formatMoney';
-import { Button, InsightsCard, BalanceBreakdown, FairnessMeter } from '../components';
+import { Button, InsightsCard, BalanceBreakdown, FairnessMeter, BackButton } from '../components';
 import { calculateFairnessScore, calculateReliabilityMeter } from '../utils/fairnessScore';
 
 // Helper function to get display label for group type
@@ -140,11 +140,17 @@ const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     });
 
   return (
-    <Pressable style={styles.container} onPress={() => showMenu && setShowMenu(false)}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+        bounces={true}
+        scrollEventThrottle={16}
+      >
+        <Pressable onPress={() => showMenu && setShowMenu(false)}>
+          <View style={styles.header}>
+        <BackButton style={styles.backButtonContainer} />
         <View style={styles.headerContent}>
           <View style={styles.headerTop}>
             <Text style={styles.groupEmoji}>{group.emoji}</Text>
@@ -209,45 +215,58 @@ const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.actionButtons}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.horizontalActionButtons}
+        style={styles.horizontalActionButtonsContainer}
+        nestedScrollEnabled={true}
+        bounces={true}
+      >
         <Button
           title="Settle up"
           onPress={() => navigation.navigate('SettleUp', { groupId })}
           variant="positive"
-          style={styles.topActionButton}
+          style={styles.horizontalActionButton}
           fullWidth={false}
         />
         <Button
           title="Analytics"
           onPress={() => navigation.navigate('Analytics', { groupId })}
           variant="secondary"
-          style={styles.topActionButton}
+          style={styles.horizontalActionButton}
           fullWidth={false}
         />
         <Button
           title="Lens View"
           onPress={() => navigation.navigate('LensView', { groupId })}
           variant="secondary"
-          style={styles.topActionButton}
+          style={styles.horizontalActionButton}
           fullWidth={false}
         />
-      </View>
+      </ScrollView>
 
       <View style={styles.actionButtons}>
-        <Button
-          title="📊 Who Pays More"
+        <TouchableOpacity
+          style={[styles.featureCard, { backgroundColor: colors.surfaceCard, borderColor: colors.borderSubtle }]}
           onPress={() => navigation.navigate('PerPersonStats', { groupId })}
-          variant="secondary"
-          style={styles.topActionButton}
-          fullWidth={false}
-        />
-        <Button
-          title="📋 Ledger"
+          activeOpacity={0.7}
+        >
+          <Text style={styles.featureIcon}>📊</Text>
+          <Text style={[styles.featureTitle, { color: colors.textPrimary }]}>
+            Who Pays{'\n'}More
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.featureCard, { backgroundColor: colors.surfaceCard, borderColor: colors.borderSubtle }]}
           onPress={() => navigation.navigate('Ledger', { groupId })}
-          variant="secondary"
-          style={styles.topActionButton}
-          fullWidth={false}
-        />
+          activeOpacity={0.7}
+        >
+          <Text style={styles.featureIcon}>📋</Text>
+          <Text style={[styles.featureTitle, { color: colors.textPrimary }]}>
+            Ledger
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Fairness Score and Reliability Meter */}
@@ -458,14 +477,18 @@ const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         />
       )}
 
+        </Pressable>
+      </ScrollView>
+      
+      {/* Fixed FAB Button */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: colors.primary }]}
         onPress={() => navigation.navigate('CaptureOptions', { groupId })}
       >
         <Text style={styles.fabIcon}>📷</Text>
-        <Text style={styles.fabLabel}>Add from screenshot</Text>
+        <Text style={[styles.fabLabel, { color: colors.white }]}>Add from screenshot</Text>
       </TouchableOpacity>
-    </Pressable>
+    </View>
   );
 };
 
@@ -479,11 +502,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: recommendedSpacing.loose,
   },
-  backButton: {
+  backButtonContainer: {
     marginBottom: 16,
-  },
-  backButtonText: {
-    ...typography.navigation,
   },
   headerContent: {
     flex: 1,
@@ -512,6 +532,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginTop: recommendedSpacing.default,
     marginBottom: recommendedSpacing.loose,
     gap: recommendedSpacing.comfortable,
+    flexWrap: 'wrap', // Allow wrapping on smaller screens
   },
   insightsContainer: {
     marginHorizontal: 24,
@@ -545,7 +566,26 @@ const createStyles = (colors: any) => StyleSheet.create({
     ...typography.emphasis.semibold,
   },
   expensesList: {
-    paddingBottom: 140,
+    paddingBottom: 24,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 120, // Space for FAB button
+    flexGrow: 1,
+  },
+  horizontalActionButtonsContainer: {
+    marginHorizontal: 24,
+    marginTop: recommendedSpacing.default,
+    marginBottom: recommendedSpacing.loose,
+  },
+  horizontalActionButtons: {
+    gap: recommendedSpacing.comfortable,
+    paddingRight: 24, // Extra padding for last button
+  },
+  horizontalActionButton: {
+    minWidth: 120,
   },
   expenseCard: {
     flexDirection: 'row',
@@ -616,6 +656,11 @@ const createStyles = (colors: any) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 56,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
   },
   fabIcon: {
     marginRight: recommendedSpacing.default,
@@ -753,6 +798,31 @@ const createStyles = (colors: any) => StyleSheet.create({
   groupTypeText: {
     ...typography.caption,
     ...typography.emphasis.medium,
+  },
+  featureCard: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    minHeight: 120,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  featureIcon: {
+    fontSize: 32,
+    marginBottom: 12,
+  },
+  featureTitle: {
+    ...typography.body,
+    ...typography.emphasis.semibold,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 

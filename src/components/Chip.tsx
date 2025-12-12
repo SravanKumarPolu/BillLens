@@ -107,15 +107,15 @@ const Chip: React.FC<ChipProps> = ({
 
   return (
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-      <Component
-        style={getChipStyle()}
-        onPress={onPress}
+    <Component
+      style={getChipStyle()}
+      onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         activeOpacity={1}
-      >
-        <Text style={getLabelStyle()}>{label}</Text>
-      </Component>
+    >
+      <Text style={getLabelStyle()}>{label}</Text>
+    </Component>
     </Animated.View>
   );
 };

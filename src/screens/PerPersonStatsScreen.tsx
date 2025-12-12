@@ -6,7 +6,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
 import { formatMoney } from '../utils/formatMoney';
-import { Card } from '../components';
+import { Card, BackButton } from '../components';
 import { Expense, Member } from '../types/models';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PerPersonStats'>;
@@ -166,9 +166,7 @@ const PerPersonStatsScreen: React.FC<Props> = ({ navigation, route }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
       <View style={[styles.topHeader, { backgroundColor: colors.surfaceLight }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
+        <BackButton style={styles.backButtonContainer} />
       </View>
       <ScrollView
         style={styles.scrollView}
@@ -302,11 +300,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.surfaceLight,
     zIndex: 10,
   },
-  backButton: {
+  backButtonContainer: {
     marginBottom: 8,
-  },
-  backButtonText: {
-    ...typography.navigation,
   },
   scrollView: {
     flex: 1,

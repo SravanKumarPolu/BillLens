@@ -4,7 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
-import { Button, Card } from '../components';
+import { Button, Card, BackButton } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Permissions'>;
 
@@ -141,7 +141,7 @@ const PermissionsScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
       <View style={styles.header}>
-        <TouchableOpacity 
+        <BackButton 
           onPress={() => {
             // Go back to OnboardingWelcome screen (previous step in onboarding)
             if (navigation.canGoBack()) {
@@ -149,11 +149,9 @@ const PermissionsScreen: React.FC<Props> = ({ navigation }) => {
             } else {
               navigation.navigate('OnboardingWelcome');
             }
-          }} 
-          style={styles.backButton}
-        >
-          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
+          }}
+          style={styles.backButtonContainer}
+        />
       </View>
       <Text style={[styles.title, { color: colors.textPrimary }]}>Let BillLens see your bills</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
@@ -203,11 +201,8 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 24,
   },
-  backButton: {
+  backButtonContainer: {
     marginBottom: 8,
-  },
-  backButtonText: {
-    ...typography.navigation,
   },
   title: {
     ...typography.h1,

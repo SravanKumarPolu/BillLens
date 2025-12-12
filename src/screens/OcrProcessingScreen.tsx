@@ -6,6 +6,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { extractBillInfo, parseAmount, normalizeMerchant } from '../utils/ocrService';
 import { useGroups } from '../context/GroupsContext';
+import { BackButton } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OcrProcessing'>;
 
@@ -130,9 +131,7 @@ const OcrProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
+        <BackButton style={styles.backButtonContainer} />
       </View>
       <Text style={[styles.title, { color: colors.textPrimary }]}>Reading your bill…</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
@@ -160,11 +159,8 @@ const styles = StyleSheet.create({
     left: 24,
     zIndex: 1,
   },
-  backButton: {
+  backButtonContainer: {
     marginBottom: 8,
-  },
-  backButtonText: {
-    ...typography.navigation,
   },
   title: {
     ...typography.h2,

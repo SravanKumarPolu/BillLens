@@ -5,7 +5,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
 import { useGroups } from '../context/GroupsContext';
-import { Card, PieChart, BarChart } from '../components';
+import { Card, PieChart, BarChart, BackButton } from '../components';
 import { generateMonthlyReport, generateYouPaidExtraInsights } from '../utils/monthlyReportService';
 import { formatMoney } from '../utils/formatMoney';
 
@@ -43,9 +43,7 @@ const MonthlyReportScreen: React.FC<Props> = ({ navigation, route }) => {
     return (
       <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-          </TouchableOpacity>
+          <BackButton style={styles.backButtonContainer} />
         </View>
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>📊</Text>
@@ -71,9 +69,7 @@ const MonthlyReportScreen: React.FC<Props> = ({ navigation, route }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
+        <BackButton style={styles.backButtonContainer} />
       </View>
 
       <ScrollView
@@ -253,11 +249,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 8,
   },
-  backButton: {
+  backButtonContainer: {
     marginBottom: 8,
-  },
-  backButtonText: {
-    ...typography.navigation,
   },
   scrollView: {
     flex: 1,

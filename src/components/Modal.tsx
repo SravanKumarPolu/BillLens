@@ -112,55 +112,55 @@ const Modal: React.FC<ModalProps> = ({
             opacity: fadeAnim,
           },
         ]}
-      >
-        <TouchableOpacity
+    >
+      <TouchableOpacity
           style={StyleSheet.absoluteFill}
-          activeOpacity={1}
-          onPress={onClose}
+        activeOpacity={1}
+        onPress={onClose}
         />
         <Animated.View style={animatedContentStyle}>
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <View style={modalContentStyle}>
-              {(title || subtitle || showCloseButton) && (
-                <View style={styles.header}>
-                  <View style={styles.headerText}>
-                    {title && (
-                      <Text style={[styles.title, { color: colors.textPrimary }]}>
-                        {title}
-                      </Text>
-                    )}
-                    {subtitle && (
-                      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                        {subtitle}
-                      </Text>
-                    )}
-                  </View>
-                  {showCloseButton && (
-                    <TouchableOpacity
-                      style={[styles.closeButton, { backgroundColor: colors.surfaceLight }]}
-                      onPress={onClose}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>
-                        ×
-                      </Text>
-                    </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={(e) => e.stopPropagation()}
+        >
+          <View style={modalContentStyle}>
+            {(title || subtitle || showCloseButton) && (
+              <View style={styles.header}>
+                <View style={styles.headerText}>
+                  {title && (
+                    <Text style={[styles.title, { color: colors.textPrimary }]}>
+                      {title}
+                    </Text>
+                  )}
+                  {subtitle && (
+                    <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                      {subtitle}
+                    </Text>
                   )}
                 </View>
-              )}
+                {showCloseButton && (
+                  <TouchableOpacity
+                    style={[styles.closeButton, { backgroundColor: colors.surfaceLight }]}
+                    onPress={onClose}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>
+                      ×
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
-              <ScrollView
-                style={styles.content}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-              >
-                {children}
-              </ScrollView>
-            </View>
-          </TouchableOpacity>
+            <ScrollView
+              style={styles.content}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {children}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
         </Animated.View>
       </Animated.View>
     </RNModal>

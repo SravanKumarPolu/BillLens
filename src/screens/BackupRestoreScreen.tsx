@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useGroups } from '../context/GroupsContext';
 import { createBackup, restoreBackup, clearAllData } from '../utils/storageService';
 import { exportRawData, exportDashboardSummary } from '../utils/exportService';
-import { Card } from '../components';
+import { Card, BackButton } from '../components';
 import {
   getSecuritySettings,
   updateSecuritySettings,
@@ -184,9 +184,7 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
     <View style={[styles.container, { backgroundColor: themeColors.surfaceLight }]}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={[styles.backButtonText, { color: themeColors.primary }]}>← Back</Text>
-          </TouchableOpacity>
+          <BackButton style={styles.backButtonContainer} />
         </View>
         <Text style={[styles.title, { color: themeColors.textPrimary }]}>Backup & Sync</Text>
 
@@ -494,11 +492,8 @@ const createStyles = (colors: typeof import('../theme/colors').lightColors) => S
   header: {
     marginBottom: 24,
   },
-  backButton: {
+  backButtonContainer: {
     marginBottom: 8,
-  },
-  backButtonText: {
-    ...typography.navigation,
   },
   title: {
     ...typography.h2,

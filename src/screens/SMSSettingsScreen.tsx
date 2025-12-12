@@ -4,7 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, recommendedSpacing } from '../theme/typography';
-import { Card, Button } from '../components';
+import { Card, Button, BackButton } from '../components';
 import {
   isSMSAutoFetchEnabled,
   setSMSAutoFetchEnabled,
@@ -151,9 +151,7 @@ const SMSSettingsScreen: React.FC<Props> = ({ navigation }) => {
     return (
       <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-          </TouchableOpacity>
+          <BackButton style={styles.backButtonContainer} />
           <Text style={[styles.title, { color: colors.textPrimary }]}>SMS Auto-Fetch</Text>
           <View style={styles.placeholder} />
         </View>
@@ -169,9 +167,7 @@ const SMSSettingsScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
+        <BackButton style={styles.backButtonContainer} />
         <Text style={[styles.title, { color: colors.textPrimary }]}>SMS Auto-Fetch</Text>
         <View style={styles.placeholder} />
       </View>
@@ -304,11 +300,8 @@ const createStyles = (colors: any) =>
       justifyContent: 'space-between',
       alignItems: 'center',
     },
-    backButton: {
+    backButtonContainer: {
       minWidth: 60,
-    },
-    backButtonText: {
-      ...typography.navigation,
     },
     title: {
       ...typography.h2,
