@@ -16,9 +16,9 @@ import { BarChart } from '../components';
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
-  const { getAllGroupSummaries, getGroupSummary, getGroupInsights, getGroup, getGroupsExcludingType, getFriends, getFriendSummary } = useGroups();
+  const { getAllGroupSummaries, getGroupSummary, getGroupInsights, getGroup, getGroupsExcludingType, getFriends, getFriendSummary, getRecurringExpensesForGroup } = useGroups();
   const { user, syncData, isSyncing, lastSyncDate, syncStatus } = useAuth();
-  const { colors } = useTheme();
+  const { colors, theme, toggleTheme } = useTheme();
   const allGroupSummaries = getAllGroupSummaries() || [];
   // Separate groups and friends
   const groupSummaries = allGroupSummaries.filter(summary => summary.group.type !== 'friend');
@@ -88,6 +88,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     groupSummaries.forEach(summary => {
       const group = getGroup(summary.group.id);
       if (!group) return;
+      const recurringExpenses = getRecurringExpensesForGroup(summary.group.id);
       const notifications = getPendingNotifications(
         summary.group.id,
         group,
@@ -102,13 +103,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           expenseDeleteNotifications: false,
           commentNotifications: false,
           settlementNotifications: false,
-          recurringExpenseNotifications: false,
+          recurringExpenseNotifications: true, // Enable recurring expense reminders
           imbalanceAlerts: true,
           monthEndReports: true,
           upiReminders: true,
           priorityReminders: true,
           reminderFrequency: 'weekly',
-        }
+        },
+        recurringExpenses
       );
       count += notifications.length;
     });
@@ -262,6 +264,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               {user ? (isSyncing ? '🔄' : '☁️') : '☁️'}
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={toggleTheme}
+            style={styles.themeToggleButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.themeToggleIcon}>
+              {theme === 'dark' ? '🌙' : '☀️'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -359,6 +370,50 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </View>
         </Card>
+      )}
+
+      {/* Group-wise Totals Section */}
+      {groupSummaries.length > 1 && (
+        <View style={styles.insightsSection}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Group-wise Totals</Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.groupTotalsContainer}
+          >
+            {groupSummaries.map(summary => {
+              const now = new Date();
+              const currentMonth = now.getMonth();
+              const currentYear = now.getFullYear();
+              const monthTotal = summary.expenses
+                .filter(e => {
+                  const date = new Date(e.date);
+                  return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+                })
+                .reduce((sum, e) => sum + e.amount, 0);
+              
+              return (
+                <Card 
+                  key={summary.group.id}
+                  onPress={() => navigation.navigate('Analytics', { groupId: summary.group.id })}
+                  style={styles.groupTotalCard}
+                  elevated
+                >
+                  <Text style={styles.groupTotalEmoji}>{summary.group.emoji}</Text>
+                  <Text style={[styles.groupTotalName, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {summary.group.name}
+                  </Text>
+                  <Text style={[styles.groupTotalAmount, { color: colors.textPrimary }]}>
+                    {formatMoney(monthTotal)}
+                  </Text>
+                  <Text style={[styles.groupTotalLabel, { color: colors.textSecondary }]}>
+                    this month
+                  </Text>
+                </Card>
+              );
+            })}
+          </ScrollView>
+        </View>
       )}
 
       {/* Insights Preview */}
@@ -571,6 +626,15 @@ const createStyles = (colors: any) => StyleSheet.create({
   profile: {
     fontSize: 24, // Emoji icon, not typography
   },
+  themeToggleButton: {
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  themeToggleIcon: {
+    fontSize: 20, // Emoji icon, not typography
+  },
   summaryCardsContainer: {
     paddingHorizontal: 24,
     paddingBottom: recommendedSpacing.comfortable,
@@ -733,6 +797,33 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   topGroupAmount: {
     ...typography.bodySmall,
+  },
+  groupTotalsContainer: {
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  groupTotalCard: {
+    minWidth: 140,
+    padding: 16,
+    alignItems: 'center',
+  },
+  groupTotalEmoji: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  groupTotalName: {
+    ...typography.body,
+    ...typography.emphasis.semibold,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  groupTotalAmount: {
+    ...typography.h3,
+    ...typography.emphasis.bold,
+    marginBottom: 2,
+  },
+  groupTotalLabel: {
+    ...typography.caption,
   },
 });
 

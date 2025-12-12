@@ -33,7 +33,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'GroupDetail'>;
 
 const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { groupId } = route.params;
-  const { getGroupSummary, deleteGroup, getGroup, deleteExpense, getExpense, updateGroup, getGroupInsights, calculateGroupBalances } = useGroups();
+  const { getGroupSummary, deleteGroup, getGroup, deleteExpense, getExpense, updateGroup, getGroupInsights, calculateGroupBalances, getRecurringExpensesForGroup } = useGroups();
   const { colors } = useTheme();
   const [showMenu, setShowMenu] = useState(false);
   const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null);
@@ -227,6 +227,23 @@ const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         <Button
           title="Lens View"
           onPress={() => navigation.navigate('LensView', { groupId })}
+          variant="secondary"
+          style={styles.topActionButton}
+          fullWidth={false}
+        />
+      </View>
+
+      <View style={styles.actionButtons}>
+        <Button
+          title="📊 Who Pays More"
+          onPress={() => navigation.navigate('PerPersonStats', { groupId })}
+          variant="secondary"
+          style={styles.topActionButton}
+          fullWidth={false}
+        />
+        <Button
+          title="📋 Ledger"
+          onPress={() => navigation.navigate('Ledger', { groupId })}
           variant="secondary"
           style={styles.topActionButton}
           fullWidth={false}

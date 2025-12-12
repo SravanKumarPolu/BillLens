@@ -1,6 +1,8 @@
 # BillLens
 
-**Snap. Read. Settle.** — A screenshot-first expense splitting app for people who live together.
+**Your Smart Financial Partner**
+
+Whether it's a quick dinner split or managing a shared home, BillLens makes money management effortless, fair, and automatic.
 
 ## 🎯 Overview
 

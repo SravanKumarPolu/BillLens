@@ -8,7 +8,7 @@
 import { parseSMSBill } from './indiaFirstService';
 
 export interface ParsedSMSBill {
-  type: 'electricity' | 'water' | 'internet' | 'phone' | 'other' | null;
+  type: 'electricity' | 'water' | 'internet' | 'phone' | 'dth' | 'other' | null;
   amount?: number;
   dueDate?: string;
   accountNumber?: string;
@@ -74,6 +74,16 @@ export const isBillSMS = (smsText: string): boolean => {
     'bses',
     'tata power',
     'reliance',
+    // DTH
+    'dth',
+    'tata sky',
+    'tatasky',
+    'dish tv',
+    'dishtv',
+    'airtel digital',
+    'sun direct',
+    'sundirect',
+    'd2h',
     // Food delivery apps (SMS notifications)
     'swiggy',
     'zomato',

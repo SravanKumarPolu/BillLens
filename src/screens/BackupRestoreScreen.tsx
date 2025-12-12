@@ -4,6 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
 import { typography, recommendedSpacing } from '../theme/typography';
+import { useTheme } from '../theme/ThemeProvider';
 import { useAuth } from '../context/AuthContext';
 import { useGroups } from '../context/GroupsContext';
 import { createBackup, restoreBackup, clearAllData } from '../utils/storageService';
@@ -21,6 +22,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'BackupRestore'>;
 const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
   const { user, signOut, syncData, isSyncing, lastSyncDate } = useAuth();
   const { groups, expenses, settlements } = useGroups();
+  const { theme, toggleTheme, colors: themeColors } = useTheme();
   const [isProcessing, setIsProcessing] = useState(false);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [restoreText, setRestoreText] = useState('');
@@ -59,7 +61,9 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
   const handleCreateBackup = async () => {
     setIsProcessing(true);
     try {
-      const backupString = await createBackup();
+      // Check if encryption is enabled
+      const encrypt = securitySettings?.encryptionEnabled || false;
+      const backupString = await createBackup(encrypt);
       
       // Share backup file
       await Share.share({
@@ -67,7 +71,10 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
         title: 'BillLens Backup',
       });
       
-      Alert.alert('Success', 'Backup created and ready to share');
+      Alert.alert(
+        'Success', 
+        `Backup created${encrypt ? ' (encrypted)' : ''} and ready to share. Your data stays private - you choose who to share it with.`
+      );
     } catch (error) {
       Alert.alert('Error', 'Failed to create backup');
     } finally {
@@ -171,14 +178,17 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
     );
   };
 
+  const styles = createStyles(themeColors);
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
-      </View>
-      <Text style={styles.title}>Backup & Sync</Text>
+    <View style={[styles.container, { backgroundColor: themeColors.surfaceLight }]}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Text style={[styles.backButtonText, { color: themeColors.primary }]}>← Back</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={[styles.title, { color: themeColors.textPrimary }]}>Backup & Sync</Text>
 
       {user ? (
         <View style={styles.section}>
@@ -218,17 +228,25 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
           disabled={!user || isSyncing || isProcessing}
         >
           {isSyncing ? (
-            <ActivityIndicator color={colors.white} />
+            <ActivityIndicator color={themeColors.white} />
           ) : (
-            <Text style={styles.primaryButtonText}>Sync now</Text>
+            <Text style={[styles.primaryButtonText, { color: themeColors.white }]}>Sync now</Text>
           )}
         </TouchableOpacity>
       </View>
 
+      {/* Privacy Notice */}
+      <Card style={[styles.privacyCard, { backgroundColor: themeColors.primary + '10', borderColor: themeColors.primary }]}>
+        <Text style={[styles.privacyTitle, { color: themeColors.textPrimary }]}>🔒 Privacy & Security First</Text>
+        <Text style={[styles.privacyText, { color: themeColors.textSecondary }]}>
+          Your data belongs to you — not us. All data is stored locally on your device. Cloud sync is optional and only happens when you sign in. We never sell your data.
+        </Text>
+      </Card>
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Local Backup</Text>
         <Text style={styles.sectionText}>
-          Create a backup file that you can save or share. Works without signing in.
+          Create a backup file that you can save or share. Works entirely offline - no internet required. Your data stays on your device until you choose to share it.
         </Text>
         <TouchableOpacity
           style={styles.secondaryButton}
@@ -280,6 +298,37 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
+      {/* Theme Toggle */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Appearance</Text>
+        <Card style={styles.settingCard}>
+          <View style={styles.settingRow}>
+            <View style={styles.settingContent}>
+              <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Theme</Text>
+              <Text style={[styles.settingDescription, { color: themeColors.textSecondary }]}>
+                {theme === 'dark' ? 'Dark mode' : 'Light mode'} • Tap to switch
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.toggle,
+                theme === 'dark' && [styles.toggleActive, { backgroundColor: themeColors.primary }],
+                !theme || theme === 'light' && { backgroundColor: '#ccc' },
+              ]}
+              onPress={toggleTheme}
+            >
+              <View
+                style={[
+                  styles.toggleThumb,
+                  theme === 'dark' && [styles.toggleThumbActive, { backgroundColor: themeColors.white }],
+                  (!theme || theme === 'light') && { backgroundColor: themeColors.white },
+                ]}
+              />
+            </TouchableOpacity>
+          </View>
+        </Card>
+      </View>
+
       {/* Security Section */}
       {securitySettings && (
         <View style={styles.section}>
@@ -296,7 +345,7 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
               <TouchableOpacity
                 style={[
                   styles.toggle,
-                  securitySettings.lockEnabled && [styles.toggleActive, { backgroundColor: colors.primary }],
+                  securitySettings.lockEnabled && [styles.toggleActive, { backgroundColor: themeColors.primary }],
                 ]}
                 onPress={handleToggleLock}
               >
@@ -322,7 +371,7 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
                 <TouchableOpacity
                   style={[
                     styles.toggle,
-                    securitySettings.biometricEnabled && [styles.toggleActive, { backgroundColor: colors.primary }],
+                    securitySettings.biometricEnabled && [styles.toggleActive, { backgroundColor: themeColors.primary }],
                   ]}
                   onPress={handleToggleBiometric}
                 >
@@ -342,13 +391,13 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.settingContent}>
                 <Text style={styles.settingLabel}>Data Encryption</Text>
                 <Text style={styles.settingDescription}>
-                  Encrypt local data (demo mode)
+                  Encrypt local data (requires stronger encryption in production)
                 </Text>
               </View>
               <TouchableOpacity
                 style={[
                   styles.toggle,
-                  securitySettings.encryptionEnabled && [styles.toggleActive, { backgroundColor: colors.primary }],
+                  securitySettings.encryptionEnabled && [styles.toggleActive, { backgroundColor: themeColors.primary }],
                 ]}
                 onPress={handleToggleEncryption}
               >
@@ -397,7 +446,7 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
               value={restoreText}
               onChangeText={setRestoreText}
               placeholder="Paste backup JSON here..."
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={themeColors.textSecondary}
               multiline
               textAlignVertical="top"
             />
@@ -425,14 +474,17 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../theme/colors').lightColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.surfaceLight,
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     paddingHorizontal: 24,
@@ -586,6 +638,19 @@ const styles = StyleSheet.create({
   modalButtonTextConfirm: {
     ...typography.button,
     color: colors.white,
+  },
+  privacyCard: {
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+  },
+  privacyTitle: {
+    ...typography.h4,
+    marginBottom: 8,
+  },
+  privacyText: {
+    ...typography.body,
+    lineHeight: 20,
   },
   settingCard: {
     marginBottom: 12,

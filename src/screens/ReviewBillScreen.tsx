@@ -11,8 +11,6 @@ import { getCategories } from '../utils/categoryService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ReviewBill'>;
 
-const categories = ['Food', 'Groceries', 'Utilities', 'Rent', 'WiFi', 'Maid', 'OTT', 'Other'];
-
 const ReviewBillScreen: React.FC<Props> = ({ navigation, route }) => {
   const { imageUri, groupId, parsedAmount, parsedMerchant, parsedDate, expenseId, ocrResult } = route.params || {};
   const { getExpense, updateExpense, getAllGroupSummaries, getGroup } = useGroups();
@@ -36,15 +34,25 @@ const ReviewBillScreen: React.FC<Props> = ({ navigation, route }) => {
   }, [groupId, getGroup]);
   
   // Determine category from merchant name if it matches a template
+  // India-first: Auto-categorize Swiggy/Zomato orders and other Indian merchants
   const getCategoryFromMerchant = (merchantName: string): string => {
     const lower = merchantName.toLowerCase();
+    // Food delivery apps (Swiggy, Zomato, Uber Eats)
+    if (lower.includes('swiggy') || lower.includes('zomato') || lower.includes('uber eats') || lower.includes('ubereats')) return 'Food';
+    // Rent & housing
     if (lower.includes('rent')) return 'Rent';
-    if (lower.includes('electric') || lower.includes('eb') || lower.includes('power')) return 'Utilities';
-    if (lower.includes('wifi') || lower.includes('internet')) return 'WiFi';
-    if (lower.includes('grocery') || lower.includes('blinkit') || lower.includes('bigbasket')) return 'Groceries';
+    // Utilities
+    if (lower.includes('electric') || lower.includes('eb') || lower.includes('power') || lower.includes('bses') || lower.includes('tata power') || lower.includes('reliance energy')) return 'Utilities';
+    if (lower.includes('wifi') || lower.includes('internet') || lower.includes('broadband')) return 'WiFi';
+    // Grocery delivery apps
+    if (lower.includes('grocery') || lower.includes('blinkit') || lower.includes('bigbasket') || lower.includes('zepto') || lower.includes('dunzo') || lower.includes('grofers') || lower.includes('instamart')) return 'Groceries';
+    // Services
     if (lower.includes('maid') || lower.includes('help')) return 'Maid';
-    if (lower.includes('netflix') || lower.includes('prime') || lower.includes('ott') || lower.includes('disney')) return 'OTT';
-    return 'Food'; // Default
+    // Entertainment/OTT
+    if (lower.includes('netflix') || lower.includes('prime') || lower.includes('ott') || lower.includes('disney') || lower.includes('hotstar')) return 'OTT';
+    // DTH (Direct-to-Home) - categorized as OTT/Entertainment
+    if (lower.includes('dth') || lower.includes('tata sky') || lower.includes('tatasky') || lower.includes('dish tv') || lower.includes('dishtv') || lower.includes('airtel digital') || lower.includes('sun direct') || lower.includes('sundirect') || lower.includes('d2h')) return 'OTT';
+    return 'Food'; // Default for unrecognized merchants
   };
   
   const [category, setCategory] = useState<string>(getCategoryFromMerchant(merchant));
@@ -60,10 +68,26 @@ const ReviewBillScreen: React.FC<Props> = ({ navigation, route }) => {
   }, [parsedMerchant, category, allGroups]);
   
   // Check if this is itemized food delivery
+  // Use pre-extracted data from OCR result if available, otherwise parse from rawText
   const itemizedSplit = useMemo(() => {
+    // If OCR already extracted items, use that data (faster)
+    if (ocrResult?.items && ocrResult.items.length > 0) {
+      return {
+        items: ocrResult.items.map((item: { name: string; price: number; quantity?: number }) => ({
+          ...item,
+          splitBetween: [], // Will be set by user
+        })),
+        total: parseFloat((ocrResult.amount || '0').replace(/[₹,]/g, '')) || 0,
+        deliveryFee: ocrResult.deliveryFee,
+        platformFee: ocrResult.platformFee,
+        tax: ocrResult.tax,
+        discount: ocrResult.discount,
+      };
+    }
+    // Fallback: parse from rawText (for backward compatibility)
     if (!ocrResult?.rawText) return null;
     return parseItemizedFoodBill(ocrResult.rawText);
-  }, [ocrResult?.rawText]);
+  }, [ocrResult]);
   
   const styles = createStyles(colors);
 
@@ -176,6 +200,23 @@ const ReviewBillScreen: React.FC<Props> = ({ navigation, route }) => {
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* UPI Payment Detection Indicator */}
+      {ocrResult?.isUPI && !expenseId && (
+        <Card style={[styles.upiCard, { backgroundColor: colors.primary + '10', borderColor: colors.primary }]}>
+          <View style={styles.upiHeader}>
+            <Text style={styles.upiIcon}>💳</Text>
+            <View style={styles.upiInfo}>
+              <Text style={[styles.upiTitle, { color: colors.textPrimary }]}>
+                UPI Payment Detected
+              </Text>
+              <Text style={[styles.upiSubtitle, { color: colors.textSecondary }]}>
+                {ocrResult.upiApp ? `${ocrResult.upiApp === 'gpay' ? 'Google Pay' : ocrResult.upiApp === 'phonepe' ? 'PhonePe' : ocrResult.upiApp === 'paytm' ? 'Paytm' : ocrResult.upiApp} payment detected` : 'UPI payment detected'}
+              </Text>
+            </View>
+          </View>
+        </Card>
+      )}
 
       {/* Group Suggestion */}
       {groupSuggestion && !expenseId && (
@@ -364,6 +405,29 @@ const createStyles = (colors: any) => StyleSheet.create({
   itemizedButtonText: {
     ...typography.body,
     ...typography.emphasis.semibold,
+  },
+  upiCard: {
+    marginBottom: 16,
+    padding: 16,
+    borderWidth: 1.5,
+  },
+  upiHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  upiIcon: {
+    fontSize: 32,
+    marginRight: 12,
+  },
+  upiInfo: {
+    flex: 1,
+  },
+  upiTitle: {
+    ...typography.h4,
+    marginBottom: 4,
+  },
+  upiSubtitle: {
+    ...typography.bodySmall,
   },
 });
 

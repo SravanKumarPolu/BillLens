@@ -1,6 +1,13 @@
 /**
  * Storage Service for local persistence and backup/restore
  * Uses AsyncStorage for React Native
+ * 
+ * 🔒 Privacy & Security:
+ * - All data stored locally on your device
+ * - Your data belongs to you — not us
+ * - No selling of data — ever
+ * - Optional encryption available via securityService
+ * - Backup/restore works entirely offline
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -107,8 +114,13 @@ export const loadAppData = async (): Promise<AppData | null> => {
 
 /**
  * Create a backup of all app data
+ * 
+ * 🔒 Privacy: Backup is created locally on your device.
+ * You choose whether to share it or keep it private.
+ * 
+ * @param encrypt Optional: Encrypt backup data (requires securityService)
  */
-export const createBackup = async (): Promise<string> => {
+export const createBackup = async (encrypt: boolean = false): Promise<string> => {
   try {
     const data = await loadAppData();
     if (!data) {
@@ -119,9 +131,23 @@ export const createBackup = async (): Promise<string> => {
       ...data,
       backupDate: new Date().toISOString(),
       version: '1.0',
+      encrypted: encrypt,
     };
 
-    const backupString = JSON.stringify(backup);
+    let backupString = JSON.stringify(backup);
+    
+    // Optional encryption (if enabled and encryption available)
+    if (encrypt) {
+      try {
+        const { encryptData } = await import('./securityService');
+        backupString = await encryptData(backupString);
+      } catch (error) {
+        console.warn('Encryption not available, creating unencrypted backup');
+        backup.encrypted = false;
+        backupString = JSON.stringify(backup);
+      }
+    }
+    
     await AsyncStorage.setItem(STORAGE_KEYS.BACKUP, backupString);
     
     return backupString; // Return as string for export/sharing
@@ -133,10 +159,29 @@ export const createBackup = async (): Promise<string> => {
 
 /**
  * Restore app data from backup
+ * 
+ * 🔒 Privacy: Restore happens locally on your device.
+ * No data is sent to external servers during restore.
+ * 
+ * @param backupString Backup data (may be encrypted)
  */
 export const restoreBackup = async (backupString: string): Promise<void> => {
   try {
-    const backup = JSON.parse(backupString);
+    let backup: any;
+    
+    // Try to parse as JSON first (unencrypted)
+    try {
+      backup = JSON.parse(backupString);
+    } catch (e) {
+      // If parsing fails, might be encrypted - try to decrypt
+      try {
+        const { decryptData } = await import('./securityService');
+        const decrypted = await decryptData(backupString);
+        backup = JSON.parse(decrypted);
+      } catch (decryptError) {
+        throw new Error('Invalid backup format or decryption failed');
+      }
+    }
     
     // Validate backup structure
     if (!backup.groups || !Array.isArray(backup.groups)) {

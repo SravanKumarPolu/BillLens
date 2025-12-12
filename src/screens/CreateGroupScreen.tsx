@@ -71,7 +71,15 @@ const CreateGroupScreen: React.FC<Props> = ({ navigation, route }) => {
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             {suggestedType === 'friend' 
-              ? 'Track expenses with a single person. Give your friend a name.'
+              ? 'Track expenses with a single person. Perfect for couples or best friends.'
+              : suggestedType === 'house'
+              ? 'Manage shared home expenses with flatmates or roommates.'
+              : suggestedType === 'trip'
+              ? 'Split travel costs with friends on trips or vacations.'
+              : suggestedType === 'office'
+              ? 'Split team lunches and office expenses with colleagues.'
+              : suggestedType === 'event'
+              ? 'Track expenses for parties, weddings, and special events.'
               : 'Give your group a name and an emoji.'}
           </Text>
         </View>
@@ -83,7 +91,19 @@ const CreateGroupScreen: React.FC<Props> = ({ navigation, route }) => {
       </View>
 
       <Input
-        placeholder={suggestedType === 'friend' ? "e.g. Priya, Arjun, John" : "e.g. Our Home, Goa Trip, Us Two"}
+        placeholder={
+          suggestedType === 'friend' 
+            ? "e.g. Priya, Arjun, John" 
+            : suggestedType === 'house'
+            ? "e.g. Flat 502, Our Home, Roommates"
+            : suggestedType === 'trip'
+            ? "e.g. Goa Trip, Manali 2024, Summer Vacation"
+            : suggestedType === 'office'
+            ? "e.g. Team Lunch, Office Expenses, Marketing Team"
+            : suggestedType === 'event'
+            ? "e.g. Wedding, Birthday Party, Anniversary"
+            : "e.g. Our Home, Goa Trip, Us Two"
+        }
         value={name}
         onChangeText={setName}
         containerStyle={styles.inputContainer}

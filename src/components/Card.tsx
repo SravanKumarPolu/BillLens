@@ -69,6 +69,7 @@ const Card: React.FC<CardProps> = ({
   
   const cardStyle = [
     glass ? createGlassStyle(isDark) : styles.base,
+    !glass && { backgroundColor: themeColors.surfaceCard }, // Dynamic background color
     elevationStyle,
     {
       opacity: opacityAnim,
@@ -96,9 +97,9 @@ const Card: React.FC<CardProps> = ({
   return <Animated.View style={cardStyle}>{children}</Animated.View>;
 };
 
+// Base styles (background color is set dynamically via style prop)
 const styles = StyleSheet.create({
   base: {
-    backgroundColor: colors.surfaceCard,
     borderRadius: 16,
     padding: spacing[4], // 16px using spacing system
   },

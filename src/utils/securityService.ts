@@ -5,13 +5,25 @@
  * - Local data encryption
  * - Biometric authentication
  * - App lock
+ * 
+ * 🔒 Privacy & Security First:
+ * - Your data belongs to you — not us
+ * - All data stored locally on your device
+ * - Optional cloud sync (user chooses to enable)
+ * - No selling of data — ever
+ * - Encryption available for local storage
+ * - Secure backup options
+ * 
+ * ⚠️ PRODUCTION NOTE:
+ * Current encryption uses XOR cipher for demo/development.
+ * For production, integrate:
+ * - react-native-crypto-js or react-native-quick-crypto for AES-256 encryption
+ * - react-native-keychain for secure key storage
+ * - react-native-biometrics for biometric authentication
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-
-// Note: For production, use react-native-keychain for secure storage
-// and react-native-biometrics for biometric authentication
 
 const SECURITY_KEYS = {
   ENCRYPTION_KEY: '@billlens:encryption_key',
@@ -91,8 +103,31 @@ const base64Decode = (str: string): string => {
 };
 
 /**
- * Simple encryption/decryption (XOR cipher for demo)
- * In production, use react-native-crypto-js or similar
+ * Simple encryption/decryption (XOR cipher for demo/development)
+ * 
+ * ⚠️ NOT SUITABLE FOR PRODUCTION
+ * 
+ * PRODUCTION IMPLEMENTATION:
+ * Use AES-256 encryption via react-native-crypto-js:
+ * 
+ * ```typescript
+ * import CryptoJS from 'react-native-crypto-js';
+ * 
+ * const encrypt = (text: string, key: string): string => {
+ *   return CryptoJS.AES.encrypt(text, key).toString();
+ * };
+ * 
+ * const decrypt = (encrypted: string, key: string): string => {
+ *   const bytes = CryptoJS.AES.decrypt(encrypted, key);
+ *   return bytes.toString(CryptoJS.enc.Utf8);
+ * };
+ * ```
+ * 
+ * For secure key storage, use react-native-keychain:
+ * ```typescript
+ * import * as Keychain from 'react-native-keychain';
+ * await Keychain.setGenericPassword('encryption-key', secureKey);
+ * ```
  */
 const simpleEncrypt = (text: string, key: string): string => {
   let result = '';

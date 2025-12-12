@@ -36,7 +36,7 @@ import ActivityFeedScreen from './screens/ActivityFeedScreen';
 import RecurringExpensesReportScreen from './screens/RecurringExpensesReportScreen';
 import ExpenseDetailScreen from './screens/ExpenseDetailScreen';
 import PersonalSpendingScreen from './screens/PersonalSpendingScreen';
-import { colors } from './theme/colors';
+import { useTheme } from './theme/ThemeProvider';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -45,6 +45,8 @@ interface AppNavigatorProps {
 }
 
 export const AppNavigator = ({ initialRouteName }: AppNavigatorProps = {}) => {
+  const { colors } = useTheme();
+  
   return (
     <NavigationContainer>
       <Stack.Navigator
@@ -52,6 +54,10 @@ export const AppNavigator = ({ initialRouteName }: AppNavigatorProps = {}) => {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.surfaceLight },
+          // Smooth screen transitions for 2025 premium feel
+          animation: 'slide_from_right',
+          animationDuration: 300,
+          animationTypeForReplace: 'push',
         }}
       >
         <Stack.Screen name="OnboardingWelcome" component={OnboardingWelcome} />

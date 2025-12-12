@@ -328,14 +328,15 @@ export const detectMistakes = (
   });
 
   // Check for category mismatches (merchant name suggests different category)
+  // India-first: Enhanced with Indian merchants and services
   const categoryKeywords: Record<string, string[]> = {
-    Food: ['swiggy', 'zomato', 'restaurant', 'food', 'cafe'],
-    Groceries: ['blinkit', 'bigbasket', 'zepto', 'grocery', 'supermarket'],
-    Utilities: ['electric', 'power', 'eb', 'utility', 'bill'],
+    Food: ['swiggy', 'zomato', 'uber eats', 'ubereats', 'restaurant', 'food', 'cafe'],
+    Groceries: ['blinkit', 'bigbasket', 'zepto', 'dunzo', 'grofers', 'instamart', 'grocery', 'supermarket'],
+    Utilities: ['electric', 'power', 'eb', 'bses', 'tata power', 'reliance energy', 'utility', 'bill'],
     Rent: ['rent', 'house', 'apartment'],
     WiFi: ['wifi', 'internet', 'broadband', 'isp'],
     Maid: ['maid', 'help', 'cleaning'],
-    OTT: ['netflix', 'prime', 'disney', 'hotstar', 'ott'],
+    OTT: ['netflix', 'prime', 'disney', 'hotstar', 'ott', 'dth', 'tata sky', 'dish tv', 'airtel digital', 'sun direct', 'd2h'],
   };
 
   expenses.forEach(expense => {

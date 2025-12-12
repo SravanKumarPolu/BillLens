@@ -8,7 +8,7 @@ import { useGroups } from '../context/GroupsContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DefaultGroupSetup'>;
 
-type Preset = 'home' | 'two' | 'trip' | 'custom';
+type Preset = 'home' | 'two' | 'trip' | 'office' | 'custom';
 
 const DefaultGroupSetup: React.FC<Props> = ({ navigation }) => {
   const { addGroup } = useGroups();
@@ -58,6 +58,14 @@ const DefaultGroupSetup: React.FC<Props> = ({ navigation }) => {
         { id: 'you', name: 'You' },
         { id: 'priya', name: 'Priya' },
       ];
+    } else if (selected === 'office') {
+      groupName = 'Office';
+      emoji = '💼';
+      members = [
+        { id: 'you', name: 'You' },
+        { id: 'priya', name: 'Priya' },
+        { id: 'arjun', name: 'Arjun' },
+      ];
     } else if (selected === 'custom') {
       if (!customName.trim()) {
         Alert.alert('Error', 'Please enter a group name');
@@ -80,6 +88,8 @@ const DefaultGroupSetup: React.FC<Props> = ({ navigation }) => {
       groupType = 'friend'; // 1-to-1 relationship
     } else if (selected === 'trip') {
       groupType = 'trip';
+    } else if (selected === 'office') {
+      groupType = 'office';
     } else if (selected === 'custom') {
       groupType = 'custom';
     }
@@ -123,7 +133,7 @@ const DefaultGroupSetup: React.FC<Props> = ({ navigation }) => {
         <Text style={styles.cardEmoji}>🏠</Text>
         <View style={styles.cardTextWrapper}>
           <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Our Home</Text>
-          <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>For roommates and flatmates.</Text>
+          <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>For roommates, flatmates, and students sharing expenses.</Text>
         </View>
       </TouchableOpacity>
 
@@ -149,6 +159,17 @@ const DefaultGroupSetup: React.FC<Props> = ({ navigation }) => {
         </View>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: colors.surfaceCard }, selected === 'office' && { borderColor: colors.accent, borderWidth: 2 }]}
+        onPress={() => setSelected('office')}
+      >
+        <Text style={styles.cardEmoji}>💼</Text>
+        <View style={styles.cardTextWrapper}>
+          <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Office</Text>
+          <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>Split team lunches and office expenses.</Text>
+        </View>
+      </TouchableOpacity>
+
       <View style={[styles.card, { backgroundColor: colors.surfaceCard }, selected === 'custom' && { borderColor: colors.accent, borderWidth: 2 }]}>
         <TouchableOpacity onPress={() => setSelected('custom')} style={styles.customHeader}>
           <Text style={styles.cardEmoji}>✨</Text>
@@ -156,7 +177,7 @@ const DefaultGroupSetup: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
         <TextInput
           style={[styles.input, { color: colors.textPrimary, borderBottomColor: colors.borderSubtle }]}
-          placeholder="e.g. Flat 502, Movie Nights"
+          placeholder="e.g. Flat 502, Students, Movie Nights"
           placeholderTextColor={colors.textSecondary}
           value={customName}
           onChangeText={setCustomName}

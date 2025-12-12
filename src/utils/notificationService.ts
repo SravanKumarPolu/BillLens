@@ -314,6 +314,68 @@ export const generateRecurringExpenseAddedNotification = (
 };
 
 /**
+ * Check for recurring expenses that are due soon or overdue
+ */
+export const checkRecurringExpenseReminders = (
+  groupId: string,
+  recurringExpenses: Array<{
+    id: string;
+    name: string;
+    amount: number;
+    currency: string;
+    nextDueDate: string;
+    reminderDaysBefore?: number;
+    isActive: boolean;
+  }>,
+  groupName: string
+): Notification[] => {
+  const notifications: Notification[] = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Reset to start of day
+
+  recurringExpenses
+    .filter(expense => expense.isActive)
+    .forEach(expense => {
+      const dueDate = new Date(expense.nextDueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      const daysUntilDue = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      const reminderDays = expense.reminderDaysBefore || 3; // Default: 3 days before
+
+      // Check if it's time to remind (within reminder window or overdue)
+      if (daysUntilDue <= reminderDays && daysUntilDue >= -7) {
+        // Only remind if within reminder window or up to 7 days overdue
+        const isOverdue = daysUntilDue < 0;
+        
+        notifications.push({
+          id: `recurring-reminder-${expense.id}-${Date.now()}`,
+          type: 'recurring_expense_added', // Using existing type
+          title: isOverdue ? '⚠️ Recurring Expense Overdue' : '🔔 Recurring Expense Due Soon',
+          message: isOverdue
+            ? `${expense.name} (${formatMoney(expense.amount, false, expense.currency || 'INR')}) was due ${Math.abs(daysUntilDue)} day${Math.abs(daysUntilDue) > 1 ? 's' : ''} ago`
+            : `${expense.name} (${formatMoney(expense.amount, false, expense.currency || 'INR')}) is due in ${daysUntilDue} day${daysUntilDue > 1 ? 's' : ''}`,
+          groupId,
+          severity: isOverdue ? 'high' : 'medium',
+          priority: isOverdue ? 'high' : 'medium',
+          actionable: true,
+          actionData: { 
+            action: 'navigate', 
+            screen: 'AddExpense', 
+            params: { 
+              groupId,
+              suggestedRecurringExpenseId: expense.id,
+            } 
+          },
+          createdAt: new Date().toISOString(),
+          read: false,
+        });
+      }
+    });
+
+  return notifications;
+};
+
+/**
  * Check for priority bills that need attention
  */
 export const checkPriorityBills = (
@@ -498,7 +560,16 @@ export const getPendingNotifications = (
   expenses: Expense[],
   balances: GroupBalance[],
   lastSettlementDate?: string,
-  settings: NotificationSettings = DEFAULT_SETTINGS
+  settings: NotificationSettings = DEFAULT_SETTINGS,
+  recurringExpenses?: Array<{
+    id: string;
+    name: string;
+    amount: number;
+    currency: string;
+    nextDueDate: string;
+    reminderDaysBefore?: number;
+    isActive: boolean;
+  }>
 ): Notification[] => {
   const notifications: Notification[] = [];
 
@@ -525,6 +596,12 @@ export const getPendingNotifications = (
   if (settings.priorityReminders) {
     const priorityBills = checkPriorityBills(groupId, expenses);
     notifications.push(...priorityBills);
+  }
+
+  // Recurring expense reminders
+  if (settings.recurringExpenseNotifications && recurringExpenses && recurringExpenses.length > 0) {
+    const recurringReminders = checkRecurringExpenseReminders(groupId, recurringExpenses, group.name);
+    notifications.push(...recurringReminders);
   }
 
   return notifications.sort((a, b) => {

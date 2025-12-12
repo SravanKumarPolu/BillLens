@@ -436,7 +436,7 @@ export const parseItemizedFoodBill = (ocrText: string): ItemizedFoodSplit | null
  * Parse SMS for bill information
  */
 export const parseSMSBill = (smsText: string): {
-  type: 'electricity' | 'water' | 'internet' | 'phone' | 'other' | null;
+  type: 'electricity' | 'water' | 'internet' | 'phone' | 'dth' | 'other' | null;
   amount?: number;
   dueDate?: string;
   accountNumber?: string;
@@ -479,7 +479,42 @@ export const parseSMSBill = (smsText: string): {
     };
   }
 
-  // Internet/Phone bill
+  // DTH (Direct-to-Home) bill patterns
+  if (
+    normalized.includes('dth') ||
+    normalized.includes('tata sky') ||
+    normalized.includes('tatasky') ||
+    normalized.includes('airtel digital') ||
+    normalized.includes('dish tv') ||
+    normalized.includes('dishtv') ||
+    normalized.includes('sun direct') ||
+    normalized.includes('sundirect') ||
+    normalized.includes('d2h') ||
+    normalized.includes('videocon d2h') ||
+    normalized.includes('zee5') ||
+    normalized.includes('hotstar')
+  ) {
+    const amountMatch = normalized.match(/₹\s*([\d,]+\.?\d*)/);
+    const dueDateMatch = normalized.match(/(?:due|pay\s+by|recharge\s+by)[\s:]*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i);
+    const accountMatch = normalized.match(/(?:account|customer\s+id|subscriber\s+id)[\s:]*([a-z0-9]+)/i);
+    
+    let merchant = 'DTH';
+    if (normalized.includes('tata sky') || normalized.includes('tatasky')) merchant = 'Tata Sky';
+    else if (normalized.includes('airtel digital')) merchant = 'Airtel Digital TV';
+    else if (normalized.includes('dish tv') || normalized.includes('dishtv')) merchant = 'Dish TV';
+    else if (normalized.includes('sun direct') || normalized.includes('sundirect')) merchant = 'Sun Direct';
+    else if (normalized.includes('d2h') || normalized.includes('videocon')) merchant = 'D2H';
+    
+    return {
+      type: 'dth',
+      amount: amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : undefined,
+      dueDate: dueDateMatch ? dueDateMatch[1] : undefined,
+      accountNumber: accountMatch ? accountMatch[1] : undefined,
+      merchant,
+    };
+  }
+
+  // Internet/Phone bill (check after DTH to avoid false positives)
   if (
     normalized.includes('airtel') ||
     normalized.includes('jio') ||
@@ -488,17 +523,20 @@ export const parseSMSBill = (smsText: string): {
     normalized.includes('internet') ||
     normalized.includes('broadband')
   ) {
-    const amountMatch = normalized.match(/₹\s*([\d,]+\.?\d*)/);
-    const merchant = normalized.includes('airtel') ? 'Airtel' :
-                     normalized.includes('jio') ? 'Jio' :
-                     normalized.includes('vodafone') || normalized.includes('vi') ? 'Vodafone Idea' :
-                     'Internet';
+    // Exclude DTH-related airtel mentions
+    if (!normalized.includes('dth') && !normalized.includes('digital tv')) {
+      const amountMatch = normalized.match(/₹\s*([\d,]+\.?\d*)/);
+      const merchant = normalized.includes('airtel') ? 'Airtel' :
+                       normalized.includes('jio') ? 'Jio' :
+                       normalized.includes('vodafone') || normalized.includes('vi') ? 'Vodafone Idea' :
+                       'Internet';
 
-    return {
-      type: normalized.includes('internet') || normalized.includes('broadband') ? 'internet' : 'phone',
-      amount: amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : undefined,
-      merchant,
-    };
+      return {
+        type: normalized.includes('internet') || normalized.includes('broadband') ? 'internet' : 'phone',
+        amount: amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : undefined,
+        merchant,
+      };
+    }
   }
 
   return { type: null };

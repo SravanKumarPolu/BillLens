@@ -32,12 +32,15 @@ const OnboardingWelcome: React.FC<Props> = ({ navigation }) => {
         <Logo variant="primary" size={120} color={colors.primary} />
       </View>
       <Text style={styles.title}>BillLens</Text>
-      <Text style={styles.tagline}>See Every Expense Clearly.</Text>
+      <Text style={styles.tagline}>Your Smart Financial Partner</Text>
+      <Text style={styles.description}>
+        Whether it's a quick dinner split or managing a shared home, BillLens makes money management effortless, fair, and automatic.
+      </Text>
 
       <View style={styles.bullets}>
-        <Text style={styles.bullet}>• Screenshot-first: point at any bill or UPI screen.</Text>
-        <Text style={styles.bullet}>• No paywalls: OCR and splits are always free.</Text>
-        <Text style={styles.bullet}>• Built for people who live together.</Text>
+        <Text style={styles.bullet}>• Effortless: Screenshot-first—point at any bill or UPI screen</Text>
+        <Text style={styles.bullet}>• Fair: Smart splits ensure everyone pays their fair share</Text>
+        <Text style={styles.bullet}>• Automatic: AI extracts amounts and suggests splits in seconds</Text>
       </View>
 
       <Button
@@ -73,10 +76,19 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   tagline: {
-    ...typography.bodyLarge,
-    color: colors.textSecondary,
+    ...typography.h3,
+    color: colors.textPrimary,
     marginTop: recommendedSpacing.tight,
+    marginBottom: recommendedSpacing.default,
+    textAlign: 'center',
+  },
+  description: {
+    ...typography.body,
+    color: colors.textSecondary,
     marginBottom: recommendedSpacing.extraLoose,
+    textAlign: 'center',
+    paddingHorizontal: recommendedSpacing.loose,
+    lineHeight: 22,
   },
   bullets: {
     width: '100%',

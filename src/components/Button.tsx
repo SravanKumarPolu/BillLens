@@ -1,9 +1,10 @@
-import React, { memo } from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle, View } from 'react-native';
+import React, { memo, useRef } from 'react';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle, View, Animated } from 'react-native';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { createGlassStyle } from '../theme/glassmorphism';
 import { useTheme } from '../theme/ThemeProvider';
+import { transitions, animationValues } from '../theme/transitions';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'positive' | 'outline' | 'ghost' | 'glass';
 
@@ -30,14 +31,45 @@ const Button: React.FC<ButtonProps> = ({
 }) => {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const scaleAnim = useRef(new Animated.Value(1)).current;
   
   const buttonStyle = [
     styles.base,
     variant === 'glass' ? createGlassStyle(isDark) : styles[variant],
     fullWidth && styles.fullWidth,
     (disabled || loading) && styles.disabled,
+    {
+      transform: [{ scale: scaleAnim }],
+    },
     style,
   ];
+
+  // Fluid press animation
+  const handlePressIn = () => {
+    if (disabled || loading) return;
+    Animated.spring(scaleAnim, {
+      toValue: 0.96,
+      useNativeDriver: true,
+      damping: 15,
+      stiffness: 400,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    if (disabled || loading) return;
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      damping: 15,
+      stiffness: 400,
+    }).start();
+  };
+
+  const handlePress = () => {
+    if (!disabled && !loading) {
+      onPress();
+    }
+  };
 
   const labelStyleMap: Record<ButtonVariant, TextStyle> = {
     primary: styles.primaryLabel,
@@ -60,48 +92,60 @@ const Button: React.FC<ButtonProps> = ({
   // This implementation uses a visual effect that works without dependencies
   if (variant === 'primary' && !disabled && !loading) {
     return (
-      <TouchableOpacity
-        style={[
-          styles.base,
-          styles.primaryGradientButton,
-          { backgroundColor: colors.primary },
-          fullWidth && styles.fullWidth,
-          style,
-        ]}
-        onPress={onPress}
-        disabled={disabled || loading}
-        activeOpacity={0.8}
-      >
-        {/* Gradient effect using layered views */}
-        <View style={styles.gradientBase} />
-        <View style={[styles.gradientHighlight, { backgroundColor: colors.primaryLight }]} />
-        <View style={styles.gradientContent}>
-          {loading ? (
-            <ActivityIndicator size="small" color={colors.white} />
-          ) : (
-            <Text style={labelStyle}>{title}</Text>
-          )}
-        </View>
-      </TouchableOpacity>
+      <Animated.View style={buttonStyle}>
+        <TouchableOpacity
+          style={[
+            styles.base,
+            styles.primaryGradientButton,
+            { backgroundColor: colors.primary },
+            fullWidth && styles.fullWidth,
+          ]}
+          onPress={handlePress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          disabled={disabled || loading}
+          activeOpacity={1}
+        >
+          {/* Gradient effect using layered views */}
+          <View style={styles.gradientBase} />
+          <View style={[styles.gradientHighlight, { backgroundColor: colors.primaryLight }]} />
+          <View style={styles.gradientContent}>
+            {loading ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <Text style={labelStyle}>{title}</Text>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
     );
   }
 
   return (
-    <TouchableOpacity
-      style={buttonStyle}
-      onPress={onPress}
-      disabled={disabled || loading}
-      activeOpacity={0.7}
-    >
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={variant === 'primary' || variant === 'positive' ? colors.white : colors.primary}
-        />
-      ) : (
-        <Text style={labelStyle}>{title}</Text>
-      )}
-    </TouchableOpacity>
+    <Animated.View style={buttonStyle}>
+      <TouchableOpacity
+        style={[
+          styles.base,
+          variant === 'glass' ? createGlassStyle(isDark) : styles[variant],
+          fullWidth && styles.fullWidth,
+          (disabled || loading) && styles.disabled,
+        ]}
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={disabled || loading}
+        activeOpacity={1}
+      >
+        {loading ? (
+          <ActivityIndicator
+            size="small"
+            color={variant === 'primary' || variant === 'positive' ? colors.white : colors.primary}
+          />
+        ) : (
+          <Text style={labelStyle}>{title}</Text>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
   );
 };
 
