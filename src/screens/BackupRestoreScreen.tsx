@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useGroups } from '../context/GroupsContext';
 import { createBackup, restoreBackup, clearAllData } from '../utils/storageService';
 import { exportRawData, exportDashboardSummary } from '../utils/exportService';
-import { Card, BackButton } from '../components';
+import { Card, BackButton, Button } from '../components';
 import {
   getSecuritySettings,
   updateSecuritySettings,
@@ -20,7 +20,7 @@ import {
 type Props = NativeStackScreenProps<RootStackParamList, 'BackupRestore'>;
 
 const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
-  const { user, signOut, syncData, isSyncing, lastSyncDate } = useAuth();
+  const { user, signOut, syncData, isSyncing, lastSyncDate, syncStatus, clearPendingChanges } = useAuth();
   const { groups, expenses, settlements } = useGroups();
   const { theme, toggleTheme, colors: themeColors } = useTheme();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -204,12 +204,12 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.sectionText}>
             Sign in to sync your data across devices
           </Text>
-          <TouchableOpacity
-            style={styles.primaryButton}
+          <Button
+            title="Sign in"
             onPress={() => navigation.navigate('Login')}
-          >
-            <Text style={styles.primaryButtonText}>Sign in</Text>
-          </TouchableOpacity>
+            variant="primary"
+            accessibilityLabel="Sign in to sync data"
+          />
         </View>
       )}
 
@@ -220,17 +220,49 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
             ? 'Sync your data to the cloud to access it on other devices'
             : 'Sign in to enable cloud sync'}
         </Text>
-        <TouchableOpacity
-          style={[styles.primaryButton, !user && styles.buttonDisabled]}
+        {syncStatus.pendingChanges > 0 && (
+          <Text style={[styles.sectionText, { color: themeColors.warning, marginBottom: 8 }]}>
+            ⚠️ {syncStatus.pendingChanges} pending change{syncStatus.pendingChanges > 1 ? 's' : ''} waiting to sync
+          </Text>
+        )}
+        <Button
+          title={isSyncing ? 'Syncing...' : 'Sync now'}
           onPress={handleSync}
+          variant="primary"
           disabled={!user || isSyncing || isProcessing}
-        >
-          {isSyncing ? (
-            <ActivityIndicator color={themeColors.white} />
-          ) : (
-            <Text style={[styles.primaryButtonText, { color: themeColors.white }]}>Sync now</Text>
-          )}
-        </TouchableOpacity>
+          loading={isSyncing}
+          accessibilityLabel={isSyncing ? 'Syncing data' : 'Sync data now'}
+        />
+        {syncStatus.pendingChanges > 0 && (
+          <Button
+            title="Clear pending changes"
+            onPress={async () => {
+              Alert.alert(
+                'Clear Pending Changes',
+                `Are you sure you want to clear ${syncStatus.pendingChanges} pending change${syncStatus.pendingChanges > 1 ? 's' : ''}? This will remove them from the sync queue. Your local data will not be affected.`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Clear',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        await clearPendingChanges();
+                        Alert.alert('Success', 'Pending changes cleared');
+                      } catch (error) {
+                        Alert.alert('Error', 'Failed to clear pending changes');
+                      }
+                    },
+                  },
+                ]
+              );
+            }}
+            variant="secondary"
+            disabled={isProcessing}
+            style={{ marginTop: 12 }}
+            accessibilityLabel="Clear pending sync changes"
+          />
+        )}
       </View>
 
       {/* Privacy Notice */}
@@ -246,15 +278,14 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
         <Text style={styles.sectionText}>
           Create a backup file that you can save or share. Works entirely offline - no internet required. Your data stays on your device until you choose to share it.
         </Text>
-        <TouchableOpacity
-          style={styles.secondaryButton}
+        <Button
+          title={isProcessing ? 'Creating...' : 'Create backup'}
           onPress={handleCreateBackup}
+          variant="secondary"
           disabled={isProcessing}
-        >
-          <Text style={styles.secondaryButtonText}>
-            {isProcessing ? 'Creating...' : 'Create backup'}
-          </Text>
-        </TouchableOpacity>
+          loading={isProcessing}
+          accessibilityLabel="Create a backup of your data"
+        />
       </View>
 
       <View style={styles.section}>
@@ -262,13 +293,13 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
         <Text style={styles.sectionText}>
           Restore data from a backup file. This will replace your current data.
         </Text>
-        <TouchableOpacity
-          style={styles.secondaryButton}
+        <Button
+          title="Restore from backup"
           onPress={handleRestoreBackup}
+          variant="secondary"
           disabled={isProcessing}
-        >
-          <Text style={styles.secondaryButtonText}>Restore from backup</Text>
-        </TouchableOpacity>
+          accessibilityLabel="Restore data from a backup file"
+        />
       </View>
 
       <View style={styles.section}>
@@ -276,24 +307,23 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
         <Text style={styles.sectionText}>
           Export your data in different formats for backup or analysis.
         </Text>
-        <TouchableOpacity
-          style={styles.secondaryButton}
+        <Button
+          title={isProcessing ? 'Exporting...' : 'Export Raw Data (JSON)'}
           onPress={handleExportRawData}
+          variant="secondary"
           disabled={isProcessing}
-        >
-          <Text style={styles.secondaryButtonText}>
-            {isProcessing ? 'Exporting...' : 'Export Raw Data (JSON)'}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.secondaryButton, { marginTop: 12 }]}
+          loading={isProcessing}
+          accessibilityLabel="Export raw data as JSON"
+        />
+        <Button
+          title={isProcessing ? 'Exporting...' : 'Export Dashboard Summary'}
           onPress={handleExportDashboard}
+          variant="secondary"
           disabled={isProcessing}
-        >
-          <Text style={styles.secondaryButtonText}>
-            {isProcessing ? 'Exporting...' : 'Export Dashboard Summary'}
-          </Text>
-        </TouchableOpacity>
+          loading={isProcessing}
+          style={{ marginTop: 12 }}
+          accessibilityLabel="Export dashboard summary"
+        />
       </View>
 
       {/* Theme Toggle */}
@@ -419,12 +449,13 @@ const BackupRestoreScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       {user && (
-        <TouchableOpacity
-          style={styles.signOutButton}
+        <Button
+          title="Sign out"
           onPress={handleSignOut}
-        >
-          <Text style={styles.signOutButtonText}>Sign out</Text>
-        </TouchableOpacity>
+          variant="ghost"
+          style={{ marginTop: recommendedSpacing.loose }}
+          accessibilityLabel="Sign out of your account"
+        />
       )}
 
       {/* Restore Backup Modal */}

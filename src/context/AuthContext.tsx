@@ -31,6 +31,7 @@ interface AuthContextType {
   lastSyncDate: Date | null;
   syncStatus: SyncStatus;
   enableAutoSync: (enabled: boolean) => void;
+  clearPendingChanges: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -156,7 +157,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       // Disable polling and cleanup sync
       syncService.setPollingEnabled(false);
-      syncService.cleanup();
+      await syncService.cleanup();
       
       // TODO: Implement sign out
       setUser(null);
@@ -203,6 +204,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     syncService.setAutoSync(enabled);
   }, []);
 
+  const clearPendingChanges = useCallback(async () => {
+    await syncService.clearPendingChanges();
+  }, []);
+
   // Monitor network state and trigger sync when connection is restored
   useEffect(() => {
     let lastNetworkState: 'online' | 'offline' | 'unknown' = 'unknown';
@@ -242,6 +247,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     lastSyncDate,
     syncStatus,
     enableAutoSync,
+    clearPendingChanges,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

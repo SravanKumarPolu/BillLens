@@ -27,6 +27,7 @@ const STORAGE_KEYS = {
   GROUP_ACTIVITIES: '@billlens:groupActivities',
   CUSTOM_CATEGORIES: '@billlens:customCategories',
   PENDING_SYNC_CHANGES: '@billlens:pendingSyncChanges',
+  LAST_SYNC_TIMESTAMP: '@billlens:lastSyncTimestamp',
   NOTIFICATIONS: '@billlens:notifications',
   BACKUP: '@billlens:backup',
 };

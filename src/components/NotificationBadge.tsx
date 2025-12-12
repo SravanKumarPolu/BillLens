@@ -14,7 +14,13 @@ export const NotificationBadge: React.FC<NotificationBadgeProps> = ({ count, onP
   if (count === 0) return null;
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.container}>
+    <TouchableOpacity 
+      onPress={onPress} 
+      style={styles.container}
+      accessibilityLabel={`${count} notification${count > 1 ? 's' : ''}`}
+      accessibilityRole="button"
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
       <View style={[styles.badge, { backgroundColor: colors.error }]}>
         <Text style={[styles.badgeText, { color: colors.white }]}>
           {count > 99 ? '99+' : count}
@@ -27,22 +33,24 @@ export const NotificationBadge: React.FC<NotificationBadgeProps> = ({ count, onP
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
+    minWidth: 24,
+    minHeight: 24,
   },
   badge: {
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    paddingHorizontal: 6,
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    paddingHorizontal: 8,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'absolute',
-    top: -8,
-    right: -8,
+    top: -10,
+    right: -10,
     zIndex: 10,
   },
   badgeText: {
     ...typography.caption,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
   },
 });

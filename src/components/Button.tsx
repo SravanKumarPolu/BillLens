@@ -17,6 +17,8 @@ export interface ButtonProps {
   fullWidth?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -28,6 +30,8 @@ const Button: React.FC<ButtonProps> = ({
   fullWidth = true,
   style,
   textStyle,
+  accessibilityLabel,
+  accessibilityHint,
 }) => {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -105,6 +109,10 @@ const Button: React.FC<ButtonProps> = ({
           onPressOut={handlePressOut}
           disabled={disabled || loading}
           activeOpacity={1}
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel || title}
+          accessibilityHint={accessibilityHint}
+          accessibilityState={{ disabled: disabled || loading }}
         >
           {/* Gradient effect using layered views */}
           <View style={styles.gradientBase} />
@@ -135,6 +143,10 @@ const Button: React.FC<ButtonProps> = ({
         onPressOut={handlePressOut}
         disabled={disabled || loading}
         activeOpacity={1}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel || title}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={{ disabled: disabled || loading }}
       >
         {loading ? (
           <ActivityIndicator

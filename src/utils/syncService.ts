@@ -162,7 +162,39 @@ class SyncService {
   }
 
   /**
+   * Load last sync timestamp for a user (persisted per user)
+   */
+  private async loadLastSyncTimestamp(userId: string): Promise<void> {
+    try {
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      const key = `@billlens:lastSyncTimestamp:${userId}`;
+      const timestamp = await AsyncStorage.getItem(key);
+      if (timestamp) {
+        this.lastSyncTimestamp = timestamp;
+      }
+    } catch (error) {
+      console.error('Error loading last sync timestamp:', error);
+    }
+  }
+
+  /**
+   * Save last sync timestamp for current user
+   */
+  private async saveLastSyncTimestamp(): Promise<void> {
+    if (!this.currentUserId || !this.lastSyncTimestamp) return;
+    
+    try {
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      const key = `@billlens:lastSyncTimestamp:${this.currentUserId}`;
+      await AsyncStorage.setItem(key, this.lastSyncTimestamp);
+    } catch (error) {
+      console.error('Error saving last sync timestamp:', error);
+    }
+  }
+
+  /**
    * Add a pending change to the queue
+   * Only tracks changes when user is signed in (has currentUserId)
    */
   async addPendingChange(
     type: 'create' | 'update' | 'delete',
@@ -170,6 +202,12 @@ class SyncService {
     entityId: string,
     data: any
   ): Promise<void> {
+    // Only track pending changes if user is signed in
+    // No point tracking changes that can't be synced
+    if (!this.currentUserId) {
+      return;
+    }
+
     // Ensure pending changes are loaded
     if (!this.pendingChangesLoaded) {
       await this.loadPendingChanges();
@@ -294,6 +332,9 @@ class SyncService {
     
     // Load pending changes from storage
     await this.loadPendingChanges();
+    
+    // Load last sync timestamp for this user (persisted per user)
+    await this.loadLastSyncTimestamp(config.userId);
     
     // Subscribe to network state changes
     this.networkUnsubscribe = networkService.subscribe(async (state) => {
@@ -608,6 +649,7 @@ class SyncService {
 
       // Step 7: Update sync timestamp
       this.lastSyncTimestamp = new Date().toISOString();
+      await this.saveLastSyncTimestamp(); // Persist timestamp per user
       this.updateStatus({
         syncProgress: 100,
         lastSyncDate: new Date(),
@@ -690,7 +732,7 @@ class SyncService {
   /**
    * Cleanup on sign out
    */
-  cleanup(): void {
+  async cleanup(): Promise<void> {
     this.stopPolling();
     if (this.syncInterval) {
       clearTimeout(this.syncInterval);
@@ -704,6 +746,11 @@ class SyncService {
     this.syncCallback = null;
     this.currentUserId = null;
     this.pendingChanges.clear();
+    // Clear from storage when signing out
+    await this.savePendingChanges();
+    // Note: lastSyncTimestamp is persisted per user, so it will be loaded
+    // when they sign in again. This ensures incremental sync works correctly
+    // even after days/weeks - only changes since last sync will be synced
     this.updateStatus({
       isSyncing: false,
       pendingChanges: 0,
@@ -724,6 +771,15 @@ class SyncService {
    */
   getPendingChangesCount(): number {
     return this.pendingChanges.size;
+  }
+
+  /**
+   * Clear all pending changes (useful for development/testing or when sync is not needed)
+   */
+  async clearPendingChanges(): Promise<void> {
+    this.pendingChanges.clear();
+    this.updateStatus({ pendingChanges: 0 });
+    await this.savePendingChanges();
   }
 
   /**

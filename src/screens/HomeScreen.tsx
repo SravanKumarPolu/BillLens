@@ -354,7 +354,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
         </View>
       )}
-      {!isSyncing && syncStatus.pendingChanges > 0 && (
+      {!isSyncing && user && syncStatus.pendingChanges > 0 && (
         <View style={[styles.syncIndicator, { backgroundColor: colors.warning + '20' }]}>
           <Text style={[styles.syncText, { color: colors.warning }]}>
             ⚠️ {syncStatus.pendingChanges} pending change{syncStatus.pendingChanges > 1 ? 's' : ''}
@@ -376,6 +376,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           onPress={() => navigation.navigate('Search')}
             style={styles.headerIconButton}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel="Search expenses and groups"
+          accessibilityRole="button"
+          accessibilityHint="Opens the search screen to find expenses and groups"
         >
             <Text style={styles.headerIcon}>🔍</Text>
         </TouchableOpacity>
@@ -383,6 +386,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           onPress={() => navigation.navigate('Notifications')}
             style={styles.headerIconButton}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel={notificationsCount > 0 ? `Notifications, ${notificationsCount} unread` : 'Notifications'}
+          accessibilityRole="button"
+          accessibilityHint="Opens notifications screen"
         >
             <Text style={styles.headerIcon}>🔔</Text>
           <NotificationBadge count={notificationsCount} />
@@ -391,6 +397,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             onPress={handleProfilePress}
             style={styles.headerIconButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel={user ? (isSyncing ? 'Profile, syncing' : 'Profile, synced') : 'Profile, sign in'}
+            accessibilityRole="button"
+            accessibilityHint={user ? "Opens backup and sync settings" : "Opens sign in screen"}
           >
             <Text style={styles.headerIcon}>
               {user ? (isSyncing ? '🔄' : '☁️') : '☁️'}
@@ -446,21 +455,21 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 setSummaryCardIndex(Math.max(0, Math.min(3, index)));
               }}
             >
-              <Card style={[styles.summaryCard, { backgroundColor: colors.primary }]}>
+              <Card key="summary-today" style={[styles.summaryCard, { backgroundColor: colors.primary }]}>
                 <Text style={[styles.summaryLabel, { color: colors.white }]}>Today</Text>
                 <Text style={[styles.summaryValue, { color: colors.white }]}>
                   {formatMoney(dashboardStats.totalSpentToday)}
                 </Text>
               </Card>
               
-              <Card style={[styles.summaryCard, { backgroundColor: colors.accent }]}>
+              <Card key="summary-month" style={[styles.summaryCard, { backgroundColor: colors.accent }]}>
                 <Text style={[styles.summaryLabel, { color: colors.white }]}>This Month</Text>
                 <Text style={[styles.summaryValue, { color: colors.white }]}>
                   {formatMoney(dashboardStats.totalSpentThisMonth)}
                 </Text>
               </Card>
               
-              <Card style={[styles.summaryCard, { 
+              <Card key="summary-pending" style={[styles.summaryCard, { 
                 backgroundColor: dashboardStats.pendingAmount > 0 ? colors.warning : colors.success 
               }]}>
                 <Text style={[styles.summaryLabel, { color: colors.white }]}>Pending</Text>
@@ -469,7 +478,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 </Text>
               </Card>
 
-              <Card style={[styles.summaryCard, { 
+              <Card key="summary-health" style={[styles.summaryCard, { 
                 backgroundColor: dashboardStats.moneyHealthScore >= 80 ? colors.success :
                                   dashboardStats.moneyHealthScore >= 60 ? colors.warning : colors.error
               }]}>
@@ -496,17 +505,31 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           {/* Pagination Dots */}
           <View style={styles.paginationContainer}>
             {[0, 1, 2, 3].map((index) => (
-              <View
+              <TouchableOpacity
                 key={index}
-                style={[
-                  styles.paginationDot,
-                  {
-                    backgroundColor: summaryCardIndex === index ? colors.primary : colors.borderSubtle,
-                    width: summaryCardIndex === index ? 24 : 6,
-                    opacity: summaryCardIndex === index ? 1 : 0.4,
-                  }
-                ]}
-              />
+                onPress={() => {
+                  const cardWidth = 150;
+                  const gap = 12;
+                  const paddingLeft = 20;
+                  const offset = paddingLeft + index * (cardWidth + gap);
+                  summaryScrollViewRef.current?.scrollTo({ x: offset, animated: true });
+                }}
+                accessibilityLabel={`Summary card ${index + 1} of 4`}
+                accessibilityRole="button"
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              >
+                <View
+                  style={[
+                    styles.paginationDot,
+                    {
+                      backgroundColor: summaryCardIndex === index ? colors.primary : colors.borderSubtle,
+                      width: summaryCardIndex === index ? 24 : 12,
+                      height: 12,
+                      opacity: summaryCardIndex === index ? 1 : 0.4,
+                    }
+                  ]}
+                />
+              </TouchableOpacity>
             ))}
           </View>
         </View>
@@ -517,7 +540,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.insightsSection}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Today's Insights</Text>
           {dashboardStats.dailyInsights.slice(0, 2).map((insight, index) => (
-            <Card key={index} style={styles.insightCard} elevated>
+            <Card key={`daily-insight-${index}-${insight.type}`} style={styles.insightCard} elevated>
               <Text style={[styles.insightTitle, { color: colors.textPrimary }]}>
                 {insight.title}
               </Text>
@@ -676,17 +699,31 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               {groupSummaries.length > 1 && (
                 <View style={styles.paginationContainer}>
                   {groupSummaries.map((_, index) => (
-                    <View
+                    <TouchableOpacity
                       key={index}
-                      style={[
-                        styles.paginationDot,
-                        {
-                          backgroundColor: groupTotalsIndex === index ? colors.primary : colors.borderSubtle,
-                          width: groupTotalsIndex === index ? 24 : 6,
-                          opacity: groupTotalsIndex === index ? 1 : 0.4,
-                        }
-                      ]}
-                    />
+                      onPress={() => {
+                        const cardWidth = 160;
+                        const gap = 12;
+                        const paddingLeft = 20;
+                        const offset = paddingLeft + index * (cardWidth + gap);
+                        groupTotalsScrollViewRef.current?.scrollTo({ x: offset, animated: true });
+                      }}
+                      accessibilityLabel={`Group ${index + 1} of ${groupSummaries.length}`}
+                      accessibilityRole="button"
+                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                    >
+                      <View
+                        style={[
+                          styles.paginationDot,
+                          {
+                            backgroundColor: groupTotalsIndex === index ? colors.primary : colors.borderSubtle,
+                            width: groupTotalsIndex === index ? 24 : 12,
+                            height: 12,
+                            opacity: groupTotalsIndex === index ? 1 : 0.4,
+                          }
+                        ]}
+                      />
+                    </TouchableOpacity>
                   ))}
                 </View>
               )}
@@ -801,7 +838,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       ) : (
         <View style={styles.groupsList}>
-          {groupSummaries.map((item) => renderGroup({ item }))}
+          {groupSummaries.map((item) => React.cloneElement(renderGroup({ item }), { key: item.group.id }))}
         </View>
       )}
 
@@ -949,8 +986,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginBottom: 4,
   },
   paginationDot: {
-    height: 6,
-    borderRadius: 3,
+    height: 12,
+    borderRadius: 6,
   },
   summaryCard: {
     width: 150, // Fixed width for consistent sizing and snap calculation

@@ -14,6 +14,8 @@ export interface CardProps {
   elevated?: boolean;
   glass?: boolean; // Glassmorphism effect
   elevationLevel?: keyof typeof elevation; // Custom elevation level (0-8)
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 const Card: React.FC<CardProps> = ({ 
@@ -23,6 +25,9 @@ const Card: React.FC<CardProps> = ({
   elevated = false, 
   glass = false,
   elevationLevel,
+  accessibilityLabel,
+  accessibilityHint,
+  ...props
 }) => {
   const { colors: themeColors, theme } = useTheme();
   const isDark = theme === 'dark';
@@ -103,6 +108,9 @@ const Card: React.FC<CardProps> = ({
           onPressOut={handlePressOut}
           activeOpacity={1}
           style={{ flex: 1 }}
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel}
+          accessibilityHint={accessibilityHint}
         >
           {children}
         </TouchableOpacity>

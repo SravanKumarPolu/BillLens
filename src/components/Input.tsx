@@ -70,7 +70,10 @@ const Input: React.FC<InputProps> = ({
   return (
     <View style={[styles.container, containerStyle]}>
       {label && (
-        <Text style={[styles.label, { color: themeColors.textPrimary }]}>
+        <Text 
+          style={[styles.label, { color: themeColors.textPrimary }]}
+          accessibilityRole="text"
+        >
           {label}
         </Text>
       )}
@@ -93,6 +96,10 @@ const Input: React.FC<InputProps> = ({
           placeholderTextColor={themeColors.textSecondary}
           onFocus={handleFocus}
           onBlur={handleBlur}
+          accessibilityLabel={label}
+          accessibilityRole="text"
+          accessibilityHint={error || textInputProps.accessibilityHint}
+          accessibilityState={error ? { disabled: false } : undefined}
         {...textInputProps}
       />
       </Animated.View>
