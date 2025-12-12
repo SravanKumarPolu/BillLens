@@ -168,24 +168,112 @@ const LedgerScreen: React.FC<Props> = ({ navigation, route }) => {
         <Text style={[styles.title, { color: colors.textPrimary }]}>Expense history</Text>
         <View style={styles.headerRight}>
           <TouchableOpacity
-            onPress={async () => {
+            onPress={() => {
               if (!group) return;
-              try {
-                const exportText = exportGroupHistory(
-                  group,
-                  allExpenses,
-                  { format: 'text', includeSettlements: true, includeBalances: true },
-                  group.members,
-                  settlements,
-                  balances
-                );
-                await Share.share({
-                  message: exportText,
-                  title: `BillLens Export - ${group.name}`,
-                });
-              } catch (error) {
-                Alert.alert('Error', 'Failed to export history');
-              }
+              Alert.alert(
+                'Export Format',
+                'Choose export format',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'PDF',
+                    onPress: async () => {
+                      try {
+                        const { exportAsPDF } = await import('../utils/exportService');
+                        // For now, share HTML content (can be converted to PDF externally)
+                        // In production, install react-native-html-to-pdf and react-native-share
+                        const html = exportAsPDF(
+                          group,
+                          allExpenses,
+                          group.members,
+                          settlements,
+                          balances
+                        );
+                        await Share.share({
+                          message: html,
+                          title: `BillLens Export PDF - ${group.name}`,
+                        });
+                        Alert.alert(
+                          'PDF Export',
+                          'HTML content shared. You can save it as PDF using a PDF converter app, or install react-native-html-to-pdf for native PDF generation.',
+                          [{ text: 'OK' }]
+                        );
+                      } catch (error) {
+                        Alert.alert('Error', 'Failed to export as PDF');
+                      }
+                    },
+                  },
+                  {
+                    text: 'Excel',
+                    onPress: async () => {
+                      try {
+                        const { exportAsCSV } = await import('../utils/exportService');
+                        // Export as CSV (Excel-compatible) for now
+                        // In production, can use xlsx library for native Excel generation
+                        const csvText = exportAsCSV(
+                          group,
+                          allExpenses,
+                          settlements,
+                          balances
+                        );
+                        await Share.share({
+                          message: csvText,
+                          title: `BillLens Export Excel - ${group.name}`,
+                        });
+                        Alert.alert(
+                          'Excel Export',
+                          'CSV file shared (Excel-compatible). You can open it in Excel or Google Sheets.',
+                          [{ text: 'OK' }]
+                        );
+                      } catch (error) {
+                        Alert.alert('Error', 'Failed to export as Excel');
+                      }
+                    },
+                  },
+                  {
+                    text: 'CSV',
+                    onPress: async () => {
+                      try {
+                        const { exportAsCSV } = await import('../utils/exportService');
+                        const csvText = exportAsCSV(
+                          group,
+                          allExpenses,
+                          settlements,
+                          balances
+                        );
+                        await Share.share({
+                          message: csvText,
+                          title: `BillLens Export - ${group.name}`,
+                        });
+                      } catch (error) {
+                        Alert.alert('Error', 'Failed to export as CSV');
+                      }
+                    },
+                  },
+                  {
+                    text: 'Text',
+                    onPress: async () => {
+                      try {
+                        const exportText = exportGroupHistory(
+                          group,
+                          allExpenses,
+                          { format: 'text', includeSettlements: true, includeBalances: true },
+                          group.members,
+                          settlements,
+                          balances
+                        );
+                        await Share.share({
+                          message: exportText,
+                          title: `BillLens Export - ${group.name}`,
+                        });
+                      } catch (error) {
+                        Alert.alert('Error', 'Failed to export history');
+                      }
+                    },
+                  },
+                ],
+                { cancelable: true }
+              );
             }}
             style={styles.exportButton}
           >

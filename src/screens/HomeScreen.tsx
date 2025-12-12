@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, ScrollView, BackHandler } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -151,7 +151,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       .map(item => item.insight);
   }, [groupSummaries, getGroupInsights]);
 
-  const handleProfilePress = () => {
+  const handleProfilePress = useCallback(() => {
     if (user) {
       // Show sync menu or profile
       navigation.navigate('BackupRestore');
@@ -159,9 +159,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       // Show login option
       navigation.navigate('Login');
     }
-  };
+  }, [user, navigation]);
 
-  const handleSync = async () => {
+  const handleSync = useCallback(async () => {
     if (!user) {
       navigation.navigate('Login');
       return;
@@ -172,11 +172,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     } catch (error) {
       // Error handling in syncData
     }
-  };
+  }, [user, navigation, syncData]);
 
   const styles = createStyles(colors);
 
-  const renderGroup = ({ item }: { item: typeof groupSummaries[0] }) => (
+  const renderGroup = useCallback(({ item }: { item: typeof groupSummaries[0] }) => (
     <Card
       onPress={() => navigation.navigate('GroupDetail', { groupId: item.group.id })}
       style={styles.groupCard}
@@ -190,7 +190,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       </View>
     </Card>
-  );
+  ), [navigation, colors]);
 
   return (
     <View style={styles.container}>
