@@ -1,30 +1,27 @@
 /**
  * Analytics Configuration
- * Controls whether to use Python backend for analytics (optional)
+ * 
+ * Note: Python backend support is deprecated. All analytics run client-side.
+ * This config exists for backward compatibility only.
  */
 
 export interface AnalyticsConfig {
-  // Python backend URL (optional)
+  // Python backend URL (deprecated - not used)
   pythonBackendUrl?: string;
   
-  // Enable Python backend for analytics (if URL is provided)
+  // Enable Python backend (deprecated - always false, uses frontend)
   usePythonBackend: boolean;
 }
 
-// Default configuration
+// Default configuration - all analytics run client-side
 export const defaultAnalyticsConfig: AnalyticsConfig = {
-  usePythonBackend: false, // Disabled by default - enable by setting pythonBackendUrl
+  usePythonBackend: false, // Always false - Python backend removed
 };
 
 // Get configuration from environment or defaults
 export const getAnalyticsConfig = (): AnalyticsConfig => {
-  // In production, you can load from environment variables or app config
-  // For now, return defaults
+  // All analytics run client-side - no backend needed
   return {
     ...defaultAnalyticsConfig,
-    // Uncomment and set to enable Python backend:
-    // pythonBackendUrl: 'http://localhost:8000', // Development
-    // pythonBackendUrl: 'https://api.billlens.com', // Production
-    // usePythonBackend: true,
   };
 };

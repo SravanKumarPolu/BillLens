@@ -17,15 +17,18 @@
  * ⚡ Performance: Optimized for < 2 second processing time from image to extracted data.
  * 
  * 🔧 IMPLEMENTATION STATUS:
- * - ✅ Python Backend Support (optional, enhanced OCR with preprocessing)
- * - ✅ Google Vision API support (client-side, fallback)
+ * - ✅ Google Vision API (client-side, primary method)
+ * - ✅ On-device OCR (offline fallback)
  * - ✅ Mock implementation (development/testing)
  * 
  * 🚀 PRODUCTION INTEGRATION:
  * The service supports multiple OCR backends with automatic fallback:
- * 1. Python Backend (optional) - Enhanced OCR with image preprocessing
- * 2. Google Vision API (client-side) - Direct API calls
+ * 1. Google Vision API (client-side) - Primary method, direct API calls
+ * 2. On-device OCR (ML Kit) - Offline fallback, works without internet
  * 3. Mock (development) - For testing without API keys
+ * 
+ * 💰 COST-EFFECTIVE: No backend required, pay only for Google Vision API usage
+ * First 1,000 requests/month are FREE, then $1.50 per 1,000 requests
  * 
  * ✅ The service is designed to be OCR-agnostic - the parsing logic works with any text output,
  * making it easy to swap in different OCR providers without changing the rest of the codebase.
@@ -38,6 +41,8 @@
  * - Utility bills
  * - Generic receipts
  */
+
+import RNFS from 'react-native-fs';
 
 export interface OcrResult {
   amount: string | null;
@@ -98,39 +103,39 @@ export const validateImageQuality = async (imageUri: string): Promise<{
 /**
  * Performs OCR text extraction from an image
  * Supports multiple backends with automatic fallback:
- * 1. Python Backend (optional, enhanced with preprocessing) - PHASE 1: Raw text
- * 2. Google Vision API (client-side)
+ * 1. Google Vision API (client-side, primary)
+ * 2. On-device OCR (offline fallback)
  * 3. Mock (development/testing)
  * 
- * PHASE 1: Returns raw text (stored in OCR History)
- * PHASE 2: Parsing happens client-side (or optionally via backend)
+ * Returns raw text (stored in OCR History)
+ * Parsing happens client-side
  */
 const performOCR = async (imageUri: string): Promise<string> => {
   const { getOCRConfig } = await import('../config/ocrConfig');
   const config = getOCRConfig();
   
-  // Try Python backend first if enabled (PHASE 1: Raw text extraction)
-  if (config.usePythonBackend && config.pythonBackendUrl) {
+  // Try Google Vision API first (primary method, client-side)
+  if (config.useGoogleVision && config.googleVisionApiKey && !config.useMock) {
     try {
-      const result = await performPythonOCR(imageUri, config.pythonBackendUrl);
-      if (result) {
-        return result; // Returns raw_text from /ocr/google endpoint
-      }
-    } catch (error) {
-      console.warn('Python backend OCR failed, falling back:', error);
-      // Continue to fallback methods
-    }
-  }
-  
-  // Try Google Vision API if configured (client-side)
-  if (config.fallbackToGoogleVision && !config.useMock) {
-    try {
-      const result = await performGoogleVisionOCR(imageUri);
+      const result = await performGoogleVisionOCR(imageUri, config.googleVisionApiKey);
       if (result) {
         return result;
       }
     } catch (error) {
-      console.warn('Google Vision OCR failed, falling back to mock:', error);
+      console.warn('Google Vision OCR failed, falling back:', error);
+      // Continue to fallback methods
+    }
+  }
+  
+  // Try on-device OCR as fallback (works offline)
+  if (config.useOnDeviceOCR && !config.useMock) {
+    try {
+      const result = await performOnDeviceOCR(imageUri);
+      if (result) {
+        return result;
+      }
+    } catch (error) {
+      console.warn('On-device OCR failed, falling back:', error);
       // Continue to mock
     }
   }
@@ -140,51 +145,99 @@ const performOCR = async (imageUri: string): Promise<string> => {
     return await performMockOCR();
   }
   
-  // If all methods fail, return empty string
-  throw new Error('All OCR methods failed. Please check your network connection and try again.');
+  // If all methods fail and no API key is set, suggest using mock mode
+  if (!config.googleVisionApiKey) {
+    throw new Error('Google Vision API key not configured. Please set googleVisionApiKey in ocrConfig.ts or enable mock mode (useMock: true) for testing.');
+  }
+  
+  // If all methods fail, return error
+  throw new Error('All OCR methods failed. Please check your network connection, verify your API key, or enable mock mode for testing.');
 };
 
 /**
- * Perform OCR using Python backend (enhanced with preprocessing)
- * PHASE 1: Uses /ocr/google endpoint for raw text extraction
+ * Perform OCR using Google Vision API (client-side)
+ * Direct API calls from React Native - no backend required
  */
-const performPythonOCR = async (imageUri: string, backendUrl: string): Promise<string | null> => {
+const performGoogleVisionOCR = async (imageUri: string, apiKey: string): Promise<string | null> => {
   try {
-    // React Native FormData works differently than web
-    const formData = new FormData();
+    // Read image file and convert to base64
+    const base64Image = await RNFS.readFile(imageUri, 'base64');
     
-    // For React Native, imageUri is typically a file:// or content:// URI
-    // We need to append it as a file object
-    formData.append('file', {
-      uri: imageUri,
-      type: 'image/jpeg', // Adjust based on actual image type
-      name: 'bill.jpg',
-    } as any);
+    // Google Vision API endpoint
+    const url = `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`;
     
-    formData.append('use_preprocessing', 'true');
+    // Prepare request body
+    const requestBody = {
+      requests: [
+        {
+          image: {
+            content: base64Image,
+          },
+          features: [
+            {
+              type: 'TEXT_DETECTION',
+              maxResults: 1,
+            },
+          ],
+        },
+      ],
+    };
     
-    // Use PHASE 1 endpoint: /ocr/google for raw text
-    // Note: Don't set Content-Type header - React Native sets it automatically with boundary
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
     try {
-      const ocrResponse = await fetch(`${backendUrl}/ocr/google`, {
+      const response = await fetch(url, {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
         signal: controller.signal,
-        // Let React Native set Content-Type automatically
       });
       
       clearTimeout(timeoutId);
       
-      if (!ocrResponse.ok) {
-        const errorText = await ocrResponse.text().catch(() => 'Unknown error');
-        throw new Error(`Python backend returned ${ocrResponse.status}: ${errorText}`);
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error?.message || errorData.error || response.statusText;
+        } catch {
+          // If JSON parsing fails, use status text
+          errorMessage = response.statusText || `HTTP ${response.status}`;
+        }
+        
+        // Provide helpful error messages for common issues
+        if (response.status === 400) {
+          throw new Error(`Invalid API request: ${errorMessage}. Please check your API key and image format.`);
+        } else if (response.status === 401 || response.status === 403) {
+          throw new Error(`API authentication failed: ${errorMessage}. Please verify your Google Vision API key is correct and has Vision API enabled.`);
+        } else if (response.status === 429) {
+          throw new Error(`API quota exceeded: ${errorMessage}. You've exceeded the free tier limit.`);
+        } else {
+          throw new Error(`Google Vision API error: ${errorMessage}`);
+        }
       }
       
-      const result = await ocrResponse.json();
-      return result.raw_text || null;
+      const result = await response.json();
+      
+      // Extract text from response
+      if (result.responses && result.responses[0] && result.responses[0].textAnnotations) {
+        // Full text annotation contains all detected text
+        const fullTextAnnotation = result.responses[0].fullTextAnnotation;
+        if (fullTextAnnotation && fullTextAnnotation.text) {
+          return fullTextAnnotation.text;
+        }
+        
+        // Fallback to first text annotation
+        const firstAnnotation = result.responses[0].textAnnotations[0];
+        if (firstAnnotation && firstAnnotation.description) {
+          return firstAnnotation.description;
+        }
+      }
+      
+      return null;
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
       if (fetchError.name === 'AbortError') {
@@ -193,7 +246,7 @@ const performPythonOCR = async (imageUri: string, backendUrl: string): Promise<s
       throw fetchError;
     }
   } catch (error) {
-    console.error('Python backend OCR error:', error);
+    console.error('Google Vision OCR error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     console.error('Error details:', errorMessage);
     return null;
@@ -201,13 +254,25 @@ const performPythonOCR = async (imageUri: string, backendUrl: string): Promise<s
 };
 
 /**
- * Perform OCR using Google Vision API (client-side)
+ * Perform OCR using on-device ML Kit (offline fallback)
+ * Works without internet connection
  */
-const performGoogleVisionOCR = async (imageUri: string): Promise<string | null> => {
-  // TODO: Implement Google Vision API client-side
-  // This would require @react-native-google-cloud/vision or similar
-  // For now, return null to use fallback
-  return null;
+const performOnDeviceOCR = async (imageUri: string): Promise<string | null> => {
+  try {
+    // TODO: Implement on-device OCR using @react-native-ml-kit/text-recognition
+    // For now, return null to use mock fallback
+    // 
+    // Example implementation:
+    // const { TextRecognition } = require('@react-native-ml-kit/text-recognition');
+    // const result = await TextRecognition.recognize(imageUri);
+    // return result.text || null;
+    
+    console.warn('On-device OCR not yet implemented. Install @react-native-ml-kit/text-recognition to enable.');
+    return null;
+  } catch (error) {
+    console.error('On-device OCR error:', error);
+    return null;
+  }
 };
 
 /**

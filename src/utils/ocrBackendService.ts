@@ -1,7 +1,11 @@
 /**
  * OCR Backend Service
- * Optional service to use Python backend for structured parsing
- * Falls back to client-side parsing if backend unavailable
+ * 
+ * ⚠️ DEPRECATED: Python backend has been removed.
+ * This service is kept for backward compatibility only.
+ * All OCR parsing now happens client-side in ocrService.ts
+ * 
+ * @deprecated Use extractBillInfo from ocrService.ts instead
  */
 
 import { OcrResult } from './ocrService';

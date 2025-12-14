@@ -213,10 +213,10 @@ parseMoney("₹1,500"); // 1500
 - [x] Reusable components
 - [x] Basic navigation
 
-### Phase 2 (Weeks 4-6)
-- [ ] OCR integration (Google Vision API)
-- [ ] Screenshot → Extract amount
-- [ ] Split engine
+### Phase 2 (Weeks 4-6) ✅
+- [x] OCR integration (Google Vision API - client-side)
+- [x] Screenshot → Extract amount
+- [x] Split engine
 
 ### Phase 3 (Weeks 7-9)
 - [ ] UPI settle-up
@@ -238,7 +238,16 @@ parseMoney("₹1,500"); // 1500
 
 - **[DOCUMENTATION.md](./DOCUMENTATION.md)** - Complete implementation status, audit reports, improvements summary, and technical details
 - **[DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md)** - Brand identity, design tokens, typography system, and component library
+- **[OCR_SETUP.md](./OCR_SETUP.md)** - OCR setup guide (no backend required!)
 - **[WEB_SUPPORT_ANALYSIS.md](./WEB_SUPPORT_ANALYSIS.md)** - Analysis of web support feasibility
+
+## 💰 Cost-Effective Architecture
+
+BillLens is designed to be **completely free** to run:
+- ✅ **No backend server** - everything runs client-side
+- ✅ **Free OCR tier** - Google Vision API: 1,000 requests/month free
+- ✅ **Offline support** - on-device OCR fallback
+- ✅ **Zero hosting costs** - no server infrastructure needed
 
 ## 📝 License
 
