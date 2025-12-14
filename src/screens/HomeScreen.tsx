@@ -34,10 +34,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const friends = getFriends();
   const friendSummaries = friends.map(friend => getFriendSummary(friend.id)).filter((s): s is typeof s => s !== null);
 
+  const backButtonAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
+
   // Animate back button appearance
   useEffect(() => {
+    // Stop any running animation
+    if (backButtonAnimationRef.current) {
+      backButtonAnimationRef.current.stop();
+      backButtonAnimationRef.current = null;
+    }
+
     if (canGoBack) {
-      Animated.parallel([
+      backButtonAnimationRef.current = Animated.parallel([
         Animated.timing(backButtonOpacity, {
           toValue: 1,
           duration: 300,
@@ -49,14 +57,28 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           damping: 15,
           stiffness: 300,
         }),
-      ]).start();
+      ]);
+      backButtonAnimationRef.current.start(() => {
+        backButtonAnimationRef.current = null;
+      });
     } else {
-      Animated.timing(backButtonOpacity, {
+      backButtonAnimationRef.current = Animated.timing(backButtonOpacity, {
         toValue: 0,
         duration: 200,
         useNativeDriver: true,
-      }).start();
+      });
+      backButtonAnimationRef.current.start(() => {
+        backButtonAnimationRef.current = null;
+      });
     }
+
+    // Cleanup on unmount
+    return () => {
+      if (backButtonAnimationRef.current) {
+        backButtonAnimationRef.current.stop();
+        backButtonAnimationRef.current = null;
+      }
+    };
   }, [canGoBack, backButtonOpacity, backButtonScale]);
 
   // Handle Android hardware back button

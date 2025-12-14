@@ -1,4 +1,4 @@
-import React, { memo, useRef } from 'react';
+import React, { memo, useRef, useEffect } from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle, View, Animated } from 'react-native';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
@@ -36,6 +36,7 @@ const Button: React.FC<ButtonProps> = ({
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const buttonAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
   
   const buttonStyle = [
     styles.base,
@@ -48,25 +49,47 @@ const Button: React.FC<ButtonProps> = ({
     style,
   ];
 
+  // Cleanup animations on unmount
+  useEffect(() => {
+    return () => {
+      if (buttonAnimationRef.current) {
+        buttonAnimationRef.current.stop();
+        buttonAnimationRef.current = null;
+      }
+    };
+  }, []);
+
   // Fluid press animation with haptic-like feedback
   const handlePressIn = () => {
     if (disabled || loading) return;
-    Animated.spring(scaleAnim, {
+    if (buttonAnimationRef.current) {
+      buttonAnimationRef.current.stop();
+    }
+    buttonAnimationRef.current = Animated.spring(scaleAnim, {
       toValue: 0.96,
       useNativeDriver: true,
       damping: 15,
       stiffness: 400,
-    }).start();
+    });
+    buttonAnimationRef.current.start(() => {
+      buttonAnimationRef.current = null;
+    });
   };
 
   const handlePressOut = () => {
     if (disabled || loading) return;
-    Animated.spring(scaleAnim, {
+    if (buttonAnimationRef.current) {
+      buttonAnimationRef.current.stop();
+    }
+    buttonAnimationRef.current = Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
       damping: 15,
       stiffness: 400,
-    }).start();
+    });
+    buttonAnimationRef.current.start(() => {
+      buttonAnimationRef.current = null;
+    });
   };
 
   const handlePress = () => {

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { TextInput, StyleSheet, View, Text, ViewStyle, TextInputProps, Animated } from 'react-native';
 import { colors } from '../theme/colors';
 import { typography, recommendedSpacing } from '../theme/typography';
@@ -22,10 +22,24 @@ const Input: React.FC<InputProps> = ({
   const [isFocused, setIsFocused] = useState(false);
   const borderColorAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const inputAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  // Cleanup animations on unmount
+  useEffect(() => {
+    return () => {
+      if (inputAnimationRef.current) {
+        inputAnimationRef.current.stop();
+        inputAnimationRef.current = null;
+      }
+    };
+  }, []);
 
   const handleFocus = (e: any) => {
     setIsFocused(true);
-    Animated.parallel([
+    if (inputAnimationRef.current) {
+      inputAnimationRef.current.stop();
+    }
+    inputAnimationRef.current = Animated.parallel([
       Animated.timing(borderColorAnim, {
         toValue: 1,
         duration: transitions.fast.duration,
@@ -37,13 +51,19 @@ const Input: React.FC<InputProps> = ({
         damping: 15,
         stiffness: 300,
       }),
-    ]).start();
+    ]);
+    inputAnimationRef.current.start(() => {
+      inputAnimationRef.current = null;
+    });
     textInputProps.onFocus?.(e);
   };
 
   const handleBlur = (e: any) => {
     setIsFocused(false);
-    Animated.parallel([
+    if (inputAnimationRef.current) {
+      inputAnimationRef.current.stop();
+    }
+    inputAnimationRef.current = Animated.parallel([
       Animated.timing(borderColorAnim, {
         toValue: 0,
         duration: transitions.fast.duration,
@@ -55,7 +75,10 @@ const Input: React.FC<InputProps> = ({
         damping: 15,
         stiffness: 300,
       }),
-    ]).start();
+    ]);
+    inputAnimationRef.current.start(() => {
+      inputAnimationRef.current = null;
+    });
     textInputProps.onBlur?.(e);
   };
 

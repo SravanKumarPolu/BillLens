@@ -33,21 +33,48 @@ const Card: React.FC<CardProps> = ({
   const isDark = theme === 'dark';
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+  const mountAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
 
   // Fade in animation on mount
   useEffect(() => {
-    Animated.timing(opacityAnim, {
+    mountAnimationRef.current = Animated.timing(opacityAnim, {
       ...transitions.standard,
       toValue: 1,
       useNativeDriver: true,
-    }).start();
+    });
+    mountAnimationRef.current.start(() => {
+      mountAnimationRef.current = null;
+    });
+
+    // Cleanup on unmount
+    return () => {
+      if (mountAnimationRef.current) {
+        mountAnimationRef.current.stop();
+        mountAnimationRef.current = null;
+      }
+    };
   }, [opacityAnim]);
+
+  const pressAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  // Cleanup animations on unmount
+  useEffect(() => {
+    return () => {
+      if (pressAnimationRef.current) {
+        pressAnimationRef.current.stop();
+        pressAnimationRef.current = null;
+      }
+    };
+  }, []);
 
   // Enhanced scale animation on press with better feedback
   const handlePressIn = () => {
     if (!onPress) return;
-    Animated.parallel([
-    Animated.spring(scaleAnim, {
+    if (pressAnimationRef.current) {
+      pressAnimationRef.current.stop();
+    }
+    pressAnimationRef.current = Animated.parallel([
+      Animated.spring(scaleAnim, {
         toValue: 0.97,
         useNativeDriver: true,
         damping: 12,
@@ -56,17 +83,23 @@ const Card: React.FC<CardProps> = ({
       Animated.timing(opacityAnim, {
         toValue: 0.9,
         duration: transitions.fast.duration,
-      useNativeDriver: true,
+        useNativeDriver: true,
       }),
-    ]).start();
+    ]);
+    pressAnimationRef.current.start(() => {
+      pressAnimationRef.current = null;
+    });
   };
 
   const handlePressOut = () => {
     if (!onPress) return;
-    Animated.parallel([
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
+    if (pressAnimationRef.current) {
+      pressAnimationRef.current.stop();
+    }
+    pressAnimationRef.current = Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
         damping: 12,
         stiffness: 350,
       }),
@@ -75,7 +108,10 @@ const Card: React.FC<CardProps> = ({
         duration: transitions.fast.duration,
         useNativeDriver: true,
       }),
-    ]).start();
+    ]);
+    pressAnimationRef.current.start(() => {
+      pressAnimationRef.current = null;
+    });
   };
   
   // Determine elevation style

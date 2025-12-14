@@ -4,6 +4,7 @@
 
 export { formatMoney, parseMoney } from './formatMoney';
 export { extractBillInfo, validateImageQuality, parseAmount, normalizeMerchant, type OcrResult } from './ocrService';
+export { parseReceiptWithBackend, convertBackendToOcrResult, type BackendOCRResponse } from './ocrBackendService';
 export { 
   openUPIApp, 
   getAvailableUPIApps, 

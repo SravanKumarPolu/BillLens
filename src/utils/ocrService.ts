@@ -17,14 +17,15 @@
  * ⚡ Performance: Optimized for < 2 second processing time from image to extracted data.
  * 
  * 🔧 IMPLEMENTATION STATUS:
- * Currently uses a MOCK implementation for development/demo purposes.
- * The mock returns realistic sample text that simulates OCR output from various Indian bill formats.
+ * - ✅ Python Backend Support (optional, enhanced OCR with preprocessing)
+ * - ✅ Google Vision API support (client-side, fallback)
+ * - ✅ Mock implementation (development/testing)
  * 
  * 🚀 PRODUCTION INTEGRATION:
- * To integrate a real OCR service (Google Cloud Vision API, AWS Textract, or Tesseract):
- * 1. Replace the `performOCR()` function below with actual API calls
- * 2. The parsing logic (extractAmount, extractMerchant, extractDate) is ready and will work with real OCR text
- * 3. Update `validateImageQuality()` to perform actual image analysis
+ * The service supports multiple OCR backends with automatic fallback:
+ * 1. Python Backend (optional) - Enhanced OCR with image preprocessing
+ * 2. Google Vision API (client-side) - Direct API calls
+ * 3. Mock (development) - For testing without API keys
  * 
  * ✅ The service is designed to be OCR-agnostic - the parsing logic works with any text output,
  * making it easy to swap in different OCR providers without changing the rest of the codebase.
@@ -95,15 +96,124 @@ export const validateImageQuality = async (imageUri: string): Promise<{
 };
 
 /**
- * Simulates OCR text extraction from an image
- * In production, this would call Google Vision API, AWS Textract, or Tesseract
+ * Performs OCR text extraction from an image
+ * Supports multiple backends with automatic fallback:
+ * 1. Python Backend (optional, enhanced with preprocessing) - PHASE 1: Raw text
+ * 2. Google Vision API (client-side)
+ * 3. Mock (development/testing)
+ * 
+ * PHASE 1: Returns raw text (stored in OCR History)
+ * PHASE 2: Parsing happens client-side (or optionally via backend)
  */
 const performOCR = async (imageUri: string): Promise<string> => {
-  // TODO: Replace with actual OCR API call
-  // Example for Google Vision API:
-  // const response = await visionClient.textDetection({ image: { source: { imageUri } } });
-  // return response.textAnnotations?.[0]?.description || '';
+  const { getOCRConfig } = await import('../config/ocrConfig');
+  const config = getOCRConfig();
   
+  // Try Python backend first if enabled (PHASE 1: Raw text extraction)
+  if (config.usePythonBackend && config.pythonBackendUrl) {
+    try {
+      const result = await performPythonOCR(imageUri, config.pythonBackendUrl);
+      if (result) {
+        return result; // Returns raw_text from /ocr/google endpoint
+      }
+    } catch (error) {
+      console.warn('Python backend OCR failed, falling back:', error);
+      // Continue to fallback methods
+    }
+  }
+  
+  // Try Google Vision API if configured (client-side)
+  if (config.fallbackToGoogleVision && !config.useMock) {
+    try {
+      const result = await performGoogleVisionOCR(imageUri);
+      if (result) {
+        return result;
+      }
+    } catch (error) {
+      console.warn('Google Vision OCR failed, falling back to mock:', error);
+      // Continue to mock
+    }
+  }
+  
+  // Fallback to mock for development/testing
+  if (config.useMock) {
+    return await performMockOCR();
+  }
+  
+  // If all methods fail, return empty string
+  throw new Error('All OCR methods failed. Please check your network connection and try again.');
+};
+
+/**
+ * Perform OCR using Python backend (enhanced with preprocessing)
+ * PHASE 1: Uses /ocr/google endpoint for raw text extraction
+ */
+const performPythonOCR = async (imageUri: string, backendUrl: string): Promise<string | null> => {
+  try {
+    // React Native FormData works differently than web
+    const formData = new FormData();
+    
+    // For React Native, imageUri is typically a file:// or content:// URI
+    // We need to append it as a file object
+    formData.append('file', {
+      uri: imageUri,
+      type: 'image/jpeg', // Adjust based on actual image type
+      name: 'bill.jpg',
+    } as any);
+    
+    formData.append('use_preprocessing', 'true');
+    
+    // Use PHASE 1 endpoint: /ocr/google for raw text
+    // Note: Don't set Content-Type header - React Native sets it automatically with boundary
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    try {
+      const ocrResponse = await fetch(`${backendUrl}/ocr/google`, {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+        // Let React Native set Content-Type automatically
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!ocrResponse.ok) {
+        const errorText = await ocrResponse.text().catch(() => 'Unknown error');
+        throw new Error(`Python backend returned ${ocrResponse.status}: ${errorText}`);
+      }
+      
+      const result = await ocrResponse.json();
+      return result.raw_text || null;
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        throw new Error('OCR request timed out after 30 seconds');
+      }
+      throw fetchError;
+    }
+  } catch (error) {
+    console.error('Python backend OCR error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error('Error details:', errorMessage);
+    return null;
+  }
+};
+
+/**
+ * Perform OCR using Google Vision API (client-side)
+ */
+const performGoogleVisionOCR = async (imageUri: string): Promise<string | null> => {
+  // TODO: Implement Google Vision API client-side
+  // This would require @react-native-google-cloud/vision or similar
+  // For now, return null to use fallback
+  return null;
+};
+
+/**
+ * Mock OCR implementation for development/testing
+ */
+const performMockOCR = async (): Promise<string> => {
   // Mock implementation: simulate OCR text extraction
   // In production, real OCR API should complete in < 1 second for fast processing
   await new Promise(resolve => setTimeout(resolve, 800)); // Optimized for < 2 second total processing

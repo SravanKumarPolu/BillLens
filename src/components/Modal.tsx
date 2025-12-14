@@ -40,11 +40,18 @@ const Modal: React.FC<ModalProps> = ({
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
+  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
+    // Stop any running animations first
+    if (animationRef.current) {
+      animationRef.current.stop();
+      animationRef.current = null;
+    }
+
     if (visible) {
       // Animate in
-      Animated.parallel([
+      animationRef.current = Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
           duration: transitions.modal.duration,
@@ -62,10 +69,13 @@ const Modal: React.FC<ModalProps> = ({
           damping: 20,
           stiffness: 300,
         }),
-      ]).start();
+      ]);
+      animationRef.current.start(() => {
+        animationRef.current = null;
+      });
     } else {
       // Animate out
-      Animated.parallel([
+      animationRef.current = Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: transitions.fast.duration,
@@ -81,9 +91,20 @@ const Modal: React.FC<ModalProps> = ({
           duration: transitions.fast.duration,
           useNativeDriver: true,
         }),
-      ]).start();
+      ]);
+      animationRef.current.start(() => {
+        animationRef.current = null;
+      });
     }
-  }, [visible]);
+
+    // Cleanup: stop animations on unmount
+    return () => {
+      if (animationRef.current) {
+        animationRef.current.stop();
+        animationRef.current = null;
+      }
+    };
+  }, [visible, fadeAnim, scaleAnim, slideAnim]);
 
   const modalContentStyle = variant === 'glass' 
     ? [styles.modalContent, createGlassStyle(isDark)]

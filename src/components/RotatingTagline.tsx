@@ -72,6 +72,7 @@ const RotatingTagline: React.FC<RotatingTaglineProps> = ({
   const { colors } = useTheme();
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
   
   /**
    * Calculate which tagline to show based on the current date
@@ -100,20 +101,31 @@ const RotatingTagline: React.FC<RotatingTaglineProps> = ({
   const updateDailyTagline = useCallback(() => {
     if (mode !== 'daily') return;
     
+    // Stop any running animation
+    if (animationRef.current) {
+      animationRef.current.stop();
+      animationRef.current = null;
+    }
+    
     const newIndex = getDailyTaglineIndex();
     if (newIndex !== currentIndex) {
       // Date changed, update tagline with fade transition
-      Animated.timing(fadeAnim, {
+      animationRef.current = Animated.timing(fadeAnim, {
         toValue: 0,
         duration: transitionDuration,
         useNativeDriver: true,
-      }).start(() => {
+      });
+      animationRef.current.start(() => {
+        animationRef.current = null;
         setCurrentIndex(newIndex);
-        Animated.timing(fadeAnim, {
+        animationRef.current = Animated.timing(fadeAnim, {
           toValue: 1,
           duration: transitionDuration,
           useNativeDriver: true,
-        }).start();
+        });
+        animationRef.current.start(() => {
+          animationRef.current = null;
+        });
       });
     }
   }, [mode, getDailyTaglineIndex, currentIndex, transitionDuration, fadeAnim]);
@@ -165,21 +177,32 @@ const RotatingTagline: React.FC<RotatingTaglineProps> = ({
 
   // Rotate to next tagline (for interval mode)
   const rotateToNext = useCallback(() => {
+    // Stop any running animation
+    if (animationRef.current) {
+      animationRef.current.stop();
+      animationRef.current = null;
+    }
+    
     // Fade out
-    Animated.timing(fadeAnim, {
+    animationRef.current = Animated.timing(fadeAnim, {
       toValue: 0,
       duration: transitionDuration,
       useNativeDriver: true,
-    }).start(() => {
+    });
+    animationRef.current.start(() => {
+      animationRef.current = null;
       // Update index
       setCurrentIndex((prevIndex) => (prevIndex + 1) % taglines.length);
       
       // Fade in
-      Animated.timing(fadeAnim, {
+      animationRef.current = Animated.timing(fadeAnim, {
         toValue: 1,
         duration: transitionDuration,
         useNativeDriver: true,
-      }).start();
+      });
+      animationRef.current.start(() => {
+        animationRef.current = null;
+      });
     });
   }, [taglines.length, transitionDuration, fadeAnim]);
 
@@ -203,6 +226,12 @@ const RotatingTagline: React.FC<RotatingTaglineProps> = ({
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      // Stop any running animations
+      if (animationRef.current) {
+        animationRef.current.stop();
+        animationRef.current = null;
       }
     };
   }, [mode, duration, paused, rotateToNext]);
