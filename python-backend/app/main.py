@@ -5,7 +5,7 @@ FastAPI application for OCR, settlement validation, and sync
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import ocr, settlement, sync
+from app.routers import ocr, settlement, sync, analytics
 
 app = FastAPI(
     title="BillLens API",
@@ -26,6 +26,7 @@ app.add_middleware(
 app.include_router(ocr.router, prefix="/ocr", tags=["ocr"])
 app.include_router(settlement.router, prefix="/settlement", tags=["settlement"])
 app.include_router(sync.router, prefix="/sync", tags=["sync"])
+app.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 
 
 @app.get("/")

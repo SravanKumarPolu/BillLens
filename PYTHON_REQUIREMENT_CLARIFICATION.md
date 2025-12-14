@@ -123,3 +123,4 @@ usePythonBackend: true,
 - ✅ Python only improves OCR accuracy (preprocessing)
 
 **You can develop and deploy the app completely without Python backend!**
+
