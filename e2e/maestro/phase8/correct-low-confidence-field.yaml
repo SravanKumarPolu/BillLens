@@ -1,0 +1,31 @@
+# Maestro release flow: correct-low-confidence-field
+# Phase 8 Prompt 80 — required release flow.
+# Verifies: editing a low-confidence OCR field before confirming.
+# Run: maestro test e2e/maestro/phase8/correct-low-confidence-field.yaml
+
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "BillLens"
+    timeout: 10000
+# Low-confidence fields are highlighted on the draft review screen
+- assertVisible:
+    text: "Review draft"
+    timeout: 30000
+- tapOn:
+    text: "Total"
+    timeout: 5000
+- inputText: "1240.50"
+- tapOn:
+    text: "Done"
+    timeout: 5000
+- tapOn:
+    text: "Confirm"
+    timeout: 5000
+- assertVisible:
+    text: "Expense saved"
+    timeout: 10000
+# NOTE: structural flow — final device validation happens during
+# closed beta on physical devices (see docs/release/test-summary.md).

@@ -1,0 +1,36 @@
+# Maestro release flow: delete-account
+# Phase 8 Prompt 80 — required release flow.
+# Verifies: in-app account deletion request with explicit confirmation.
+# Run: maestro test e2e/maestro/phase8/delete-account.yaml
+
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "BillLens"
+    timeout: 10000
+# Delete account (Settings -> Account -> Delete account)
+- tapOn:
+    text: "Settings"
+    timeout: 5000
+- tapOn:
+    text: "Delete account"
+    timeout: 5000
+# Consequence explanation must be visible before confirmation
+- assertVisible:
+    text: "permanently"
+    timeout: 5000
+- tapOn:
+    text: "Delete my account"
+    timeout: 5000
+# Final confirmation dialog
+- tapOn:
+    text: "Yes, delete everything"
+    timeout: 5000
+# App returns to onboarding with a clean local state
+- assertVisible:
+    text: "Welcome"
+    timeout: 15000
+# NOTE: structural flow — final device validation happens during
+# closed beta on physical devices (see docs/release/test-summary.md).

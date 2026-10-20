@@ -1,0 +1,37 @@
+# Maestro release flow: send-feedback
+# Phase 9 Prompt 82 — feedback UI surface.
+# Verifies: user reaches the feedback form from Settings, types a bug
+# report, and sees the saved confirmation. Privacy notice must be visible
+# BEFORE submission (informed consent to automatic redaction).
+# Run: maestro test e2e/maestro/phase9/send-feedback.yaml
+
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "BillLens"
+    timeout: 10000
+- tapOn:
+    text: "Settings"
+    timeout: 5000
+- tapOn:
+    text: "Send feedback"
+    timeout: 5000
+- assertVisible:
+    text: "Private by design"
+    timeout: 5000
+- tapOn:
+    text: "Bug report"
+    timeout: 5000
+- tapOn:
+    id: "feedback-input"
+- inputText: "Balances screen showed a stale total after offline sync."
+- tapOn:
+    text: "Send feedback"
+    timeout: 5000
+- assertVisible:
+    text: "Thank you — feedback saved"
+    timeout: 10000
+# NOTE: structural flow — final device validation happens during
+# closed beta on physical devices (see docs/release/test-summary.md).

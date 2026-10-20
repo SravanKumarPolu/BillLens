@@ -1,0 +1,25 @@
+# Maestro release flow: removed-member-access-denied
+# Phase 8 Prompt 80 — required release flow.
+# Verifies: a removed member can no longer open the group.
+# Run: maestro test e2e/maestro/phase8/removed-member-access-denied.yaml
+
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "BillLens"
+    timeout: 10000
+# Run on the removed member's device profile (group previously joined)
+- tapOn:
+    text: "Groups"
+    timeout: 5000
+- tapOn:
+    text: "Goa Trip"
+    timeout: 5000
+# Backend rejects (RLS) — app shows access-denied state, not group data
+- assertVisible:
+    text: "no longer have access"
+    timeout: 15000
+# NOTE: structural flow — final device validation happens during
+# closed beta on physical devices (see docs/release/test-summary.md).

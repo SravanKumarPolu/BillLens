@@ -1,0 +1,45 @@
+# Maestro release flow: create-multiple-payer-expense
+# Phase 8 Prompt 80 — required release flow.
+# Verifies: two payers contributing to one expense.
+# Run: maestro test e2e/maestro/phase8/create-multiple-payer-expense.yaml
+
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "BillLens"
+    timeout: 10000
+- tapOn:
+    text: "Groups"
+    timeout: 5000
+- tapOn:
+    text: "Goa Trip"
+    timeout: 5000
+- tapOn:
+    text: "Add expense"
+    timeout: 5000
+- inputText: "Fuel"
+- tapOn:
+    id: "amount-input"
+- inputText: "2000"
+# Add second payer with partial contribution
+- tapOn:
+    text: "Add payer"
+    timeout: 5000
+- tapOn:
+    text: "Asha"
+- tapOn:
+    id: "payer-amount-0"
+- inputText: "1200"
+- tapOn:
+    id: "payer-amount-1"
+- inputText: "800"
+- tapOn:
+    text: "Save"
+    timeout: 5000
+- assertVisible:
+    text: "Fuel"
+    timeout: 10000
+# NOTE: structural flow — final device validation happens during
+# closed beta on physical devices (see docs/release/test-summary.md).

@@ -1,0 +1,34 @@
+# Maestro release flow: email-otp-auth
+# Phase 8 Prompt 80 — required release flow.
+# Verifies: email OTP sign-in request + 6-digit OTP entry.
+# Run: maestro test e2e/maestro/phase8/email-otp-auth.yaml
+
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "BillLens"
+    timeout: 10000
+# Open sign-in (Settings tab)
+- tapOn:
+    text: "Settings"
+    timeout: 5000
+- tapOn:
+    text: "Sign in"
+    timeout: 5000
+# Request OTP
+- inputText: "tester+otp@billlens.test"
+- tapOn:
+    text: "Send code"
+    timeout: 5000
+# Enter OTP (delivered by Supabase in test project)
+- inputText: "123456"
+- tapOn:
+    text: "Verify"
+    timeout: 5000
+- assertVisible:
+    text: "Signed in"
+    timeout: 10000
+# NOTE: structural flow — final device validation happens during
+# closed beta on physical devices (see docs/release/test-summary.md).

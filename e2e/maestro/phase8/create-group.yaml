@@ -1,0 +1,28 @@
+# Maestro release flow: create-group
+# Phase 8 Prompt 80 — required release flow.
+# Verifies: group creation with a member name.
+# Run: maestro test e2e/maestro/phase8/create-group.yaml
+
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "BillLens"
+    timeout: 10000
+- tapOn:
+    text: "Groups"
+    timeout: 5000
+- tapOn:
+    text: "New group"
+    timeout: 5000
+- inputText: "Goa Trip"
+- inputText: "Asha"
+- tapOn:
+    text: "Create"
+    timeout: 5000
+- assertVisible:
+    text: "Goa Trip"
+    timeout: 10000
+# NOTE: structural flow — final device validation happens during
+# closed beta on physical devices (see docs/release/test-summary.md).

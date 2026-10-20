@@ -1,0 +1,35 @@
+# Maestro release flow: scan-and-confirm-receipt
+# Phase 8 Prompt 80 — required release flow.
+# Verifies: camera receipt scan -> draft review -> confirm expense.
+# Run: maestro test e2e/maestro/phase8/scan-and-confirm-receipt.yaml
+
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "BillLens"
+    timeout: 10000
+- tapOn:
+    id: "capture-fab"
+    timeout: 5000
+# Camera permission already granted in this profile
+- tapOn:
+    text: "Shutter"
+    timeout: 10000
+# Image quality review -> process
+- tapOn:
+    text: "Use this photo"
+    timeout: 5000
+# Draft review after OCR
+- assertVisible:
+    text: "Review draft"
+    timeout: 30000
+- tapOn:
+    text: "Confirm"
+    timeout: 5000
+- assertVisible:
+    text: "Expense saved"
+    timeout: 10000
+# NOTE: structural flow — final device validation happens during
+# closed beta on physical devices (see docs/release/test-summary.md).

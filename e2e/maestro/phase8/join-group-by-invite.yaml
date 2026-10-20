@@ -1,0 +1,27 @@
+# Maestro release flow: join-group-by-invite
+# Phase 8 Prompt 80 — required release flow.
+# Verifies: joining a group via invite code (second device/emulator).
+# Run: maestro test e2e/maestro/phase8/join-group-by-invite.yaml
+
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "BillLens"
+    timeout: 10000
+- tapOn:
+    text: "Groups"
+    timeout: 5000
+- tapOn:
+    text: "Join group"
+    timeout: 5000
+- inputText: "${INVITE_CODE}"
+- tapOn:
+    text: "Join"
+    timeout: 5000
+- assertVisible:
+    text: "Goa Trip"
+    timeout: 10000
+# NOTE: structural flow — final device validation happens during
+# closed beta on physical devices (see docs/release/test-summary.md).

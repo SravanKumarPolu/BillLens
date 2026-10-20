@@ -1,0 +1,11 @@
+# Maestro smoke flow — BillLens app launch.
+# Verifies the app starts and shows the BillLens name on the home screen.
+# Run: maestro test e2e/maestro/smoke-launch.yaml
+
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "BillLens"
+    timeout: 10000

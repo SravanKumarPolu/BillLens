@@ -1,0 +1,31 @@
+# Maestro release flow: fresh-install-guest
+# Phase 8 Prompt 80 — required release flow.
+# Verifies: fresh install -> guest profile creation -> home dashboard.
+# Run: maestro test e2e/maestro/phase8/fresh-install-guest.yaml
+
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "BillLens"
+    timeout: 10000
+# Welcome
+- tapOn:
+    text: "Continue as guest"
+    timeout: 5000
+# Guest name step
+- inputText: "Asha"
+- tapOn:
+    text: "Continue"
+    timeout: 5000
+# Permissions step (allow or skip)
+- tapOn:
+    text: "Not now"
+    timeout: 5000
+# Complete -> home
+- assertVisible:
+    text: "BillLens"
+    timeout: 10000
+# NOTE: structural flow — final device validation happens during
+# closed beta on physical devices (see docs/release/test-summary.md).

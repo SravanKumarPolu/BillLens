@@ -1,0 +1,30 @@
+# Maestro release flow: import-payment-screenshot
+# Phase 8 Prompt 80 — required release flow.
+# Verifies: importing a payment screenshot from the gallery.
+# Run: maestro test e2e/maestro/phase8/import-payment-screenshot.yaml
+
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "BillLens"
+    timeout: 10000
+- tapOn:
+    id: "capture-fab"
+    timeout: 5000
+- tapOn:
+    text: "Gallery"
+    timeout: 5000
+- tapOn:
+    text: "Payment screenshot"
+    timeout: 5000
+# Pick the seeded screenshot (first gallery cell)
+- tapOn:
+    index: 0
+    timeout: 10000
+- assertVisible:
+    text: "Review draft"
+    timeout: 30000
+# NOTE: structural flow — final device validation happens during
+# closed beta on physical devices (see docs/release/test-summary.md).

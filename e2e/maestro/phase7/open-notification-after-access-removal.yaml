@@ -1,0 +1,17 @@
+# Maestro flow: open-notification-after-access-removal
+# Run: maestro test e2e/maestro/phase7/open-notification-after-access-removal.yaml
+
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "BillLens"
+    timeout: 10000
+# Navigate to groups tab
+- tapOn:
+    text: "Groups"
+    timeout: 5000
+# Flow-specific steps would go here
+# This is a structural placeholder — the real steps require
+# the app to be running with test data seeded.

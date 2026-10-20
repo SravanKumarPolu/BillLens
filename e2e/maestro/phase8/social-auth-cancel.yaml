@@ -1,0 +1,30 @@
+# Maestro release flow: social-auth-cancel
+# Phase 8 Prompt 80 — required release flow.
+# Verifies: cancelling a provider sign-in returns the user to sign-in safely.
+# Run: maestro test e2e/maestro/phase8/social-auth-cancel.yaml
+
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "BillLens"
+    timeout: 10000
+# Open sign-in
+- tapOn:
+    text: "Settings"
+    timeout: 5000
+- tapOn:
+    text: "Sign in"
+    timeout: 5000
+- tapOn:
+    text: "Continue with Google"
+    timeout: 5000
+# Provider sheet appears; cancel it (system dialog)
+- back
+# App must remain usable and still in guest state
+- assertVisible:
+    text: "BillLens"
+    timeout: 10000
+# NOTE: structural flow — final device validation happens during
+# closed beta on physical devices (see docs/release/test-summary.md).

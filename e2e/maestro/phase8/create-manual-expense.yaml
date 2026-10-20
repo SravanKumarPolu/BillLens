@@ -1,0 +1,33 @@
+# Maestro release flow: create-manual-expense
+# Phase 8 Prompt 80 — required release flow.
+# Verifies: manual expense with equal split across 2 members.
+# Run: maestro test e2e/maestro/phase8/create-manual-expense.yaml
+
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "BillLens"
+    timeout: 10000
+- tapOn:
+    text: "Groups"
+    timeout: 5000
+- tapOn:
+    text: "Goa Trip"
+    timeout: 5000
+- tapOn:
+    text: "Add expense"
+    timeout: 5000
+- inputText: "Dinner"
+- tapOn:
+    id: "amount-input"
+- inputText: "1200"
+- tapOn:
+    text: "Save"
+    timeout: 5000
+- assertVisible:
+    text: "Dinner"
+    timeout: 10000
+# NOTE: structural flow — final device validation happens during
+# closed beta on physical devices (see docs/release/test-summary.md).

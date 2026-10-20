@@ -1,0 +1,10 @@
+# Maestro release flow: confirm-settlement
+# Phase 8 Prompt 80 — required release flow.
+# Release-gate alias for the canonical phase6/phase7 flow.
+# Run: maestro test e2e/maestro/phase8/confirm-settlement.yaml
+
+appId: ${MAESTRO_APP_ID}
+---
+# Canonical definition lives in e2e/maestro/phase6/confirm-settlement.yaml. This release-gate alias
+# keeps the Prompt 80 flow list intact without duplicating steps.
+- runFlow: e2e/maestro/phase6/confirm-settlement.yaml
