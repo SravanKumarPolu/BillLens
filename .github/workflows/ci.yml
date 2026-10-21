@@ -40,7 +40,7 @@ jobs:
       # from package.json this step fails loudly instead of silently
       # resolving different versions than a developer has locally.
       - name: Install
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: Typecheck
         run: npm run typecheck
@@ -76,7 +76,7 @@ jobs:
           cache: npm
 
       - name: Install
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       # A broken web export is invisible to `npm test`; this catches it.
       - name: Export
