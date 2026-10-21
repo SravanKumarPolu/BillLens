@@ -45,8 +45,9 @@ import {
 import { enqueueSyncOpWithin, syncIdempotencyKey } from './sync-op-writer';
 
 const GROUP_COLUMNS = `
-  id, name, description, currency_code, created_by, created_at, updated_at,
-  deleted_at, version, last_modified_by, client_created_at, client_updated_at
+  id, name, description, category, icon, archived_at, currency_code, created_by,
+  created_at, updated_at, deleted_at, version, last_modified_by,
+  client_created_at, client_updated_at
 `;
 
 export class SqliteGroupRepository implements GroupRepository {
@@ -109,13 +110,17 @@ export class SqliteGroupRepository implements GroupRepository {
       if (existing) {
         await tx.run(
           `update groups set
-             name = ?, description = ?, currency_code = ?, created_by = ?,
-             created_at = ?, updated_at = ?, deleted_at = ?, version = ?,
-             last_modified_by = ?, client_created_at = ?, client_updated_at = ?
+             name = ?, description = ?, category = ?, icon = ?, archived_at = ?,
+             currency_code = ?, created_by = ?, created_at = ?, updated_at = ?,
+             deleted_at = ?, version = ?, last_modified_by = ?,
+             client_created_at = ?, client_updated_at = ?
            where id = ?`,
           [
             group.name,
             description,
+            group.category ?? null,
+            group.icon ?? null,
+            group.archivedAt ? (group.archivedAt as string) : null,
             group.currencyCode,
             group.createdBy,
             group.createdAt as string,
@@ -140,14 +145,17 @@ export class SqliteGroupRepository implements GroupRepository {
       } else {
         await tx.run(
           `insert into groups (
-             id, name, description, currency_code, created_by, created_at,
-             updated_at, deleted_at, version, last_modified_by,
-             client_created_at, client_updated_at
-           ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             id, name, description, category, icon, archived_at, currency_code,
+             created_by, created_at, updated_at, deleted_at, version,
+             last_modified_by, client_created_at, client_updated_at
+           ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             group.id,
             group.name,
             description,
+            group.category ?? null,
+            group.icon ?? null,
+            group.archivedAt ? (group.archivedAt as string) : null,
             group.currencyCode,
             group.createdBy,
             group.createdAt as string,

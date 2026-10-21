@@ -85,6 +85,9 @@ export class UpdateExpenseUseCase {
     if (group === null || group.deletedAt !== undefined) {
       throw new InvalidEntityError(`Group ${current.groupId as string} not found`);
     }
+    if (group.archivedAt !== undefined) {
+      throw new InvalidEntityError('This group is archived and read-only. Restore it first.');
+    }
 
     const activeMembers = await this.members.listActiveByGroup(
       asGroupId(current.groupId as string),
@@ -123,6 +126,12 @@ export class UpdateExpenseUseCase {
       seen.add(participantId);
     }
 
+    if (current.splitType === 'items' && input.split?.splitType !== 'items') {
+      throw new InvalidEntityError(
+        'This expense is itemised. Edit its line items instead of changing the split type.',
+      );
+    }
+
     const total = Money.fromMinor(input.amountMinor, input.currencyCode);
     const splitType = input.split?.splitType ?? 'equal';
     const splitResult = resolveManualSplit(
@@ -144,6 +153,12 @@ export class UpdateExpenseUseCase {
       ...(input.note !== undefined ? { note: input.note } : {}),
       ...(input.category !== undefined ? { category: input.category } : {}),
       splitType,
+      ...(input.split?.splitType === 'items'
+        ? {
+            lineItems: input.split.lineItems,
+            ...(input.split.charges !== undefined ? { itemCharges: input.split.charges } : {}),
+          }
+        : {}),
       expectedVersion: input.expectedVersion as never,
       now,
     });

@@ -2,6 +2,54 @@
 
 All notable changes to BillLens across Phases 1-10 are documented here.
 
+## [2.18.0] — 2026-10-22
+
+### Group editing, members, archive and safe deletion
+
+- Group settings menu on group home: edit, manage members, archive/restore and
+  delete.
+- Edit name, description, category (trip/home/friends/office/other), icon and
+  currency. Currency is locked once expenses/settlements exist, and the use case
+  rejects it independently of the UI.
+- Member management: add, rename and deactivate. Deactivation uses `leftAt`
+  and preserves historical allocations; the owner cannot be removed.
+- Reversible archive (migration 0011 `archived_at`), with archived groups
+  read-only for expenses and settlements, plus hidden from the active list.
+- Permanent delete shows member/expense/settlement/receipt counts, requires the
+  exact group name, a second acknowledgement for populated groups and a final
+  native confirmation. Deletion runs in one transaction (expenses, payers,
+  splits, settlements/history/reminders, recurring rules/occurrences, receipt
+  rows, invites, member handles, members, group) and is idempotent.
+- Receipt file URIs are collected before deletion and removed best-effort after
+  the database commit.
+- Tests: 5 real-SQLite group-management tests covering edit persistence,
+  currency guard, archive/read-only/restore, member lifecycle, populated delete,
+  cascade cleanup and repeated deletion.
+
+Schema version **11**, 40 tables, `db:verify` 12 blocks. 213 suites / 4,889
+tests pass.
+## [2.17.0] — 2026-10-22
+
+### Item-level splits and free on-device OCR
+
+- Item-level editing: line items and receipt-level charges persist on the
+  expense aggregate (migration 0010), computed by the existing
+  `ItemSplitStrategy` through the shared manual-split resolver. Editor at
+  `/expenses/items/[expenseId]`, reachable from expense detail. Saves are
+  blocked until items + tax − discount reconcile exactly; itemised expenses
+  cannot be silently overwritten by a normal split edit.
+- Real-SQLite tests cover shared items, proportional tax rounding
+  (3,333/6,667), persistence, reopen/edit and the overwrite guard.
+- On-device OCR: `MlKitOcrCaptureProcessor` uses the MIT-licensed
+  `@react-native-ml-kit/text-recognition` module (free, offline, no account).
+  It is loaded lazily and selected in production when no cloud OCR exists.
+  Requires a custom Expo dev/release build; Expo Go cannot run it.
+- Conservative receipt text parser with warnings; the Udupi ₹100 fixture
+  (subtotal 95.24 + 2.38 + 2.38) converts to 10,000 minor units and
+  reconciles. Mismatched totals are flagged, never silently accepted.
+- Migration schema version **10**, **40 tables**, `db:verify` **11 blocks**.
+
+Receipt image files are still not included in backups (database metadata only).
 ## [2.16.0] — 2026-10-21
 
 ### Backup/restore and yearly recurrence

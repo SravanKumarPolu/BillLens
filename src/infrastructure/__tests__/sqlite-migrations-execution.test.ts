@@ -59,11 +59,11 @@ describeWithSqlite('runMigrations on real SQLite', () => {
       const version = await db.get<{ version: number }>(
         'select max(version) as version from schema_version',
       );
-      expect(version?.version).toBe(9);
+      expect(version?.version).toBe(11);
 
       await runMigrations(db);
       const rows = await db.all<{ count: number }>('select count(*) as count from schema_version');
-      expect(rows[0]?.count).toBe(9);
+      expect(rows[0]?.count).toBe(11);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

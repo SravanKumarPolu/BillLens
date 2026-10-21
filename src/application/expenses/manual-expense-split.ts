@@ -9,7 +9,8 @@
 
 import { asMemberId } from '@domain/entities';
 import { InvalidEntityError } from '@domain/errors';
-import { calculateSplit } from '@domain/services/splits';
+import type { ExpenseItemCharge, ExpenseLineItem } from '@domain/entities/expense';
+import { calculateItemSplit, calculateSplit } from '@domain/services/splits';
 import { Money } from '@domain/value-objects';
 
 /**
@@ -30,6 +31,11 @@ export type ManualSplitInput =
   | {
       readonly splitType: 'shares';
       readonly allocations: readonly { readonly memberId: string; readonly units: number }[];
+    }
+  | {
+      readonly splitType: 'items';
+      readonly lineItems: readonly ExpenseLineItem[];
+      readonly charges?: readonly ExpenseItemCharge[];
     };
 
 export interface ManualSplitRequest {
@@ -51,6 +57,18 @@ export function resolveManualSplit(
   const split = request.split;
   if (split === undefined || split.splitType === 'equal') {
     return calculateSplit({ totalAmount: total, participantIds, splitType: 'equal' });
+  }
+
+  if (split.splitType === 'items') {
+    return calculateItemSplit(
+      total,
+      participantIds,
+      split.lineItems.map((item) => ({
+        ...item,
+        assignedMemberIds: item.assignedMemberIds.map(asMemberId),
+      })),
+      split.charges,
+    );
   }
 
   const byMember = new Map<string, { amountMinor?: number; basisPoints?: number; units?: number }>();

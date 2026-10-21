@@ -28,7 +28,7 @@ describe('Phase 6 Track 1 migration (SQLite)', () => {
   it('bumps the schema version through all applied migrations (now 4)', async () => {
     // v1 = initial schema, v2 = Phase 6 Track 1, v3 = write-side support,
     // v4 = feedback store.
-    expect(await getSchemaVersion(db)).toBe(9);
+    expect(await getSchemaVersion(db)).toBe(11);
   });
 
   it('creates the settlement_state_history table', () => {
@@ -105,6 +105,6 @@ describe('Phase 6 Track 1 migration (SQLite)', () => {
   it('is idempotent — running migrations twice does not throw', async () => {
     // Re-run migrations on the already-migrated database.
     await expect(runMigrations(db)).resolves.not.toThrow();
-    expect(await getSchemaVersion(db)).toBe(9);
+    expect(await getSchemaVersion(db)).toBe(11);
   });
 });

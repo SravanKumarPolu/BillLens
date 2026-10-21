@@ -160,6 +160,19 @@ import {
   RestoreBackupUseCase,
 } from '@application/backup/backup.usecases';
 import { SqliteBackupStore } from './sqlite/sqlite-backup-store';
+import { SqliteGroupManagementStore } from './sqlite/sqlite-group-management-store';
+import {
+  AddGroupMemberUseCase,
+  ArchiveGroupUseCase,
+  DeleteGroupUseCase,
+  GetGroupDeletionSummaryUseCase,
+  GetGroupUseCase,
+  RemoveGroupMemberUseCase,
+  RenameGroupMemberUseCase,
+  RestoreGroupUseCase,
+  UpdateGroupUseCase,
+} from '@application/groups/group-management.usecases';
+import { removeLocalImage } from '@utils/local-image';
 import { SqliteExtractionResultRepository } from './sqlite/sqlite-extraction-result-repository';
 import { SqliteFeedbackRepository } from './sqlite/sqlite-feedback-repository';
 import { SqliteGroupMemberRepository } from './sqlite/sqlite-group-member-repository';
@@ -355,6 +368,15 @@ export interface ExpenseServices {
 export interface GroupServices {
   readonly listGroupMembers: ListGroupMembersUseCase;
   readonly createGroup: CreateGroupUseCase;
+  readonly get: GetGroupUseCase;
+  readonly update: UpdateGroupUseCase;
+  readonly archive: ArchiveGroupUseCase;
+  readonly restore: RestoreGroupUseCase;
+  readonly deletionSummary: GetGroupDeletionSummaryUseCase;
+  readonly deleteGroup: DeleteGroupUseCase;
+  readonly addMember: AddGroupMemberUseCase;
+  readonly renameMember: RenameGroupMemberUseCase;
+  readonly removeMember: RemoveGroupMemberUseCase;
 }
 
 /**
@@ -677,6 +699,7 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
       repositories.settlements,
       repositories.audit,
       repositories.members,
+      repositories.groups,
     ),
     requestSettlement: new RequestSettlementUseCase(
       repositories.settlements,
@@ -783,7 +806,25 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
     restore: new RestoreBackupUseCase(backupStore),
   };
 
+  const groupManagementStore = new SqliteGroupManagementStore(database);
   const groups: GroupServices = {
+    get: new GetGroupUseCase(repositories.groups),
+    update: new UpdateGroupUseCase(repositories.groups, groupManagementStore),
+    archive: new ArchiveGroupUseCase(repositories.groups),
+    restore: new RestoreGroupUseCase(repositories.groups),
+    deletionSummary: new GetGroupDeletionSummaryUseCase(
+      repositories.groups,
+      repositories.members,
+      groupManagementStore,
+    ),
+    deleteGroup: new DeleteGroupUseCase(
+      repositories.groups,
+      groupManagementStore,
+      removeLocalImage,
+    ),
+    addMember: new AddGroupMemberUseCase(repositories.groups, repositories.members, generateId),
+    renameMember: new RenameGroupMemberUseCase(repositories.members),
+    removeMember: new RemoveGroupMemberUseCase(repositories.members, groupManagementStore),
     listGroupMembers: new ListGroupMembersUseCase(
       repositories.groups,
       repositories.members,

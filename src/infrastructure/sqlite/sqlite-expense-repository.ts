@@ -44,7 +44,7 @@ import { enqueueSyncOpWithin, syncIdempotencyKey } from './sync-op-writer';
 const EXPENSE_COLUMNS = `
   id, group_id, title, amount_minor, currency_code, expense_date,
   split_type, receipt_id, note, category, created_by, created_at,
-  updated_at, deleted_at, version
+  updated_at, deleted_at, version, line_items_json, item_charges_json
 `;
 
 export class SqliteExpenseRepository implements ExpenseRepository {
@@ -129,8 +129,8 @@ export class SqliteExpenseRepository implements ExpenseRepository {
              id, group_id, title, amount_minor, currency_code, expense_date,
              split_type, receipt_id, note, category, created_by, created_at,
              updated_at, deleted_at, version, last_modified_by,
-             client_created_at, client_updated_at
-           ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             client_created_at, client_updated_at, line_items_json, item_charges_json
+           ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             expense.id,
             expense.groupId,
@@ -150,6 +150,8 @@ export class SqliteExpenseRepository implements ExpenseRepository {
             expense.createdBy,
             expense.createdAt as string,
             expense.updatedAt as string,
+            expense.lineItems !== undefined ? JSON.stringify(expense.lineItems) : null,
+            expense.itemCharges !== undefined ? JSON.stringify(expense.itemCharges) : null,
           ],
         );
       } else {
@@ -158,7 +160,7 @@ export class SqliteExpenseRepository implements ExpenseRepository {
              group_id = ?, title = ?, amount_minor = ?, currency_code = ?,
              expense_date = ?, split_type = ?, receipt_id = ?, note = ?,
              category = ?, created_by = ?, created_at = ?, updated_at = ?,
-             deleted_at = ?, version = ?
+             deleted_at = ?, version = ?, line_items_json = ?, item_charges_json = ?
            where id = ?`,
           [
             expense.groupId,
@@ -175,6 +177,8 @@ export class SqliteExpenseRepository implements ExpenseRepository {
             expense.updatedAt as string,
             expense.deletedAt ? (expense.deletedAt as string) : null,
             expense.version as number,
+            expense.lineItems !== undefined ? JSON.stringify(expense.lineItems) : null,
+            expense.itemCharges !== undefined ? JSON.stringify(expense.itemCharges) : null,
             expense.id,
           ],
         );

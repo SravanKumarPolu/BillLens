@@ -134,6 +134,13 @@ export function mapGroupRow(row: SqlRow): Group {
     ...(row['description'] !== null && row['description'] !== undefined
       ? { description: row['description'] as string }
       : {}),
+    ...(row['category'] !== null && row['category'] !== undefined
+      ? { category: row['category'] as Group['category'] }
+      : {}),
+    ...(row['icon'] !== null && row['icon'] !== undefined ? { icon: row['icon'] as string } : {}),
+    ...(row['archived_at'] !== null && row['archived_at'] !== undefined
+      ? { archivedAt: asDateTime(row['archived_at'] as string) }
+      : {}),
     currencyCode: asCurrencyCode(row['currency_code'] as string),
     createdBy: row['created_by'] as UserId,
     createdAt: asDateTime(row['created_at'] as string),
@@ -171,6 +178,16 @@ export function mapGroupMemberRow(row: SqlRow): GroupMember {
 // expenses / expense_payers / expense_splits
 // ---------------------------------------------------------------------------
 
+function parseOptionalJsonArray<T>(value: unknown): readonly T[] | undefined {
+  if (typeof value !== 'string' || value.length === 0) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? (parsed as T[]) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function mapExpenseRow(row: SqlRow): Expense {
   return {
     id: row['id'] as ExpenseId,
@@ -188,6 +205,24 @@ export function mapExpenseRow(row: SqlRow): Expense {
       : {}),
     ...(row['category'] !== null && row['category'] !== undefined
       ? { category: row['category'] as string }
+      : {}),
+    ...(parseOptionalJsonArray<NonNullable<Expense['lineItems']>[number]>(
+      row['line_items_json'],
+    ) !== undefined
+      ? {
+          lineItems: parseOptionalJsonArray<NonNullable<Expense['lineItems']>[number]>(
+            row['line_items_json'],
+          ),
+        }
+      : {}),
+    ...(parseOptionalJsonArray<NonNullable<Expense['itemCharges']>[number]>(
+      row['item_charges_json'],
+    ) !== undefined
+      ? {
+          itemCharges: parseOptionalJsonArray<NonNullable<Expense['itemCharges']>[number]>(
+            row['item_charges_json'],
+          ),
+        }
       : {}),
     createdBy: row['created_by'] as UserId,
     createdAt: asDateTime(row['created_at'] as string),

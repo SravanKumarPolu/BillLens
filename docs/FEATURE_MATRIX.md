@@ -7,8 +7,8 @@ Statuses: **VERIFIED** (tests in this repo), **DEVICE-UNTESTED**,
 
 | Feature | Original | Final | Evidence / blocker |
 |---|---|---|---|
-| Create/edit/archive group | Verified | Verified | create group + archive/leave screens; edit name in settings |
-| Add/remove members | Verified | Verified | member list, invite/join, leave; removal via relay for encrypted groups |
+| Create/edit/archive group | Verified | Verified | full edit form, category/icon, archive/restore; real-SQLite tests |
+| Add/remove members | Verified | Verified | add/rename/deactivate UI; owner protected; history preserved |
 | Manual expense entry | Verified | Verified | screen→SQLite test: ₹100 → four ₹25 splits |
 | Equal split | Verified | Verified | domain strategy + use case + form |
 | Exact split | **Missing in UI** | **VERIFIED** | `expense-split-types.test.ts`, form split field |
@@ -52,7 +52,7 @@ Statuses: **VERIFIED** (tests in this repo), **DEVICE-UNTESTED**,
 | Recurring expenses | Verified | daily/weekly/monthly/yearly; catch-up + idempotency tests |
 | PDF / XLSX export | Implemented, device-untested | lazy `expo-print`/`xlsx` chunks; escaped HTML |
 | Reminders / notifications | Implemented, device-untested | opt-in daily local reminder; no push |
-| Encrypted backup / restore | Verified (Node/SQLite) | `/settings/backup`; XChaCha20 + PBKDF2; replace-all restore |
+| Encrypted backup / restore | Verified (Node/SQLite) | DB tables only; receipt image files not included |
 | Multi-currency display | Verified | per-currency balances |
 | FX conversion | **MISSING** | no rates source; no 1:1 assumption |
 | Guest → account migration | Partial | identity domain; no cloud project to verify |

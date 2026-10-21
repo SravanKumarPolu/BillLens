@@ -43,6 +43,10 @@ export interface ExpenseDetailView {
   readonly payersTotalMinor: number;
   /** Participant count (number of distinct members who owe a share). */
   readonly participantCount: number;
+  /** Itemised expense data (undefined for non-itemised expenses). */
+  readonly lineItems?: readonly import('@domain/entities/expense').ExpenseLineItem[];
+  readonly itemCharges?: readonly import('@domain/entities/expense').ExpenseItemCharge[];
+  readonly version?: number;
 }
 
 export interface GetExpenseDetailOutput {
@@ -127,6 +131,9 @@ export class GetExpenseDetailUseCase {
       sharesTotalMinor,
       payersTotalMinor,
       participantCount: sharesView.length,
+      ...(expense.lineItems !== undefined ? { lineItems: expense.lineItems } : {}),
+      ...(expense.itemCharges !== undefined ? { itemCharges: expense.itemCharges } : {}),
+      version: expense.version as number,
     };
 
     return { view };

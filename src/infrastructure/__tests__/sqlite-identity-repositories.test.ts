@@ -19,7 +19,7 @@ describe('migration 0005 (identity_support)', () => {
   it('applies and reports schema version 6 (v2.5.0 migration applied after)', async () => {
     const db = new InMemoryDatabase();
     await runMigrations(db);
-    expect(await getSchemaVersion(db)).toBe(9);
+    expect(await getSchemaVersion(db)).toBe(11);
   });
 });
 

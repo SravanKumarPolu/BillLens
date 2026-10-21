@@ -30,14 +30,16 @@
  */
 
 import { router } from 'expo-router';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable } from 'react-native';
 
 import { AmountText } from '@presentation/design-system/components/AmountText';
 import { Avatar } from '@presentation/design-system/components/Avatar';
 import { BentoGrid } from '@presentation/design-system/components/BentoGrid';
 import { Card } from '@presentation/design-system/components/Card';
 import { Icon } from '@presentation/design-system/components/Icon';
+import { IconButton } from '@presentation/design-system/components/IconButton';
 import { Row } from '@presentation/design-system/components/Row';
 import { Screen } from '@presentation/design-system/components/Screen';
 import { Stack } from '@presentation/design-system/components/Stack';
@@ -51,6 +53,7 @@ import {
   createGroupDetailViewModel,
 } from '@presentation/view-models/groups';
 import { useGroupStore } from '@store/group-store';
+import { tryGetAppServices } from '@store/services-registry';
 
 // ---------------------------------------------------------------------------
 // Container
@@ -81,12 +84,63 @@ export function GroupHomeScreen({ groupId }: GroupHomeScreenProps): JSX.Element 
     members: dashboard.members,
   });
 
+  const [menuOpen, setMenuOpen] = useState(false);
+  const archived = group?.archived ?? false;
+
+  const toggleArchive = (): void => {
+    const services = tryGetAppServices();
+    if (services === null) return;
+    setMenuOpen(false);
+    void (async () => {
+      try {
+        const current = await services.groups.get.execute(groupId);
+        if (current.archivedAt !== undefined) {
+          await services.groups.restore.execute(groupId, current.version as number);
+        } else {
+          await services.groups.archive.execute(groupId, current.version as number);
+        }
+        const store = useGroupStore.getState();
+        const existing = store.groups.find((entry) => entry.id === groupId);
+        if (existing !== undefined) {
+          store.upsertGroup({ ...existing, archived: current.archivedAt === undefined });
+        }
+      } catch (err) {
+        Alert.alert(
+          'Could not update group',
+          err instanceof Error ? err.message : 'Try again.',
+        );
+      }
+    })();
+  };
+
   return (
-    <GroupHomeView
-      viewModel={viewModel}
-      isLoading={dashboard.loading}
-      loadError={dashboard.error}
-    />
+    <>
+      <GroupHomeView
+        viewModel={viewModel}
+        isLoading={dashboard.loading}
+        loadError={dashboard.error}
+        archived={archived}
+        onOpenMenu={() => setMenuOpen(true)}
+      />
+      <GroupMenuSheet
+        visible={menuOpen}
+        archived={archived}
+        onClose={() => setMenuOpen(false)}
+        onEdit={() => {
+          setMenuOpen(false);
+          router.push(`/groups/edit/${encodeURIComponent(groupId)}`);
+        }}
+        onMembers={() => {
+          setMenuOpen(false);
+          router.push(`/groups/members/${encodeURIComponent(groupId)}`);
+        }}
+        onToggleArchive={toggleArchive}
+        onDelete={() => {
+          setMenuOpen(false);
+          router.push(`/groups/delete/${encodeURIComponent(groupId)}`);
+        }}
+      />
+    </>
   );
 }
 
@@ -100,24 +154,40 @@ export interface GroupHomeViewProps {
   readonly isLoading?: boolean;
   /** Non-null when the repository load failed. */
   readonly loadError?: string | null;
+  readonly archived?: boolean;
+  readonly onOpenMenu?: () => void;
 }
 
 export function GroupHomeView({
   viewModel,
   isLoading = false,
   loadError = null,
+  archived = false,
+  onOpenMenu,
 }: GroupHomeViewProps): JSX.Element {
   return (
     <Screen scrollable safeArea>
       <Stack gap="xl" align="stretch" style={{ padding: spacing.xl }}>
         <Stack gap="xs" align="stretch">
-          <Text variant="screenTitle" color="primary" accessibilityRole="header" numberOfLines={1}>
-            {viewModel.name}
-          </Text>
-          <Text variant="caption" color="muted">
-            {viewModel.memberCount}{' '}
-            {viewModel.memberCount === 1 ? 'member' : 'members'} · {viewModel.currencyCode}
-          </Text>
+          <Row gap="sm" align="center">
+            <Stack gap="xs" style={{ flex: 1 }}>
+              <Text variant="screenTitle" color="primary" accessibilityRole="header" numberOfLines={1}>
+                {viewModel.name}
+              </Text>
+              <Text variant="caption" color="muted">
+                {viewModel.memberCount}{' '}
+                {viewModel.memberCount === 1 ? 'member' : 'members'} · {viewModel.currencyCode}
+                {archived ? ' · Archived (read-only)' : ''}
+              </Text>
+            </Stack>
+            {onOpenMenu !== undefined ? (
+              <IconButton
+                icon="ellipsis-vertical"
+                onPress={onOpenMenu}
+                accessibilityLabel="Group options"
+              />
+            ) : null}
+          </Row>
         </Stack>
 
         {loadError !== null ? <LoadErrorCard message={loadError} /> : null}
@@ -492,5 +562,96 @@ function EmptySectionCard({ icon, title, message }: EmptySectionCardProps): Reac
         </Text>
       </Stack>
     </Card>
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// Group options sheet
+// ---------------------------------------------------------------------------
+
+interface GroupMenuSheetProps {
+  readonly visible: boolean;
+  readonly archived: boolean;
+  readonly onClose: () => void;
+  readonly onEdit: () => void;
+  readonly onMembers: () => void;
+  readonly onToggleArchive: () => void;
+  readonly onDelete: () => void;
+}
+
+function GroupMenuSheet({
+  visible,
+  archived,
+  onClose,
+  onEdit,
+  onMembers,
+  onToggleArchive,
+  onDelete,
+}: GroupMenuSheetProps): ReactNode {
+  const theme = useTheme();
+  const options = [
+    { label: 'Edit group', icon: 'create-outline', onPress: onEdit, destructive: false },
+    { label: 'Manage members', icon: 'people-outline', onPress: onMembers, destructive: false },
+    {
+      label: archived ? 'Restore group' : 'Archive group',
+      icon: archived ? 'refresh-outline' : 'archive-outline',
+      onPress: onToggleArchive,
+      destructive: false,
+    },
+    { label: 'Delete group', icon: 'trash-outline', onPress: onDelete, destructive: true },
+  ];
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Close group options"
+        onPress={onClose}
+        style={{ flex: 1, backgroundColor: theme.colors.scrim, justifyContent: 'flex-end' }}
+      >
+        <Pressable
+          onPress={(event) => event.stopPropagation()}
+          style={{
+            backgroundColor: theme.colors.surface,
+            borderTopLeftRadius: theme.borderRadius.lg,
+            borderTopRightRadius: theme.borderRadius.lg,
+            padding: spacing.lg,
+            gap: spacing.xs,
+          }}
+        >
+          <Text variant="cardTitle" style={{ marginBottom: spacing.sm }}>
+            Group options
+          </Text>
+          {options.map((option) => (
+            <Pressable
+              key={option.label}
+              accessibilityRole="button"
+              accessibilityLabel={option.label}
+              onPress={option.onPress}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 52 }}
+            >
+              <Icon
+                name={option.icon}
+                size={theme.iconSizes.md}
+                color={option.destructive ? theme.colors.negative : theme.colors.textPrimary}
+              />
+              <Text variant="body" color={option.destructive ? 'negative' : 'primary'}>
+                {option.label}
+              </Text>
+            </Pressable>
+          ))}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Cancel group options"
+            onPress={onClose}
+            style={{ minHeight: 48, justifyContent: 'center', marginTop: spacing.sm }}
+          >
+            <Text variant="body" color="secondary" style={{ textAlign: 'center' }}>
+              Cancel
+            </Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }

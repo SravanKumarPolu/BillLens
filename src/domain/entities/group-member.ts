@@ -144,3 +144,33 @@ export function wasMemberActiveAt(member: GroupMember, asOf: DateTime): boolean 
   if (member.leftAt && member.leftAt <= asOf) return false;
   return true;
 }
+
+export interface GroupMemberRenameInput {
+  readonly displayName: string;
+  readonly now?: DateTime;
+  readonly expectedVersion: VersionNumber;
+}
+
+export function renameGroupMember(current: GroupMember, input: GroupMemberRenameInput): GroupMember {
+  if (current.version !== input.expectedVersion) {
+    throw new VersionConflictError(
+      `GroupMember version conflict: expected ${input.expectedVersion}, got ${current.version}`,
+      input.expectedVersion as number,
+      current.version as number,
+    );
+  }
+  if (current.leftAt) {
+    throw new DeletedEntityError(
+      `Member ${current.id} has left group ${current.groupId}`,
+      'GroupMember',
+      current.id,
+    );
+  }
+  const now = input.now ?? nowDateTime();
+  return {
+    ...current,
+    displayName: asDisplayName(input.displayName),
+    updatedAt: asDateTime(now),
+    version: asVersionNumber(current.version + 1),
+  };
+}

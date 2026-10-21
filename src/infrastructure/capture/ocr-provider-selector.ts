@@ -38,11 +38,12 @@
 
 import type { CaptureProcessor } from '@domain/ports/capture-processor.port';
 
+import { MlKitOcrCaptureProcessor } from './mlkit-ocr-capture-processor';
 import { MockCaptureProcessor } from './mock-capture-processor';
 import { RemoteOcrCaptureProcessor } from './remote-ocr-capture-processor';
 import { UnavailableCaptureProcessor } from './unavailable-capture-processor';
 
-export type OcrMode = 'mock' | 'remote' | 'unavailable';
+export type OcrMode = 'mock' | 'remote' | 'mlkit' | 'unavailable';
 
 /** Modes a caller may force via EXPO_PUBLIC_OCR_MODE. */
 export type OcrModeOverride = Exclude<OcrMode, 'unavailable'>;
@@ -101,6 +102,15 @@ export function resolveOcrProvider(config: OcrProviderConfig): OcrProviderSelect
     return buildRemote(config);
   }
 
+  if (config.modeOverride === 'mlkit') {
+    return {
+      mode: 'mlkit',
+      processor: new MlKitOcrCaptureProcessor(),
+      reason:
+        'On-device ML Kit OCR selected. Requires a custom Expo development/release build (not Expo Go).',
+    };
+  }
+
   if (config.modeOverride === 'mock') {
     if (!config.allowMock) {
       // v2.5.0: production builds refuse the mock provider outright —
@@ -135,10 +145,21 @@ export function resolveOcrProvider(config: OcrProviderConfig): OcrProviderSelect
     };
   }
 
+  // Production (mock refused, no cloud configured): use the free on-device
+  // engine. It fails clearly at process time if the native module was not
+  // included in the build.
+  if (!config.allowMock) {
+    return {
+      mode: 'mlkit',
+      processor: new MlKitOcrCaptureProcessor(),
+      reason:
+        'On-device ML Kit OCR (offline, no account). Requires a custom development or release build.',
+    };
+  }
+
   return unavailable(
-    'No OCR provider is configured — receipt scanning is unavailable. ' +
-      'Configure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY (and deploy the ' +
-      'ocr-receipt Edge Function, see supabase/functions/ocr-receipt/), or add expenses manually.',
+    'No OCR provider is configured — receipt scanning is unavailable. Build a custom dev client ' +
+      'for on-device ML Kit, or configure the optional Supabase OCR function.',
   );
 }
 

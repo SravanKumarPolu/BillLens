@@ -67,16 +67,16 @@ describe('resolveOcrProvider (development — allowMock: true)', () => {
 });
 
 describe('resolveOcrProvider (production — allowMock: false)', () => {
-  it('resolves to UNAVAILABLE when nothing is configured — never mock', () => {
+  it('prefers free on-device ML Kit when no cloud is configured — never mock', () => {
     const selection = resolveOcrProvider({
       supabaseUrl: '',
       supabaseAnonKey: '',
       allowMock: false,
       loadImageBase64: loadImage,
     });
-    expect(selection.mode).toBe('unavailable');
-    expect(selection.processor).toBeInstanceOf(UnavailableCaptureProcessor);
-    expect(selection.reason).toContain('receipt scanning is unavailable');
+    expect(selection.mode).toBe('mlkit');
+    expect(selection.processor).not.toBeInstanceOf(UnavailableCaptureProcessor);
+    expect(selection.reason).toMatch(/on-device/i);
   });
 
   it('resolves to UNAVAILABLE when remote is forced but unconfigured — never mock', () => {

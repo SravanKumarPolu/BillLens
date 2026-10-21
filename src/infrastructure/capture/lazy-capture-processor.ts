@@ -20,7 +20,7 @@ import type { ExtractionResult } from '@domain/entities/extraction-result';
 
 export interface ResolvedCaptureProcessor {
   readonly processor: CaptureProcessor;
-  readonly mode: 'mock' | 'remote' | 'unavailable';
+  readonly mode: 'mock' | 'remote' | 'mlkit' | 'unavailable';
   readonly reason: string;
 }
 

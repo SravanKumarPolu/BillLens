@@ -1324,6 +1324,25 @@ create table if not exists recurring_occurrences (
 create index if not exists idx_recurring_occurrence_expense on recurring_occurrences (expense_id);
 `;
 
+
+export const MIGRATION_0010_EXPENSE_LINE_ITEMS = `
+-- Itemised expenses: line items and receipt-level charges are stored on the
+-- aggregate so an edit remains atomic with its computed exact splits.
+alter table expenses add column line_items_json text;
+alter table expenses add column item_charges_json text;
+`;
+
+
+export const MIGRATION_0011_GROUP_MANAGEMENT = `
+-- Archive is reversible and independent of soft delete. Category/icon are
+-- presentation metadata and never affect financial calculations.
+alter table groups add column archived_at text;
+alter table groups add column category text;
+alter table groups add column icon text;
+
+create index if not exists idx_groups_archived on groups (archived_at);
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'initial_schema', sql: MIGRATION_0001_INITIAL_SCHEMA },
   { version: 2, name: 'phase6_track1_settlement_state_machine', sql: MIGRATION_0002_PHASE6_TRACK1 },
@@ -1334,6 +1353,8 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 7, name: 'sync_cursors', sql: MIGRATION_0007_SYNC_CURSORS },
   { version: 8, name: 'encrypted_sync', sql: MIGRATION_0008_ENCRYPTED_SYNC },
   { version: 9, name: 'recurring_expenses', sql: MIGRATION_0009_RECURRING_EXPENSES },
+  { version: 10, name: 'expense_line_items', sql: MIGRATION_0010_EXPENSE_LINE_ITEMS },
+  { version: 11, name: 'group_management', sql: MIGRATION_0011_GROUP_MANAGEMENT },
 ];
 
 /**

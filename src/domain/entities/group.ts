@@ -19,11 +19,16 @@ export function asGroupId(value: string): GroupId {
 
 export const GROUP_NAME_MAX_LENGTH = 100;
 export const GROUP_DESCRIPTION_MAX_LENGTH = 500;
+export type GroupCategory = 'trip' | 'home' | 'friends' | 'office' | 'other';
+export const GROUP_CATEGORIES: readonly GroupCategory[] = ['trip', 'home', 'friends', 'office', 'other'];
 
 export interface Group {
   readonly id: GroupId;
   readonly name: string;
   readonly description?: string;
+  readonly category?: GroupCategory;
+  readonly icon?: string;
+  readonly archivedAt?: DateTime;
   readonly currencyCode: CurrencyCode;
   readonly createdBy: UserId;
   readonly createdAt: DateTime;
@@ -36,6 +41,8 @@ export interface GroupCreateInput {
   readonly id: GroupId;
   readonly name: string;
   readonly description?: string;
+  readonly category?: GroupCategory;
+  readonly icon?: string;
   readonly currencyCode: string;
   readonly createdBy: UserId;
   readonly now?: DateTime;
@@ -51,6 +58,8 @@ export function createGroup(input: GroupCreateInput): Group {
     id: input.id,
     name: input.name.trim(),
     ...(input.description !== undefined ? { description: input.description.trim() } : {}),
+    ...(input.category !== undefined ? { category: input.category } : {}),
+    ...(input.icon !== undefined ? { icon: input.icon } : {}),
     currencyCode: asCurrencyCode(input.currencyCode),
     createdBy: input.createdBy,
     createdAt: asDateTime(now),
@@ -62,6 +71,8 @@ export function createGroup(input: GroupCreateInput): Group {
 export interface GroupUpdateInput {
   readonly name?: string;
   readonly description?: string;
+  readonly category?: GroupCategory;
+  readonly icon?: string;
   readonly now?: DateTime;
   readonly expectedVersion: VersionNumber;
 }
@@ -84,6 +95,8 @@ export function updateGroup(current: Group, input: GroupUpdateInput): Group {
     ...current,
     ...(input.name !== undefined ? { name: input.name.trim() } : {}),
     ...(input.description !== undefined ? { description: input.description.trim() } : {}),
+    ...(input.category !== undefined ? { category: input.category } : {}),
+    ...(input.icon !== undefined ? { icon: input.icon } : {}),
     updatedAt: asDateTime(now),
     version: asVersionNumber(current.version + 1),
   };
@@ -142,4 +155,47 @@ export function validateGroupDescription(description: string): void {
       description.length,
     );
   }
+}
+
+export interface GroupArchiveInput {
+  readonly now?: DateTime;
+  readonly expectedVersion: VersionNumber;
+}
+
+export function archiveGroup(current: Group, input: GroupArchiveInput): Group {
+  if (current.version !== input.expectedVersion) {
+    throw new VersionConflictError(
+      `Group version conflict: expected ${input.expectedVersion}, got ${current.version}`,
+      input.expectedVersion as number,
+      current.version as number,
+    );
+  }
+  if (current.deletedAt) throw new Error(`Group ${current.id} is deleted`);
+  if (current.archivedAt) throw new Error(`Group ${current.id} is already archived`);
+  const now = input.now ?? nowDateTime();
+  return {
+    ...current,
+    archivedAt: asDateTime(now),
+    updatedAt: asDateTime(now),
+    version: asVersionNumber(current.version + 1),
+  };
+}
+
+export function restoreArchivedGroup(current: Group, input: GroupArchiveInput): Group {
+  if (current.version !== input.expectedVersion) {
+    throw new VersionConflictError(
+      `Group version conflict: expected ${input.expectedVersion}, got ${current.version}`,
+      input.expectedVersion as number,
+      current.version as number,
+    );
+  }
+  if (current.deletedAt) throw new Error(`Group ${current.id} is deleted`);
+  if (!current.archivedAt) throw new Error(`Group ${current.id} is not archived`);
+  const now = input.now ?? nowDateTime();
+  const { archivedAt: _archivedAt, ...rest } = current;
+  return {
+    ...rest,
+    updatedAt: asDateTime(now),
+    version: asVersionNumber(current.version + 1),
+  };
 }

@@ -46,14 +46,14 @@ beforeEach(async () => {
 
 describe('migration 0004 (feedback store)', () => {
   it('creates both tables and bumps the schema version through 6 (v2.5.0 sync_queue_alignment applied after)', async () => {
-    expect(await getSchemaVersion(db)).toBe(9);
+    expect(await getSchemaVersion(db)).toBe(11);
     expect(db.hasTable('feedback_records')).toBe(true);
     expect(db.hasTable('review_prompt_ledger')).toBe(true);
   });
 
   it('is idempotent when migrations run twice', async () => {
     await expect(runMigrations(db)).resolves.not.toThrow();
-    expect(await getSchemaVersion(db)).toBe(9);
+    expect(await getSchemaVersion(db)).toBe(11);
   });
 });
 

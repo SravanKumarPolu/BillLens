@@ -7,6 +7,7 @@ import type { Settlement } from '@domain/entities/settlement';
 import { InvalidEntityError } from '@domain/errors/index';
 import type { AuditRepository } from '@domain/repositories/audit.repository';
 import type { GroupMemberRepository } from '@domain/repositories/group-member.repository';
+import type { GroupRepository } from '@domain/repositories/group.repository';
 import type { SettlementRepository } from '@domain/repositories/settlement.repository';
 import { nowDateTime, type DateTime } from '@domain/value-objects';
 import type { SettlementId, UserId, MemberId, GroupId } from '@shared-types/index';
@@ -43,6 +44,7 @@ export class CreateSettlementDraftUseCase {
     private readonly settlements: SettlementRepository,
     private readonly audit: AuditRepository,
     private readonly members: GroupMemberRepository,
+    private readonly groups?: GroupRepository,
   ) {}
 
   async execute(input: CreateSettlementDraftInput): Promise<CreateSettlementDraftOutput> {
@@ -51,6 +53,16 @@ export class CreateSettlementDraftUseCase {
     // group. Checked FIRST so an unauthorized idempotency probe cannot
     // distinguish existing operationIds (the check runs before any
     // repository read).
+    if (this.groups !== undefined) {
+      const group = await this.groups.findById(input.groupId as never as GroupId);
+      if (group === null || group.deletedAt !== undefined) {
+        throw new InvalidEntityError(`Group ${input.groupId} not found`);
+      }
+      if (group.archivedAt !== undefined) {
+        throw new InvalidEntityError('This group is archived and read-only. Restore it first.');
+      }
+    }
+
     const activeMembers = await this.members.listActiveByGroup(
       input.groupId as never as GroupId,
     );

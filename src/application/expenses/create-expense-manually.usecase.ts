@@ -120,6 +120,9 @@ export class CreateExpenseManuallyUseCase {
     if (group.deletedAt !== undefined) {
       throw new InvalidEntityError(`Group ${input.groupId} is deleted`);
     }
+    if (group.archivedAt !== undefined) {
+      throw new InvalidEntityError('This group is archived and read-only. Restore it first.');
+    }
 
     // 2. Payers and participants must be ACTIVE members of the group.
     const activeMembers = await this.members.listActiveByGroup(asGroupId(input.groupId));
@@ -189,6 +192,12 @@ export class CreateExpenseManuallyUseCase {
       expenseDate: normalizeExpenseDate(input.expenseDate, now),
       splitType,
       ...(input.note !== undefined ? { note: input.note } : {}),
+      ...(input.split?.splitType === 'items'
+        ? {
+            lineItems: input.split.lineItems,
+            ...(input.split.charges !== undefined ? { itemCharges: input.split.charges } : {}),
+          }
+        : {}),
       createdBy: input.createdBy as never,
       now,
     });

@@ -104,7 +104,7 @@ export async function warmUpOptionalServices(): Promise<void> {
 }
 
 /** Active OCR provider mode ('mock' | 'remote' | 'unavailable'). */
-let lastOcrSelectionMode: 'mock' | 'remote' | 'unavailable' | null = null;
+let lastOcrSelectionMode: 'mock' | 'remote' | 'mlkit' | 'unavailable' | null = null;
 
 /** Human-readable explanation of the active OCR provider mode. */
 export function getOcrProviderReason(): string | null {
@@ -118,7 +118,7 @@ export function getOcrProviderReason(): string | null {
  * review UI and (b) explain why receipt scanning is unavailable in
  * production builds without a configured OCR backend.
  */
-export function getOcrProviderMode(): 'mock' | 'remote' | 'unavailable' | null {
+export function getOcrProviderMode(): 'mock' | 'remote' | 'mlkit' | 'unavailable' | null {
   return lastOcrSelectionMode;
 }
 

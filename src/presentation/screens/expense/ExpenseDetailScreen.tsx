@@ -163,6 +163,7 @@ export function ExpenseDetailScreen({ expenseId }: ExpenseDetailScreenProps): JS
       onBack={() => router.back()}
       onEdit={() => router.push(`/expenses/edit/${encodeURIComponent(expenseId)}`)}
       onRepeat={() => router.push(`/recurring/new?expenseId=${encodeURIComponent(expenseId)}`)}
+      onEditItems={() => router.push(`/expenses/items/${encodeURIComponent(expenseId)}`)}
       onVoid={handleVoid}
     />
   );
@@ -178,6 +179,7 @@ export interface ExpenseDetailViewProps {
   /** Optional: omit in read-only previews/tests. */
   readonly onEdit?: () => void;
   readonly onRepeat?: () => void;
+  readonly onEditItems?: () => void;
   readonly onVoid?: () => void;
 }
 
@@ -186,6 +188,7 @@ export function ExpenseDetailScreenView({
   onBack,
   onEdit,
   onRepeat,
+  onEditItems,
   onVoid,
 }: ExpenseDetailViewProps): JSX.Element {
   const theme = useTheme();
@@ -347,6 +350,16 @@ export function ExpenseDetailScreenView({
             onPress={onEdit}
             accessibilityLabel="Edit this expense"
             icon="create-outline"
+          />
+        ) : null}
+        {onEditItems !== undefined ? (
+          <Button
+            label="Edit items"
+            variant="ghost"
+            size="md"
+            onPress={onEditItems}
+            accessibilityLabel="Edit item-level split"
+            icon="list-outline"
           />
         ) : null}
         {onRepeat !== undefined ? (

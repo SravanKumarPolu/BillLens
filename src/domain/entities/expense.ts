@@ -40,6 +40,30 @@ export type SplitType = 'equal' | 'exact' | 'percentage' | 'shares' | 'items';
 export const EXPENSE_TITLE_MAX_LENGTH = 200;
 export const EXPENSE_NOTE_MAX_LENGTH = 1000;
 
+export interface ExpenseLineItem {
+  readonly id: string;
+  readonly name: string;
+  readonly totalAmountMinor: number;
+  readonly assignedMemberIds: readonly string[];
+  readonly quantity?: number;
+  readonly unitPriceMinor?: number;
+  readonly discountMinor?: number;
+  readonly taxMinor?: number;
+}
+
+export interface ExpenseItemCharge {
+  readonly type:
+    | 'tax'
+    | 'service_charge'
+    | 'tip'
+    | 'delivery'
+    | 'discount'
+    | 'rounding_adjustment'
+    | 'unassigned_amount';
+  readonly amountMinor: number;
+  readonly label?: string;
+}
+
 export interface Expense {
   readonly id: ExpenseId;
   readonly groupId: GroupId;
@@ -51,6 +75,8 @@ export interface Expense {
   readonly receiptId?: ReceiptId;
   readonly note?: string;
   readonly category?: string;
+  readonly lineItems?: readonly ExpenseLineItem[];
+  readonly itemCharges?: readonly ExpenseItemCharge[];
   readonly createdBy: UserId;
   readonly createdAt: DateTime;
   readonly updatedAt: DateTime;
@@ -69,6 +95,8 @@ export interface ExpenseCreateInput {
   readonly receiptId?: string;
   readonly note?: string;
   readonly category?: string;
+  readonly lineItems?: readonly ExpenseLineItem[];
+  readonly itemCharges?: readonly ExpenseItemCharge[];
   readonly createdBy: UserId;
   readonly now?: DateTime;
 }
@@ -92,6 +120,8 @@ export function createExpense(input: ExpenseCreateInput): Expense {
     ...(input.receiptId !== undefined ? { receiptId: input.receiptId as ReceiptId } : {}),
     ...(input.note !== undefined ? { note: input.note.trim() } : {}),
     ...(input.category !== undefined ? { category: input.category.trim() } : {}),
+    ...(input.lineItems !== undefined ? { lineItems: input.lineItems } : {}),
+    ...(input.itemCharges !== undefined ? { itemCharges: input.itemCharges } : {}),
     createdBy: input.createdBy,
     createdAt: asDateTime(now),
     updatedAt: asDateTime(now),
@@ -107,6 +137,8 @@ export interface ExpenseUpdateInput {
   readonly category?: string;
   /** Split method may change; currency is immutable. */
   readonly splitType?: SplitType;
+  readonly lineItems?: readonly ExpenseLineItem[];
+  readonly itemCharges?: readonly ExpenseItemCharge[];
   readonly now?: DateTime;
   readonly expectedVersion: VersionNumber;
 }
@@ -141,6 +173,8 @@ export function updateExpense(current: Expense, input: ExpenseUpdateInput): Expe
     ...(input.note !== undefined ? { note: input.note.trim() } : {}),
     ...(input.category !== undefined ? { category: input.category.trim() } : {}),
     ...(input.splitType !== undefined ? { splitType: input.splitType } : {}),
+    ...(input.lineItems !== undefined ? { lineItems: input.lineItems } : {}),
+    ...(input.itemCharges !== undefined ? { itemCharges: input.itemCharges } : {}),
     updatedAt: asDateTime(now),
     version: asVersionNumber(current.version + 1),
   };
