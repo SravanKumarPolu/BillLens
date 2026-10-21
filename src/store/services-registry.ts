@@ -37,6 +37,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
 import { create } from 'zustand';
 
 import { getEnv, hasSupabaseConfig } from '@config/env';
@@ -238,6 +239,7 @@ async function productionFactory(): Promise<AppServices> {
     localWiper: new ExpoLocalDataWiper(database),
     // Production device-secret hash: expo-crypto SHA-256.
     hashDeviceSecret: async (input) => new ExpoImageHasher().hashImageBase64(input),
+    appVersion: Constants.expoConfig?.version ?? '0.0.0',
   });
 }
 
@@ -306,6 +308,15 @@ export function tryGetAppServices(): AppServices | null {
 }
 
 /** Current registry status ('idle' | 'initializing' | 'ready' | 'error'). */
+/**
+ * True when Supabase is configured. Used by the retention UI to decide
+ * whether a group's local copy can be safely purged (it cannot when a
+ * pull would restore it).
+ */
+export function isCloudSyncConfigured(): boolean {
+  return hasSupabaseConfig(getEnv());
+}
+
 export function getServicesStatus(): ServicesStatus {
   return useServicesRegistry.getState().status;
 }

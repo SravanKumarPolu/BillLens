@@ -160,17 +160,29 @@ export function anonymizeValue(
     }
 
     case 'date': {
-      // Date — normalize to a canonical pattern.
-      // ISO YYYY-MM-DD.
-      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return '<date:YYYY-MM-DD>';
+      // Date — normalize to a canonical pattern that keeps the SHAPE but
+      // never the value. Year-first dates are normalized to one token
+      // regardless of separator; day/month-first dates are labeled by the
+      // order the digits actually force (a component > 12), and are marked
+      // ambiguous when both orders are valid.
+      const dateOnly = value.trim().split(/[T\s]/)[0] ?? '';
+      // ISO YYYY-MM-DD (also YYYY/MM/DD and YYYY.MM.DD).
+      if (/^\d{4}[-/.]\d{1,2}[-/.]\d{1,2}$/.test(dateOnly)) {
+        return '<date:YYYY-MM-DD>';
+      }
       // ISO YYYY-MM.
       if (/^\d{4}-\d{2}$/.test(value)) return '<date:YYYY-MM>';
       // ISO YYYY.
       if (/^\d{4}$/.test(value)) return '<date:YYYY>';
-      // DD/MM/YYYY or DD-MM-YYYY.
-      if (/^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$/.test(value)) return '<date:DD/MM/YYYY>';
-      // MM/DD/YYYY or MM-DD-YYYY.
-      if (/^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$/.test(value)) return '<date:MM/DD/YYYY>';
+      // Day/month-first dates: DD/MM/YYYY, MM-DD-YYYY, DD.MM.YY.
+      const numeric = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$/.exec(dateOnly);
+      if (numeric) {
+        const first = Number(numeric[1]);
+        const second = Number(numeric[2]);
+        if (first > 12 && second <= 12) return '<date:DD/MM/YYYY>';
+        if (second > 12 && first <= 12) return '<date:MM/DD/YYYY>';
+        return '<date:DD/MM-ambiguous>';
+      }
       // Anything else.
       return '<date:unknown_format>';
     }
@@ -343,12 +355,9 @@ function isFormatChange(
   corrected: string,
   fieldType: OcrFieldName,
 ): boolean {
-  // For dates — if both are valid date formats and parse to the same
-  // date, it's a format change.
+  // For dates — if both name the same calendar day, it's a format change.
   if (fieldType === 'date') {
-    const exDate = Date.parse(extracted);
-    const corDate = Date.parse(corrected);
-    if (Number.isFinite(exDate) && Number.isFinite(corDate) && exDate === corDate) {
+    if (sameCalendarDate(extracted, corrected)) {
       return true;
     }
   }
@@ -372,6 +381,105 @@ function isFormatChange(
   }
 
   return false;
+}
+
+// ---------------------------------------------------------------------------
+// Calendar-date comparison (timezone-free)
+// ---------------------------------------------------------------------------
+
+/** A calendar day with no time and no timezone. */
+export interface CalendarDate {
+  readonly year: number;
+  /** 1-12. */
+  readonly month: number;
+  /** 1-31. */
+  readonly day: number;
+}
+
+const DAYS_IN_MONTH: readonly number[] = [
+  31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+];
+
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+function toCalendarDate(
+  year: number,
+  month: number,
+  day: number,
+): CalendarDate | null {
+  if (!Number.isInteger(year) || year < 1900 || year > 2100) return null;
+  if (!Number.isInteger(month) || month < 1 || month > 12) return null;
+  const monthLength =
+    month === 2 && isLeapYear(year)
+      ? 29
+      : (DAYS_IN_MONTH[month - 1] ?? 31);
+  if (!Number.isInteger(day) || day < 1 || day > monthLength) return null;
+  return { year, month, day };
+}
+
+/**
+ * Parses a receipt date into the calendar days it could denote.
+ *
+ * Receipts carry plain calendar dates ("2025-01-15"), not instants, so
+ * `Date.parse` is the wrong tool: `Date.parse('2025-01-15')` is UTC
+ * midnight while `Date.parse('2025/01/15')` is LOCAL midnight. On any
+ * device outside UTC the same calendar day then looks different, which
+ * mislabels a formatting correction as a value correction.
+ *
+ * Returns every plausible reading: `01/02/2025` is both 1 Feb and
+ * 2 Jan, so both candidates are returned. Returns `[]` when the string
+ * is not a date (invalid day/month, free text, timestamps).
+ */
+export function parseCalendarDates(value: string): readonly CalendarDate[] {
+  if (typeof value !== 'string') return [];
+  // Drop a time component: "2025-01-15T10:30:00Z" → "2025-01-15".
+  const dateOnly = value.trim().split(/[T\s]/)[0] ?? '';
+  if (dateOnly.length === 0) return [];
+
+  // Year-first: YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD.
+  const yearFirst = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(dateOnly);
+  if (yearFirst) {
+    const parsed = toCalendarDate(
+      Number(yearFirst[1]),
+      Number(yearFirst[2]),
+      Number(yearFirst[3]),
+    );
+    return parsed ? [parsed] : [];
+  }
+
+  // Day/month-first: DD/MM/YYYY, MM-DD-YYYY, DD.MM.YY.
+  const dayFirst = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$/.exec(dateOnly);
+  if (!dayFirst) return [];
+
+  const first = Number(dayFirst[1]);
+  const second = Number(dayFirst[2]);
+  const rawYear = dayFirst[3] ?? '';
+  const year = rawYear.length === 2 ? 2000 + Number(rawYear) : Number(rawYear);
+
+  const asDayMonth = toCalendarDate(year, second, first);
+  const asMonthDay = toCalendarDate(year, first, second);
+  if (!asDayMonth) return asMonthDay ? [asMonthDay] : [];
+  if (!asMonthDay) return [asDayMonth];
+  // Both orders are valid (e.g. 05/06/2025) — keep both readings.
+  if (asDayMonth.month === asMonthDay.month) return [asDayMonth];
+  return [asDayMonth, asMonthDay];
+}
+
+/**
+ * Returns `true` when two strings name the same calendar day, whatever
+ * their separator order or the device timezone.
+ */
+export function sameCalendarDate(a: string, b: string): boolean {
+  const left = parseCalendarDates(a);
+  const right = parseCalendarDates(b);
+  if (left.length === 0 || right.length === 0) return false;
+  return left.some((x) =>
+    right.some(
+      (y) => x.year === y.year && x.month === y.month && x.day === y.day,
+    ),
+  );
 }
 
 function parseAmount(value: string): number | null {

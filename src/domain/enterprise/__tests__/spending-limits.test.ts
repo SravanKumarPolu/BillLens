@@ -96,34 +96,79 @@ describe('enterprise / spending-limits', () => {
   });
 
   describe('getPeriodStart', () => {
-    it('returns start-of-day for daily', () => {
+    // Boundaries are calendar boundaries in a named timezone, so every
+    // assertion pins the zone. Without that the suite passes in UTC CI
+    // and fails on any device east or west of Greenwich.
+    it('returns local midnight for daily', () => {
       const now = new Date('2026-03-15T14:23:11.000Z');
-      const start = getPeriodStart('daily', now);
-      const d = new Date(start);
-      expect(d.getUTCHours()).toBe(0);
-      expect(d.getUTCMinutes()).toBe(0);
-      expect(d.getUTCSeconds()).toBe(0);
+      // 14:23Z is 19:53 in Kolkata → local day is 15 March.
+      expect(getPeriodStart('daily', now, 'Asia/Kolkata')).toBe(
+        '2026-03-14T18:30:00.000Z',
+      );
+      expect(getPeriodStart('daily', now, 'UTC')).toBe('2026-03-15T00:00:00.000Z');
     });
+
+    it('returns start-of-week (Sunday) for weekly', () => {
+      // 2026-03-15 is a Sunday, so the week starts on that same day.
+      const sunday = new Date('2026-03-15T14:23:11.000Z');
+      expect(getPeriodStart('weekly', sunday, 'UTC')).toBe('2026-03-15T00:00:00.000Z');
+      // 2026-03-18 is a Wednesday → week starts Sunday 15 March.
+      const wednesday = new Date('2026-03-18T09:00:00.000Z');
+      expect(getPeriodStart('weekly', wednesday, 'UTC')).toBe(
+        '2026-03-15T00:00:00.000Z',
+      );
+    });
+
     it('returns start-of-month for monthly', () => {
       const now = new Date('2026-03-15T14:23:11.000Z');
-      const start = getPeriodStart('monthly', now);
-      const d = new Date(start);
-      expect(d.getUTCDate()).toBe(1);
+      expect(getPeriodStart('monthly', now, 'Asia/Kolkata')).toBe(
+        '2026-02-28T18:30:00.000Z',
+      );
+      expect(getPeriodStart('monthly', now, 'UTC')).toBe('2026-03-01T00:00:00.000Z');
     });
+
     it('returns start-of-quarter for quarterly', () => {
-      // 2026-05-15 is in Q2 → start = 2026-04-01
+      // 2026-05-15 is in Q2 → start = 2026-04-01 local.
       const now = new Date('2026-05-15T14:23:11.000Z');
-      const start = getPeriodStart('quarterly', now);
-      const d = new Date(start);
-      expect(d.getUTCMonth()).toBe(3); // April (0-indexed)
-      expect(d.getUTCDate()).toBe(1);
+      expect(getPeriodStart('quarterly', now, 'Asia/Kolkata')).toBe(
+        '2026-03-31T18:30:00.000Z',
+      );
+      expect(getPeriodStart('quarterly', now, 'UTC')).toBe('2026-04-01T00:00:00.000Z');
     });
+
     it('returns start-of-year for yearly', () => {
       const now = new Date('2026-07-15T14:23:11.000Z');
-      const start = getPeriodStart('yearly', now);
-      const d = new Date(start);
-      expect(d.getUTCMonth()).toBe(0);
-      expect(d.getUTCDate()).toBe(1);
+      expect(getPeriodStart('yearly', now, 'Asia/Kolkata')).toBe(
+        '2025-12-31T18:30:00.000Z',
+      );
+      expect(getPeriodStart('yearly', now, 'UTC')).toBe('2026-01-01T00:00:00.000Z');
+    });
+
+    it('uses the zone offset in force on the boundary day across DST', () => {
+      // US DST starts 2026-03-08. The day before is EST (UTC-5) and the
+      // month start is EST too, while 15 March is EDT (UTC-4).
+      expect(
+        getPeriodStart('daily', new Date('2026-03-08T12:00:00.000Z'), 'America/New_York'),
+      ).toBe('2026-03-08T05:00:00.000Z');
+      expect(
+        getPeriodStart('daily', new Date('2026-03-09T12:00:00.000Z'), 'America/New_York'),
+      ).toBe('2026-03-09T04:00:00.000Z');
+      expect(
+        getPeriodStart('monthly', new Date('2026-03-15T12:00:00.000Z'), 'America/New_York'),
+      ).toBe('2026-03-01T05:00:00.000Z');
+    });
+
+    it('respects half-hour offsets', () => {
+      // Kolkata is UTC+5:30 — a monthly boundary is not on a whole hour.
+      const start = getPeriodStart('monthly', new Date('2026-01-05T00:00:00.000Z'), 'Asia/Kolkata');
+      expect(start).toBe('2025-12-31T18:30:00.000Z');
+      // The boundary itself is inside the month it opens.
+      expect(new Date(start).getUTCMonth()).toBe(11);
+    });
+
+    it('falls back to UTC for an unknown timezone instead of throwing', () => {
+      const now = new Date('2026-03-15T14:23:11.000Z');
+      expect(getPeriodStart('daily', now, 'Not/AZone')).toBe('2026-03-15T00:00:00.000Z');
     });
   });
 });

@@ -34,6 +34,7 @@ import { Stack } from '@presentation/design-system/components/Stack';
 import { StatusDot } from '@presentation/design-system/components/StatusDot';
 import type { StatusDotVariant } from '@presentation/design-system/components/StatusDot';
 import { Text } from '@presentation/design-system/components/Text';
+import { describeAmount } from '@presentation/design-system/financial-format';
 import { useTheme } from '@presentation/design-system/theme';
 import { spacing } from '@presentation/design-system/tokens';
 import {
@@ -351,7 +352,7 @@ function GroupListItem({ group }: { readonly group: GroupListItemViewModel }): R
               amountMinor={group.userBalanceMinor}
               currencyCode={group.currencyCode}
               variant="amountMedium"
-              accessibilityLabel={`Your balance in ${group.name} is ${group.userBalanceMinor} minor units in ${group.currencyCode}`}
+              accessibilityLabel={`${describeAmount(group.userBalanceMinor, group.currencyCode)} in ${group.name}`}
             />
           </Stack>
           <Icon

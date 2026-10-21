@@ -89,8 +89,6 @@ function validateSql(sql) {
   let dollarTag = '';
   let statementCount = 0;
   let beginEndDepth = 0;
-  let lastNonWhitespaceChar = '';
-  let lastNonWhitespaceLine = 1;
   let line = 1;
 
   for (let i = 0; i < sql.length; i++) {
@@ -120,8 +118,6 @@ function validateSql(sql) {
           inDollarQuote = false;
           dollarTag = '';
           i += tag.length - 1;
-          lastNonWhitespaceChar = tag;
-          lastNonWhitespaceLine = line;
         }
       }
       continue;
@@ -134,8 +130,6 @@ function validateSql(sql) {
           i++;
         } else {
           inSingleQuote = false;
-          lastNonWhitespaceChar = "'";
-          lastNonWhitespaceLine = line;
         }
       }
       continue;
@@ -158,8 +152,6 @@ function validateSql(sql) {
     // Single quote start
     if (char === "'") {
       inSingleQuote = true;
-      lastNonWhitespaceChar = "'";
-      lastNonWhitespaceLine = line;
       continue;
     }
 
@@ -170,8 +162,6 @@ function validateSql(sql) {
         inDollarQuote = true;
         dollarTag = tag;
         i += tag.length - 1;
-        lastNonWhitespaceChar = tag;
-        lastNonWhitespaceLine = line;
         continue;
       }
     }
@@ -196,18 +186,12 @@ function validateSql(sql) {
           errors.push(`Line ${line}: ${upper} without matching BEGIN or CASE`);
         }
       }
-      // Don't update lastNonWhitespaceChar for keywords — we want to detect
-      // missing semicolons after CREATE TABLE statements.
-      lastNonWhitespaceChar = word;
-      lastNonWhitespaceLine = line;
       i = j - 1;
       continue;
     }
 
     if (char === '(') {
       parenDepth++;
-      lastNonWhitespaceChar = '(';
-      lastNonWhitespaceLine = line;
       continue;
     }
     if (char === ')') {
@@ -215,8 +199,6 @@ function validateSql(sql) {
       if (parenDepth < 0) {
         errors.push(`Line ${line}: closing parenthesis without matching open`);
       }
-      lastNonWhitespaceChar = ')';
-      lastNonWhitespaceLine = line;
       continue;
     }
     if (char === ';') {
@@ -224,13 +206,9 @@ function validateSql(sql) {
         errors.push(`Line ${line}: semicolon with unbalanced parentheses (depth ${parenDepth})`);
       }
       statementCount++;
-      lastNonWhitespaceChar = ';';
-      lastNonWhitespaceLine = line;
       continue;
     }
     if (!/\s/.test(char)) {
-      lastNonWhitespaceChar = char;
-      lastNonWhitespaceLine = line;
     }
   }
 

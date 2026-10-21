@@ -15,9 +15,33 @@
 
 import { describe, expect, it } from '@jest/globals';
 
-import { formatAmount, getCurrencyDecimals, getIcon, getLabel, getSymbol } from '../financial-format';
+import { describeAmount, formatAmount, getCurrencyDecimals, getIcon, getLabel, getSymbol } from '../financial-format';
 import { darkTheme, lightTheme } from '../theme';
 import { darkColors, lightColors, typography } from '../tokens';
+
+describe('describeAmount (screen-reader text)', () => {
+  it('states direction and a formatted amount, never minor units', () => {
+    expect(describeAmount(125050, 'INR')).toBe('You are owed ₹1,250.50 INR');
+    expect(describeAmount(-500, 'USD')).toBe('You owe $5.00 USD');
+    expect(describeAmount(0, 'USD')).toBe('Settled $0.00 USD');
+  });
+
+  it('omits the direction when the sentence already supplies it', () => {
+    expect(describeAmount(125050, 'INR', { includeDirection: false })).toBe(
+      '₹1,250.50 INR',
+    );
+  });
+
+  it('uses the currency decimals rather than assuming two places', () => {
+    expect(describeAmount(1250, 'JPY', { includeDirection: false })).toBe(
+      '¥1,250 JPY',
+    );
+  });
+
+  it('never exposes the raw minor-unit integer', () => {
+    expect(describeAmount(125050, 'INR')).not.toContain('125050');
+  });
+});
 
 describe('formatAmount', () => {
   describe('sign classification', () => {

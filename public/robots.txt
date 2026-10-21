@@ -1,0 +1,24 @@
+# BillLens web build.
+#
+# The app shell is indexable so the product can be found, but every
+# signed-in surface is private financial data and must stay out of
+# search results. `PageHead` also sends `noindex` on those routes; this
+# file is the belt-and-suspenders layer for crawlers that ignore meta.
+
+User-agent: *
+Allow: /
+Allow: /index.html
+Allow: /groups.html
+Allow: /activity.html
+
+Disallow: /settings
+Disallow: /drafts
+Disallow: /expenses
+Disallow: /groups/
+Disallow: /settlements
+Disallow: /capture
+Disallow: /onboarding
+Disallow: /modal
+
+# Mobile-only surfaces.
+Disallow: /(tabs)/

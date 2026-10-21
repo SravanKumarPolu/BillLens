@@ -136,6 +136,26 @@ export function getLabel(sign: FinancialSign): string {
   }
 }
 
+/**
+ * Screen-reader phrase for an amount, e.g. "You are owed ₹1,250.50 INR".
+ *
+ * Use this for accessibility labels instead of interpolating minor units:
+ * a screen reader announcing "125050 minor units" is meaningless to a
+ * user, and it also leaks the storage representation into the UI.
+ * `includeDirection` defaults to true; pass false for contexts that
+ * already state the direction ("Priya owes …").
+ */
+export function describeAmount(
+  minor: number,
+  currencyCode: string,
+  options: { readonly includeDirection?: boolean } = {},
+): string {
+  const formatted = formatAmount(minor, currencyCode);
+  const amount = `${formatted.currencySymbol}${formatted.formattedMinor} ${formatted.currencyCode}`;
+  const { includeDirection = true } = options;
+  return includeDirection ? `${formatted.label} ${amount}` : amount;
+}
+
 /** Ionicons glyph name for the direction. */
 export function getIcon(sign: FinancialSign): string {
   switch (sign) {

@@ -26,6 +26,7 @@ import type {
   SettlementExplanation,
 } from '@domain/explanations/explanation-types';
 import type { CurrencyCode } from '@domain/value-objects/currency-code';
+import { describeAmount } from '@presentation/design-system/financial-format';
 import type { MemberId } from '@shared-types/index';
 
 // ---------------------------------------------------------------------------
@@ -419,7 +420,9 @@ export function buildDefaultReason(
   if (amountMinor <= 0) {
     return 'No transfer is needed — balances are already settled.';
   }
-  return `${fromName} owes ${toName} ${currencyCode} ${amountMinor} in minor units. Settling this transfer brings both balances closer to zero.`;
+  return `${fromName} owes ${toName} ${describeAmount(amountMinor, currencyCode, {
+    includeDirection: false,
+  })}. Settling this transfer brings both balances closer to zero.`;
 }
 
 // ---------------------------------------------------------------------------

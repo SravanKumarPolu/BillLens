@@ -11,6 +11,8 @@
  * See `docs/enterprise-features.md` and `docs/money-and-rounding.md`.
  */
 
+import { getUserTimezone } from '../i18n/timezone-handler';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -142,32 +144,145 @@ export function getMostExceededLimit(
  * computed from `now`. Used by the application layer to scope
  * spend-aggregation queries.
  */
+/**
+ * Returns the UTC instant (ISO string) at which the current period of
+ * `period` began.
+ *
+ * Period boundaries are CALENDAR boundaries in the user's timezone, not
+ * UTC boundaries: a "monthly" limit for someone in Asia/Kolkata must
+ * reset at their local midnight on the 1st, otherwise the reset lands at
+ * 05:30 on the 1st and the last few hours of every month are counted
+ * twice (or missed entirely). Pass `timeZone` explicitly to make the
+ * result deterministic — tests and server-side policy evaluation should.
+ *
+ * Weeks start on Sunday, matching the historical behaviour of this
+ * function.
+ */
 export function getPeriodStart(
   period: SpendingPeriod,
   now: Date = new Date(),
+  timeZone: string = getUserTimezone(),
 ): string {
-  const d = new Date(now);
+  const { year, month, day } = getZonedDateParts(now, timeZone);
+
   switch (period) {
     case 'daily':
-      d.setHours(0, 0, 0, 0);
-      break;
-    case 'weekly':
-      d.setHours(0, 0, 0, 0);
-      d.setDate(d.getDate() - d.getDay());
-      break;
+      return startOfZonedDay(year, month, day, timeZone);
+    case 'weekly': {
+      // getUTCDay() on a UTC-midnight date is the weekday of that
+      // calendar day, independent of the runtime timezone.
+      const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+      const weekStart = new Date(Date.UTC(year, month - 1, day - weekday));
+      return startOfZonedDay(
+        weekStart.getUTCFullYear(),
+        weekStart.getUTCMonth() + 1,
+        weekStart.getUTCDate(),
+        timeZone,
+      );
+    }
     case 'monthly':
-      d.setHours(0, 0, 0, 0);
-      d.setDate(1);
-      break;
+      return startOfZonedDay(year, month, 1, timeZone);
     case 'quarterly':
-      d.setHours(0, 0, 0, 0);
-      d.setDate(1);
-      d.setMonth(Math.floor(d.getMonth() / 3) * 3);
-      break;
+      return startOfZonedDay(
+        year,
+        Math.floor((month - 1) / 3) * 3 + 1,
+        1,
+        timeZone,
+      );
     case 'yearly':
-      d.setHours(0, 0, 0, 0);
-      d.setMonth(0, 1);
-      break;
+      return startOfZonedDay(year, 1, 1, timeZone);
   }
-  return d.toISOString();
+}
+
+// ---------------------------------------------------------------------------
+// Timezone arithmetic
+// ---------------------------------------------------------------------------
+
+interface ZonedDateParts {
+  readonly year: number;
+  readonly month: number;
+  readonly day: number;
+  readonly hour: number;
+  readonly minute: number;
+  readonly second: number;
+}
+
+const formatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function formatterFor(timeZone: string): Intl.DateTimeFormat {
+  const cached = formatterCache.get(timeZone);
+  if (cached) return cached;
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    // `hourCycle: 'h23'` avoids the "24:00" that some ICU versions emit
+    // for midnight when `hour12: false` is used.
+    hourCycle: 'h23',
+  });
+  formatterCache.set(timeZone, formatter);
+  return formatter;
+}
+
+/**
+ * Wall-clock components of `instant` in `timeZone`. Falls back to UTC
+ * when the runtime does not know the zone (invalid IANA name).
+ */
+function getZonedDateParts(instant: Date, timeZone: string): ZonedDateParts {
+  let formatter: Intl.DateTimeFormat;
+  try {
+    formatter = formatterFor(timeZone);
+  } catch {
+    formatter = formatterFor('UTC');
+  }
+  const parts = formatter.formatToParts(instant);
+  const read = (type: Intl.DateTimeFormatPartTypes): number => {
+    const part = parts.find((p) => p.type === type);
+    return part ? Number(part.value) : 0;
+  };
+  return {
+    year: read('year'),
+    month: read('month'),
+    day: read('day'),
+    hour: read('hour'),
+    minute: read('minute'),
+    second: read('second'),
+  };
+}
+
+/**
+ * Offset (ms) of `timeZone` from UTC at the given instant: positive east
+ * of Greenwich. Derived from the zone's own wall clock, so it is correct
+ * across DST transitions without a timezone database of our own.
+ */
+function offsetMsAt(instantMs: number, timeZone: string): number {
+  const whole = instantMs - (((instantMs % 1000) + 1000) % 1000);
+  const p = getZonedDateParts(new Date(whole), timeZone);
+  const asIfUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  return asIfUtc - whole;
+}
+
+/**
+ * UTC ISO instant of local midnight on the given calendar day in
+ * `timeZone`.
+ *
+ * Two passes: the first resolves the offset using the naive guess, the
+ * second re-checks it at the resolved instant so days that straddle a DST
+ * change still land on the right boundary.
+ */
+function startOfZonedDay(
+  year: number,
+  month: number,
+  day: number,
+  timeZone: string,
+): string {
+  const naive = Date.UTC(year, month - 1, day, 0, 0, 0, 0);
+  let resolved = naive - offsetMsAt(naive, timeZone);
+  const corrected = naive - offsetMsAt(resolved, timeZone);
+  if (corrected !== resolved) resolved = corrected;
+  return new Date(resolved).toISOString();
 }

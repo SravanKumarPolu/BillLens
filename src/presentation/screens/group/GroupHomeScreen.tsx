@@ -42,6 +42,7 @@ import { Row } from '@presentation/design-system/components/Row';
 import { Screen } from '@presentation/design-system/components/Screen';
 import { Stack } from '@presentation/design-system/components/Stack';
 import { Text } from '@presentation/design-system/components/Text';
+import { describeAmount } from '@presentation/design-system/financial-format';
 import { useTheme } from '@presentation/design-system/theme';
 import { spacing } from '@presentation/design-system/tokens';
 import { useGroupDashboardData } from '@presentation/hooks/use-group-dashboard';
@@ -234,7 +235,7 @@ function BalanceSummary({ viewModel }: GroupHomeViewProps): ReactNode {
           amountMinor={viewModel.userBalanceMinor}
           currencyCode={viewModel.currencyCode}
           variant="amountLarge"
-          accessibilityLabel={`Your balance in this group is ${viewModel.userBalanceMinor} minor units in ${viewModel.currencyCode}`}
+          accessibilityLabel={`${describeAmount(viewModel.userBalanceMinor, viewModel.currencyCode)} in this group`}
         />
       </Stack>
     </Card>

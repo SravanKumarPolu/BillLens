@@ -45,7 +45,7 @@ export type { ThemeProviderProps } from './theme-provider';
 
 // Financial formatting
 export type { FinancialSign, FormattedAmount } from './financial-format';
-export { formatAmount, getCurrencyDecimals, getIcon, getLabel, getSymbol } from './financial-format';
+export { describeAmount, formatAmount, getCurrencyDecimals, getIcon, getLabel, getSymbol } from './financial-format';
 
 // Components
 export { AmountText } from './components/AmountText';

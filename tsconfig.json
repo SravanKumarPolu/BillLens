@@ -8,43 +8,42 @@
     "noImplicitReturns": true,
     "noUncheckedIndexedAccess": true,
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": [
-        "src/*"
+        "./src/*"
       ],
       "@app/*": [
-        "app/*"
+        "./app/*"
       ],
       "@domain/*": [
-        "src/domain/*"
+        "./src/domain/*"
       ],
       "@application/*": [
-        "src/application/*"
+        "./src/application/*"
       ],
       "@presentation/*": [
-        "src/presentation/*"
+        "./src/presentation/*"
       ],
       "@infrastructure/*": [
-        "src/infrastructure/*"
+        "./src/infrastructure/*"
       ],
       "@services/*": [
-        "src/services/*"
+        "./src/services/*"
       ],
       "@store/*": [
-        "src/store/*"
+        "./src/store/*"
       ],
       "@config/*": [
-        "src/config/*"
+        "./src/config/*"
       ],
       "@constants/*": [
-        "src/constants/*"
+        "./src/constants/*"
       ],
       "@shared-types/*": [
-        "src/types/*"
+        "./src/types/*"
       ],
       "@utils/*": [
-        "src/utils/*"
+        "./src/utils/*"
       ]
     },
     "types": [

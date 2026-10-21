@@ -35,6 +35,7 @@ import { OfflineBanner } from '@presentation/components/OfflineBanner';
 import { ServicesGate } from '@presentation/components/ServicesGate';
 import { Stack, ThemeProvider, useTheme } from '@presentation/design-system';
 import type { Theme } from '@presentation/design-system';
+import { PageHead } from '@presentation/web/PageHead';
 
 function themedScreenOptions(theme: Theme) {
   return {
@@ -70,6 +71,7 @@ function ThemedRootStack(): ReactNode {
         options={{ title: 'New expense', presentation: 'modal' }}
       />
       <RouterStack.Screen name="expenses/[expenseId]" options={{ title: 'Expense' }} />
+      <RouterStack.Screen name="drafts/index" options={{ title: 'Drafts' }} />
       <RouterStack.Screen name="drafts/[draftId]" options={{ title: 'Review draft' }} />
       <RouterStack.Screen
         name="settlements/new"
@@ -91,6 +93,10 @@ function ThemedRootStack(): ReactNode {
         name="settings/sync"
         options={{ title: 'Sync status' }}
       />
+      <RouterStack.Screen
+        name="settings/data"
+        options={{ title: 'Data & storage' }}
+      />
     </RouterStack>
   );
 }
@@ -105,6 +111,13 @@ export default function RootLayout(): ReactNode {
     <SafeAreaProvider>
       <ThemeProvider>
         <QueryProvider>
+          {/* Default document title for the web build. Routes that mount
+              their own `PageHead` override it; without this fallback a
+              route with no metadata renders an empty <title>. */}
+          <PageHead
+            title="BillLens"
+            description="BillLens splits shared expenses from the receipt itself: scan a bill, review the extracted values, and settle up offline-first."
+          />
           <ErrorBoundary>
             <ServicesGate>
               <Stack gap={0} style={{ flex: 1 }}>

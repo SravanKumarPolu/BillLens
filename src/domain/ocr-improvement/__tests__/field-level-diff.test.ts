@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals';
+import { afterEach, describe, expect, it } from '@jest/globals';
 
 import {
   CORRECTION_TYPES,
@@ -9,6 +9,8 @@ import {
   diffContainsRawPii,
   isExtractionConfidence,
   isOcrFieldName,
+  parseCalendarDates,
+  sameCalendarDate,
   type FieldLevelDiff,
 } from '../index';
 
@@ -110,6 +112,24 @@ describe('field-level-diff', () => {
       it('anonymizes DD/MM/YYYY date', () => {
         expect(anonymizeValue('15/01/2025', 'date')).toBe('<date:DD/MM/YYYY>');
         expect(anonymizeValue('15-01-2025', 'date')).toBe('<date:DD/MM/YYYY>');
+      });
+
+      it('anonymizes the month-first order when the digits force it', () => {
+        expect(anonymizeValue('01/15/2025', 'date')).toBe('<date:MM/DD/YYYY>');
+        expect(anonymizeValue('01-15-25', 'date')).toBe('<date:MM/DD/YYYY>');
+      });
+
+      it('labels day/month-first dates as ambiguous when both orders are valid', () => {
+        expect(anonymizeValue('01/02/2025', 'date')).toBe('<date:DD/MM-ambiguous>');
+      });
+
+      it('normalizes slash-separated year-first dates to the ISO shape', () => {
+        expect(anonymizeValue('2025/01/15', 'date')).toBe('<date:YYYY-MM-DD>');
+        expect(anonymizeValue('2025.01.15', 'date')).toBe('<date:YYYY-MM-DD>');
+        // A timestamp still only reveals its date shape, never the time.
+        expect(anonymizeValue('2025-01-15T19:53:11Z', 'date')).toBe(
+          '<date:YYYY-MM-DD>',
+        );
       });
 
       it('CRITICAL: does NOT preserve the actual date value', () => {
@@ -402,6 +422,102 @@ describe('field-level-diff', () => {
       const d2 = computeDiff(extracted, corrected);
       expect(d1).toEqual(d2);
     });
+  });
+
+  describe('calendar-date comparison', () => {
+    it('parses ISO dates and reports a single reading', () => {
+      expect(parseCalendarDates('2025-01-15')).toEqual([
+        { year: 2025, month: 1, day: 15 },
+      ]);
+      expect(parseCalendarDates('2025/01/15')).toEqual([
+        { year: 2025, month: 1, day: 15 },
+      ]);
+      expect(parseCalendarDates('2025.01.15')).toEqual([
+        { year: 2025, month: 1, day: 15 },
+      ]);
+    });
+
+    it('parses day-first and month-first dates from the digit values', () => {
+      expect(parseCalendarDates('15/01/2025')).toEqual([
+        { year: 2025, month: 1, day: 15 },
+      ]);
+      expect(parseCalendarDates('01/15/2025')).toEqual([
+        { year: 2025, month: 1, day: 15 },
+      ]);
+      expect(parseCalendarDates('15.01.25')).toEqual([
+        { year: 2025, month: 1, day: 15 },
+      ]);
+    });
+
+    it('keeps both readings for a genuinely ambiguous date', () => {
+      expect(parseCalendarDates('01/02/2025')).toEqual([
+        { year: 2025, month: 2, day: 1 },
+        { year: 2025, month: 1, day: 2 },
+      ]);
+    });
+
+    it('rejects impossible dates and free text', () => {
+      expect(parseCalendarDates('31/02/2025')).toEqual([]);
+      expect(parseCalendarDates('2025-13-01')).toEqual([]);
+      expect(parseCalendarDates('2025-01-32')).toEqual([]);
+      expect(parseCalendarDates('January 15th')).toEqual([]);
+      expect(parseCalendarDates('')).toEqual([]);
+    });
+
+    it('accepts 29 February only in a leap year', () => {
+      expect(parseCalendarDates('2024-02-29')).toEqual([
+        { year: 2024, month: 2, day: 29 },
+      ]);
+      expect(parseCalendarDates('2025-02-29')).toEqual([]);
+      expect(parseCalendarDates('2000-02-29')).toEqual([
+        { year: 2000, month: 2, day: 29 },
+      ]);
+      expect(parseCalendarDates('1900-02-29')).toEqual([]);
+    });
+
+    it('compares calendar days without any timezone shift', () => {
+      expect(sameCalendarDate('2025/01/15', '2025-01-15')).toBe(true);
+      expect(sameCalendarDate('15/01/2025', '2025-01-15')).toBe(true);
+      expect(sameCalendarDate('01/15/2025', '2025-01-15')).toBe(true);
+      expect(sameCalendarDate('2025-01-15', '2025-01-16')).toBe(false);
+      expect(sameCalendarDate('2025-01-15', 'not a date')).toBe(false);
+    });
+  });
+
+  describe('timezone independence', () => {
+    // Regression: these assertions used to depend on Date.parse semantics
+    // (ISO = UTC, slashes = local) and therefore on the machine timezone.
+    // They must hold identically whether the host runs in UTC, IST, or
+    // anywhere else.
+    const originalTz = process.env.TZ;
+    afterEach(() => {
+      process.env.TZ = originalTz;
+    });
+
+    it.each(['UTC', 'Asia/Kolkata', 'America/Los_Angeles', 'Pacific/Kiritimati'])(
+      'classifies reformatted dates as format_change under TZ=%s',
+      (tz) => {
+        process.env.TZ = tz;
+        const diffs = computeDiff(
+          { date: '2025/01/15' },
+          { date: '2025-01-15' },
+        );
+        expect(diffs.length).toBe(1);
+        expect(diffs[0]!.correctionType).toBe('format_change');
+      },
+    );
+
+    it.each(['UTC', 'Asia/Kolkata', 'America/Los_Angeles'])(
+      'classifies different days as value_change under TZ=%s',
+      (tz) => {
+        process.env.TZ = tz;
+        const diffs = computeDiff(
+          { date: '2025-01-15' },
+          { date: '2025-01-16' },
+        );
+        expect(diffs[0]!.correctionType).toBe('value_change');
+      },
+    );
   });
 
   describe('diffContainsRawPii', () => {

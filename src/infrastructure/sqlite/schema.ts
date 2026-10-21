@@ -24,6 +24,7 @@
  */
 
 import type { DatabaseConnection } from './database-connection';
+import { splitSqlStatements } from './sql-statements';
 
 /**
  * Schema version table — tracks which migrations have been applied.
@@ -71,7 +72,7 @@ create table if not exists profiles (
 create unique index if not exists uq_profiles_email_lower on profiles (email_lower) where deleted_at is null;
 
 -- ============================================================================
--- guest_identity_links (local-only, tracks guest → cloud upgrade)
+-- guest_identity_links (local-only; tracks guest → cloud upgrade)
 -- ============================================================================
 create table if not exists guest_identity_links (
   id                  text primary key,
@@ -1226,15 +1227,10 @@ export async function runMigrations(db: DatabaseConnection): Promise<void> {
   for (const migration of MIGRATIONS) {
     if (migration.version <= currentVersion) continue;
     await db.transaction(async (tx) => {
-      // Apply the migration SQL. Split on semicolons (naive — works because
-      // our migrations don't use triggers or function bodies). Then strip
-      // comments from each statement and skip empty ones.
-      const statements = migration.sql
-        .split(';')
-        .map((s) => s.trim())
-        .map((s) => s.replace(/^--[^\n]*\n?/gm, '').trim()) // strip leading line comments
-        .map((s) => s.replace(/--[^\n]*$/gm, '').trim()) // strip trailing line comments
-        .filter((s) => s.length > 0);
+      // Apply the migration SQL. Statements are split with a
+      // comment/string-aware splitter — a semicolon inside a `--`
+      // comment must not terminate a statement.
+      const statements = splitSqlStatements(migration.sql);
       for (const stmt of statements) {
         await tx.exec(stmt);
       }

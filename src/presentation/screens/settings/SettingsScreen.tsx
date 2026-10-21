@@ -105,6 +105,7 @@ export function SettingsScreen(): JSX.Element {
       onOpenFeedback={(): void => router.push('/settings/feedback')}
       onOpenMetrics={(): void => router.push('/settings/metrics')}
       onOpenSyncStatus={(): void => router.push('/settings/sync')}
+      onOpenData={(): void => router.push('/settings/data')}
       onOpenDeleteAccount={(): void => router.push('/settings/delete-account')}
     />
   );
@@ -122,6 +123,7 @@ export interface SettingsViewProps {
   readonly onOpenMetrics: () => void;
   /** Opens the sync status screen (offline queue details). */
   readonly onOpenSyncStatus: () => void;
+  readonly onOpenData?: () => void;
   readonly onOpenDeleteAccount: () => void;
 }
 
@@ -145,6 +147,7 @@ export function SettingsView({
   onOpenFeedback,
   onOpenMetrics,
   onOpenSyncStatus,
+  onOpenData,
   onOpenDeleteAccount,
 }: SettingsViewProps): JSX.Element {
   return (
@@ -236,6 +239,18 @@ export function SettingsView({
               accessibilityLabel="App health — opens the on-device metrics dashboard"
             />
           </Stack>
+        </SettingsSectionCard>
+
+        {/* Data */}
+        <SettingsSectionCard title="Data" icon="server-outline" accessibilityLabel="Data and storage">
+          <SettingsRow
+            icon="download-outline"
+            label="Export & storage"
+            description="Export a copy of your records, review retention, and remove old local groups safely."
+            chevron
+            onPress={onOpenData ?? ((): void => undefined)}
+            accessibilityLabel="Export and storage — opens data export and retention"
+          />
         </SettingsSectionCard>
 
         {/* Feedback */}

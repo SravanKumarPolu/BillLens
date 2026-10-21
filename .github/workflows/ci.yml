@@ -1,0 +1,95 @@
+# BillLens CI.
+#
+# The repository ships 4,700+ unit tests and a `precommit` script, but
+# nothing ran them automatically: every gate was manual. This workflow
+# runs the same commands a developer runs locally, on every push and PR.
+#
+# Deliberately NOT in this workflow:
+#   - native builds (EAS) — slow and credential-bound; separate pipeline
+#   - e2e/maestro — needs an emulator farm
+#   - web deploy — hosting is not defined in the repository
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Typecheck · lint · tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` honours package-lock.json exactly. If the lockfile drifts
+      # from package.json this step fails loudly instead of silently
+      # resolving different versions than a developer has locally.
+      - name: Install
+        run: npm ci --legacy-peer-deps
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Validate SQL migrations
+        run: npm run db:validate
+
+      # Executes the local schema against a real SQLite engine. The Jest
+      # suite cannot catch invalid SQLite syntax because its test double
+      # never parses statements.
+      - name: Execute local SQLite schema
+        run: npm run db:verify
+
+      - name: Secret scan
+        run: npm run secret-scan
+
+      - name: Unit tests
+        run: npm test -- --ci --silent
+
+  web-export:
+    name: Web export (static)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --legacy-peer-deps
+
+      # A broken web export is invisible to `npm test`; this catches it.
+      - name: Export
+        run: npx expo export -p web
+
+      - name: Assert document metadata
+        run: |
+          set -euo pipefail
+          test -s dist/index.html
+          # Every page must have a non-empty <title> — the defect this
+          # audit fixed was an empty title on all 35 routes.
+          if grep -q '<title[^>]*></title>' dist/index.html; then
+            echo "dist/index.html has an empty <title>" >&2
+            exit 1
+          fi
+          grep -q 'name="description"' dist/index.html

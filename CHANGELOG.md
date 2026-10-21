@@ -2,6 +2,174 @@
 
 All notable changes to BillLens across Phases 1-10 are documented here.
 
+## [2.9.0] — 2026-10-21
+
+### Encrypted group-sync core (tested, not deployed)
+
+Implements and verifies the cryptographic and transport core for end-to-end
+encrypted group sync. **It is not wired into the app and no relay is deployed**;
+the optional Supabase relay remains the only production sync path.
+
+#### Encryption
+- `src/domain/sync-crypto`: per-device Ed25519 + X25519 identity, XChaCha20-Poly1305
+  envelope v1 with header as AAD, signature over canonical header+nonce+ciphertext,
+  device-id ↔ signing-key binding, freshness window, stable event digests.
+- Group keys wrapped per device (ephemeral X25519 + HKDF-SHA256 + AEAD), epoch
+  keyring with rotation, invitation tokens that contain no key material.
+- Secure device-seed storage in SecureStore with **no `Math.random` fallback**
+  (expo-crypto injected in production).
+
+#### Sync engine and relay
+- `EncryptedSyncEngine`: pull → verify sender → verify signature → decrypt →
+  apply idempotently → acknowledge; unknown sender/epoch/tamper fails closed.
+- Reference relay (`src/infrastructure/relay-reference`): device registration,
+  signed requests, creator-only member removal, opaque event storage, per-device
+  acks, duplicate suppression, TTL expiry, 64 KB bodies, per-device rate limit.
+- Two-device integration test on **two real SQLite files**: ₹1,200 split four ways
+  → ₹300 each; reverse-direction expense; balances agree; duplicate pulls apply
+  nothing; relay holds only ciphertext.
+
+#### Docs
+`docs/SQLITE_MIGRATIONS.md`, `ENCRYPTED_SYNC_PROTOCOL.md`, `RELAY_DEPLOYMENT.md`,
+`KEY_MANAGEMENT.md`, `DATA_RETENTION.md`, `LOCAL_FIRST_ARCHITECTURE.md`,
+`IMPLEMENTATION_PROGRESS.md`, `IMPLEMENTATION_BLOCKERS.md`.
+
+#### Limits (explicit)
+No app wiring, no deployed relay, no encrypted-event conflict resolution, no
+physical two-device run. 197 suites / 4,790 tests pass; `tsc`, lint, SQLite
+execution and exports verified.
+
+## [2.8.0] — 2026-10-21
+
+### Local-first operation: export, retention rules and safe local deletion
+
+The app now proves and documents its local-first contract, and gives users
+control over the data on their device. No new server or paid service was
+introduced.
+
+#### Local-first guarantees
+- Audited the boot path: SQLite opens and migrates before anything else; Supabase
+  is optional and `startSyncCoordinator()` is a no-op when unconfigured. Session
+  restore is best-effort and never blocks the app.
+- Documented the full cloud dependency matrix, the real sync behaviour (Supabase
+  relay, queue, acks, conflicts, tombstones) and the parts that are **not**
+  implemented (direct device-to-device, background delivery guarantees, E2EE) in
+  `docs/local-first-architecture.md`.
+
+#### Export (offline)
+- `ExportLocalDataUseCase` produces a versioned JSON backup (groups, members,
+  expenses, settlements) plus an accounting CSV, reusing the existing
+  `exportToFormat` implementation.
+- Receipt images, OCR text and tokens are excluded; collections are capped and
+  report `truncated` instead of silently exporting a partial file.
+- New **Data & storage** screen (`/settings/data`) writes the file and opens the
+  native share sheet.
+
+#### Retention and deletion
+- New pure policy (`domain/retention`): default **365 days**, configurable to 6 or
+  24 months; a group is only eligible after the quiet period **and** with zero
+  outstanding balances, zero settlements awaiting confirmation, and zero
+  unsynced local changes.
+- Nothing is deleted automatically. Protected groups explain why.
+- `DeleteLocalGroupCopyUseCase` hard-deletes the local rows (cascade) only when
+  cloud sync is off and the guards pass; it never enqueues a sync deletion, and
+  writes a `group_local_copy` audit entry. Cloud-linked groups are refused with a
+  pointer to “Leave group”.
+- Data & storage screen lists every group's status, offers removal only for
+  eligible local-only groups, and recommends exporting first.
+
+#### Tests
+- Real-SQLite harness (`SqliteCliDatabase`) with three new integration suites:
+  migrations (33 tables, version 7, idempotent second boot), the offline
+  group → 4 members → ₹1,200 expense → balances flow across a reopen, and the
+  export/retention use cases.
+- Splitter + schema portability guards continue to reproduce the old device
+  errors when reverted.
+- 192 suites / 4,752 tests pass; `tsc` clean; lint clean; `db:verify` 33 tables.
+
+## [2.7.1] — 2026-10-21
+
+### First-launch database fix: statement splitter
+
+The app reached the Expo Go screen but failed to initialise storage:
+`NativeDatabase.execAsync has been rejected — near "tracks": syntax error`.
+
+#### Root cause
+`runMigrations` split each migration on every `;`. A schema comment read
+`-- guest_identity_links (local-only; tracks guest → cloud upgrade)`, so the
+comment was cut in half and the fragment `tracks guest …` was executed as SQL.
+The in-memory test double never parses SQL, and `db:verify` piped whole blocks
+into `sqlite3`, so neither caught it.
+
+#### Fix
+- New `splitSqlStatements` (`src/infrastructure/sqlite/sql-statements.ts`): a
+  state machine that ignores semicolons inside line comments, block comments
+  and single-quoted strings (including `''` escapes), and returns executable
+  statements with comment text removed.
+- `runMigrations` uses it instead of `sql.split(';')`.
+
+#### Guards
+- `sql-statements.test.ts` — seven cases: comments, block comments, strings,
+  escaped quotes, trailing comments, comment-only input.
+- `sqlite-migrations-execution.test.ts` — runs the real `runMigrations` against
+  a temporary SQLite database through a CLI-backed `DatabaseConnection`,
+  asserts 33 tables and migration version 7, and that a second boot is a no-op.
+  With the old splitter it fails with the exact device error.
+
+187 suites / 4,723 tests pass; `tsc` clean; lint clean.
+
+## [2.7.0] — 2026-10-20
+
+### Expo SDK 57 migration (React Native 0.86, React 19.2, TypeScript 6)
+
+The project was on SDK 54 while the installed Expo Go ships SDK 57, so the
+client refused to open it. Rather than pinning an old client, the project now
+matches the current SDK. 185 suites / 4,715 tests still pass, `tsc` clean,
+lint clean, web + Android exports succeed, `expo-doctor` 21/21.
+
+#### Platform
+- `expo` 54 → **57.0.30**, React Native 0.81 → **0.86.3**, React 19.1 → **19.2.3**, expo-router 6 → **57.0.28**, expo-sqlite 16 → **57.0.4**, and the rest of the Expo modules aligned with `expo install --fix`.
+- `jest-expo` 57 requires the React Native preset to be installed separately: added `@react-native/jest-preset@0.86.3`. Removed the hand-written `transformIgnorePatterns` (it conflicted with the preset's ESM handling and broke expo-router imports).
+- TypeScript 6 rejects `baseUrl`; paths are now relative (`"./src/*"`) and `baseUrl` is gone.
+- SDK 57 removed the top-level `splash` config: migrated to the `expo-splash-screen` plugin (same image, colour, resize mode).
+- React Native's `ColorSchemeName` gained `'unspecified'` and the tab-bar tint is typed as `ColorValue`; both normalised at the boundary.
+- `react-test-renderer` pinned to 19.2.3 to match React.
+- Node requirement documented: 20.19.4+ / 22.13+ / 24.3+.
+
+#### Verification
+- Dev-server manifest reports `runtimeVersion: exposdk:57.0.0` — the installed Expo Go 57 opens it.
+- `expo export -p web` (35 pages, metadata intact, wa-sqlite WASM bundled) and `expo export -p android` both succeed.
+
+## [2.6.1] — 2026-10-20
+
+### Audit pass: SQLite migration fix, lint restoration, web build repair, drafts recovery
+
+A full review found three release-blocking regressions in the working
+tree plus the two long-standing timezone failures. 185 suites / 4,715
+tests green, `tsc` clean, lint clean, secret-scan clean, migrations
+valid, web export verified per route.
+
+#### Release-blocking regressions
+- **Local migrations would fail on every fresh install.** `schema.ts` used PostgreSQL's `char_length()` in seven SQLite `CHECK` constraints (copied from the Supabase migration). SQLite has no such function: the app's first `runMigrations` would throw at prepare time. Restored `length()` and added `sqlite-schema-portability.test.ts`, which scans every registered migration for PostgreSQL-only syntax. Verified all 7 migrations + the version table execute in a real SQLite engine (33 tables).
+- **`npm run lint` never ran.** The script used `eslint . --ext .ts,.tsx`, an eslintrc-mode flag that makes ESLint reject flat config and search for `.eslintrc.*` instead — and `eslint.config.mjs` had been deleted. Recreated a flat config with TypeScript, React and hooks rules; `eslint .` now lints 1,000+ TS/TSX files with 0 errors / 0 warnings.
+- **The web build could not build.** `react-native-web` had been removed, and `metro.config.js` (needed to bundle `expo-sqlite`'s `.wasm`) was gone. Restored the dependency and Metro config; documented the COOP/COEP headers the wa-sqlite worker requires.
+
+#### Correctness
+- Receipt dates are compared as calendar dates, not instants (`Date.parse` treats `2025-01-15` as UTC and `2025/01/15` as local, mislabelling format-only corrections outside UTC). New `parseCalendarDates` / `sameCalendarDate`.
+- Spending-limit periods are computed in an explicit timezone (DST-correct, half-hour offsets, unknown-zone fallback).
+
+#### Accessibility
+- New `describeAmount()`; six strings that announced raw minor units ("You are owed 125050 minor units") now speak formatted currency, including the balance-explanation reason.
+- Home group cards are one tap target instead of a chevron-only control.
+
+#### Core flow
+- **New `/drafts` inbox.** The dashboard counted pending drafts but no route listed them, so a draft saved before an app restart was stranded. The inbox reads `needs_review` + `ready`, shows status/issues/amount, and links into the existing review screen.
+
+#### Web / SEO
+- `app/+html.tsx` document shell (zoom-preserving viewport, color-scheme, light/dark theme-color, pre-hydration background).
+- `PageHead` supplies per-route title/description/OG/Twitter; the root layout has a default so no route renders an empty `<title>`. Private routes send `noindex`; `public/robots.txt` mirrors it. Branded `+not-found`.
+- Measured: one non-empty title + description on every exported route (previously empty on all 35).
+
 ## [2.6.0] — 2026-10-12
 
 ### Bidirectional cloud synchronization, real multi-user collaboration, conflict resolution & release-candidate hardening

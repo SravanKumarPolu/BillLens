@@ -424,7 +424,10 @@ describe('createSettlementPreviewViewModel', () => {
     });
 
     expect(vm.reason).toContain('Priya owes Sam');
-    expect(vm.reason).toContain('INR 300');
+    // 300 minor units of INR is ₹3.00 — the reason must be speakable,
+    // not a raw minor-unit integer (a11y regression guard).
+    expect(vm.reason).toContain('₹3.00 INR');
+    expect(vm.reason).not.toContain('300');
   });
 
   it('honours a custom reason override', () => {
@@ -465,11 +468,12 @@ describe('buildDefaultReason', () => {
     expect(reason).toContain('No transfer is needed');
   });
 
-  it('includes both names and the amount in minor units', () => {
+  it('includes both names and a formatted amount', () => {
     const reason = buildDefaultReason('Priya', 'Sam', 300, 'INR');
     expect(reason).toContain('Priya');
     expect(reason).toContain('Sam');
-    expect(reason).toContain('INR 300');
+    expect(reason).toContain('₹3.00 INR');
+    expect(reason).not.toContain('minor units');
   });
 });
 

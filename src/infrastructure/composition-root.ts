@@ -57,6 +57,9 @@ import {
   GetExpenseDetailUseCase,
   ListRecentExpensesForGroupUseCase,
 } from '@application/expenses/index';
+import { ExportLocalDataUseCase } from '@application/export/export-local-data.usecase';
+import { AssessRetentionUseCase } from '@application/retention/assess-retention.usecase';
+import { DeleteLocalGroupCopyUseCase } from '@application/retention/delete-local-group-copy.usecase';
 import {
   CompareOriginalAndSimplifiedPlanUseCase,
   ExplainMemberCreditUseCase,
@@ -150,6 +153,7 @@ import { SqliteUnitOfWork } from './sqlite/sqlite-unit-of-work';
 import { SqliteRemoteChangeApplier } from './sync/sqlite-remote-change-applier';
 import { SqliteSyncConflictRepository } from './sync/sqlite-sync-conflict-repository';
 import { SqliteSyncCursorRepository } from './sync/sqlite-sync-cursor-repository';
+import { SqliteLocalGroupPurge } from './sqlite/sqlite-local-group-purge';
 import { SqliteSyncRepository } from './sync/sqlite-sync-repository';
 
 // ---------------------------------------------------------------------------
@@ -378,6 +382,13 @@ export interface ActivityServices {
  * (`src/store/services-registry.ts`) — never by importing this module
  * directly (the presentation → infrastructure boundary stays closed).
  */
+/** Local data portability and retention. */
+export interface DataServices {
+  readonly exportLocalData: ExportLocalDataUseCase;
+  readonly assessRetention: AssessRetentionUseCase;
+  readonly deleteLocalGroupCopy: DeleteLocalGroupCopyUseCase;
+}
+
 export interface AppServices {
   readonly database: DatabaseConnection;
   readonly balances: BalanceServices;
@@ -398,6 +409,7 @@ export interface AppServices {
   readonly monitoring: MonitoringServices;
   readonly feedback: FeedbackServices;
   readonly activity: ActivityServices;
+  readonly data: DataServices;
 }
 
 // ---------------------------------------------------------------------------
@@ -468,6 +480,8 @@ export interface CompositionRootInput {
    * the production bootstrap MUST inject the expo-crypto hash.
    */
   readonly hashDeviceSecret?: (input: string) => Promise<string>;
+  /** App version recorded in exported backups. Defaults to '0.0.0'. */
+  readonly appVersion?: string;
   /**
    * Provide the device secure storage to wire the session bucket. When
    * omitted (tests / unauthenticated harnesses), `session` is null and
@@ -817,6 +831,31 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
     monitoring,
     feedback,
     activity,
+    data: {
+      exportLocalData: new ExportLocalDataUseCase(
+        repositories.groups,
+        repositories.members,
+        repositories.expenses,
+        repositories.settlements,
+        input.appVersion ?? '0.0.0',
+      ),
+      assessRetention: new AssessRetentionUseCase(
+        repositories.groups,
+        repositories.expenses,
+        repositories.settlements,
+        balances.getGroupBalances,
+        settlements.listPendingConfirmations,
+        sync.repository,
+      ),
+      deleteLocalGroupCopy: new DeleteLocalGroupCopyUseCase(
+        repositories.groups,
+        balances.getGroupBalances,
+        settlements.listPendingConfirmations,
+        new SqliteLocalGroupPurge(database),
+        repositories.audit,
+        generateId,
+      ),
+    },
   };
 }
 

@@ -81,6 +81,9 @@ export function BentoGrid({ children, gap }: BentoGridProps): JSX.Element {
         const width = computeBentoTileWidth(span, containerWidth, resolvedGap);
         return (
           <View
+            // Grid tiles are positional: children have no ids and the
+            // layout is defined by array order.
+            // eslint-disable-next-line react/no-array-index-key
             key={`bento-${idx}`}
             style={{ width, flexGrow: span === 1 ? 1 : 0 }}
           >

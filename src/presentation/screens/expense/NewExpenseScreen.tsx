@@ -38,6 +38,7 @@ import {
   Text,
   useTheme,
   spacing,
+  describeAmount,
 } from '@presentation/design-system';
 import {
   type ExpenseFormMember,
@@ -787,7 +788,7 @@ function SplitPreviewCard({
                 currencyCode={currencyCode}
                 variant="amountSmall"
                 showCurrencySymbol
-                accessibilityLabel={`${entry.displayName} owes ${entry.amountMinor} minor units in ${currencyCode}`}
+                accessibilityLabel={`${entry.displayName} owes ${describeAmount(entry.amountMinor, currencyCode, { includeDirection: false })}`}
               />
             </Row>
           ))}

@@ -27,17 +27,18 @@
 
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
+import { Pressable } from 'react-native';
 
 import { AmountText } from '@presentation/design-system/components/AmountText';
 import { BentoGrid } from '@presentation/design-system/components/BentoGrid';
 import { Button } from '@presentation/design-system/components/Button';
 import { Card } from '@presentation/design-system/components/Card';
 import { Icon } from '@presentation/design-system/components/Icon';
-import { IconButton } from '@presentation/design-system/components/IconButton';
 import { Row } from '@presentation/design-system/components/Row';
 import { Screen } from '@presentation/design-system/components/Screen';
 import { Stack } from '@presentation/design-system/components/Stack';
 import { Text } from '@presentation/design-system/components/Text';
+import { describeAmount } from '@presentation/design-system/financial-format';
 import { useTheme } from '@presentation/design-system/theme';
 import { spacing } from '@presentation/design-system/tokens';
 import { useHomeDashboardData } from '@presentation/hooks/use-home-dashboard-data';
@@ -376,7 +377,7 @@ function BalanceSummary({ viewModel, onRetryLoad }: BalanceSummaryProps): ReactN
                     amountMinor={entry.amountMinor}
                     currencyCode={entry.currencyCode}
                     variant="amountMedium"
-                    accessibilityLabel={`You are owed ${entry.amountMinor} minor units in ${entry.currencyCode}`}
+                    accessibilityLabel={`You are owed in ${entry.currencyCode}: ${describeAmount(entry.amountMinor, entry.currencyCode, { includeDirection: false })}`}
                   />
                 ))}
               </Stack>
@@ -400,7 +401,7 @@ function BalanceSummary({ viewModel, onRetryLoad }: BalanceSummaryProps): ReactN
                     amountMinor={-entry.amountMinor}
                     currencyCode={entry.currencyCode}
                     variant="amountMedium"
-                    accessibilityLabel={`You owe ${entry.amountMinor} minor units in ${entry.currencyCode}`}
+                    accessibilityLabel={`You owe in ${entry.currencyCode}: ${describeAmount(-entry.amountMinor, entry.currencyCode, { includeDirection: false })}`}
                   />
                 ))}
               </Stack>
@@ -427,6 +428,10 @@ function PendingDraftsAndSyncSection({ viewModel }: HomeDashboardViewProps): Rea
     router.push('/settings');
   };
 
+  const handleReviewDrafts = (): void => {
+    router.push('/drafts');
+  };
+
   return (
     <Stack gap="md" align="stretch">
       {viewModel.hasPendingDrafts ? (
@@ -448,9 +453,16 @@ function PendingDraftsAndSyncSection({ viewModel }: HomeDashboardViewProps): Rea
                 {viewModel.pendingDraftCount === 1 ? 'draft' : 'drafts'} waiting for review
               </Text>
               <Text variant="caption" color="secondary">
-                Tap to review extracted values before they are confirmed.
+                Review extracted values before they are confirmed.
               </Text>
             </Stack>
+            <Button
+              label="Review"
+              variant="secondary"
+              size="sm"
+              onPress={handleReviewDrafts}
+              accessibilityLabel="Review your pending drafts"
+            />
           </Row>
         </Card>
       ) : null}
@@ -600,37 +612,54 @@ function RecentGroupsSection({ viewModel }: HomeDashboardViewProps): ReactNode {
 }
 
 function GroupCard({ group }: { readonly group: GroupCardViewModel }): ReactNode {
+  const theme = useTheme();
   const handleOpen = (): void => {
     router.push(`/groups/${group.id}`);
   };
 
+  // The whole card is the target. A chevron-only target made the card
+  // look tappable while leaving most of its surface inert, and gave the
+  // row two focus stops for one destination.
   return (
-    <Card elevation="sm" padding="lg">
-      <Row gap="md" align="center">
-        <Stack gap={0} style={{ flex: 1 }}>
-          <Text variant="cardTitle" color="primary">
-            {group.name}
-          </Text>
-          <Text variant="caption" color="muted">
-            {group.memberCount} {group.memberCount === 1 ? 'member' : 'members'} ·{' '}
-            {group.lastActivityLabel}
-          </Text>
-        </Stack>
-        <Stack gap={0} align="flex-end">
-          <AmountText
-            amountMinor={group.userBalanceMinor}
-            currencyCode={group.currencyCode}
-            variant="amountSmall"
-            accessibilityLabel={`Your balance in ${group.name} is ${group.userBalanceMinor} minor units in ${group.currencyCode}`}
-          />
-        </Stack>
-        <IconButton
-          icon="chevron-forward"
-          onPress={handleOpen}
-          accessibilityLabel={`Open group ${group.name}`}
-        />
-      </Row>
-    </Card>
+    <Pressable
+      onPress={handleOpen}
+      accessibilityRole="button"
+      accessibilityLabel={`Open group ${group.name}. ${group.memberCount} ${group.memberCount === 1 ? 'member' : 'members'}.`}
+      accessibilityHint="Opens the group dashboard"
+    >
+      {({ pressed }) => (
+        <Card
+          elevation={pressed ? 'none' : 'sm'}
+          padding="lg"
+          style={pressed ? { backgroundColor: theme.colors.surfaceMuted } : undefined}
+        >
+          <Row gap="md" align="center">
+            <Stack gap={0} style={{ flex: 1 }}>
+              <Text variant="cardTitle" color="primary">
+                {group.name}
+              </Text>
+              <Text variant="caption" color="muted">
+                {group.memberCount} {group.memberCount === 1 ? 'member' : 'members'} ·{' '}
+                {group.lastActivityLabel}
+              </Text>
+            </Stack>
+            <Stack gap={0} align="flex-end">
+              <AmountText
+                amountMinor={group.userBalanceMinor}
+                currencyCode={group.currencyCode}
+                variant="amountSmall"
+                accessibilityLabel={`${describeAmount(group.userBalanceMinor, group.currencyCode)} in ${group.name}`}
+              />
+            </Stack>
+            <Icon
+              name="chevron-forward"
+              size={theme.iconSizes.md}
+              color={theme.colors.textMuted}
+            />
+          </Row>
+        </Card>
+      )}
+    </Pressable>
   );
 }
 

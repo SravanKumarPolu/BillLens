@@ -279,6 +279,9 @@ function FormulaCard({ viewModel }: FormulaCardProps): ReactNode {
           <Stack gap="xs" align="stretch">
             {lines.map((line, i) => (
               <Text
+                // Formula lines are positional output, not an editable
+                // list: the same value may repeat and order is the API.
+                // eslint-disable-next-line react/no-array-index-key
                 key={i}
                 variant="body"
                 color={line.startsWith('=') ? 'primary' : 'secondary'}

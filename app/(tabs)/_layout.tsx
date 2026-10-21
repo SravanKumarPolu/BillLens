@@ -11,6 +11,7 @@
 
 import { Tabs } from 'expo-router';
 import type { ReactNode } from 'react';
+import type { ColorValue } from 'react-native';
 
 import { CaptureFab } from '@presentation/components/CaptureFab';
 import { Icon, Stack, useTheme } from '@presentation/design-system';
@@ -51,12 +52,14 @@ const TABS: readonly TabConfig[] = [
 
 interface TabIconProps {
   readonly name: string;
-  readonly color: string;
+  // SDK 57 types the tab-bar tint as `ColorValue`; the tab bar always
+  // passes the theme's string colour, so narrow it for the Icon prop.
+  readonly color: ColorValue;
   readonly size: number;
 }
 
 function TabIcon({ name, color, size }: TabIconProps): JSX.Element {
-  return <Icon name={name} size={size} color={color} />;
+  return <Icon name={name} size={size} color={String(color)} />;
 }
 
 function ThemedTabs(): ReactNode {

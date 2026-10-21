@@ -4,7 +4,16 @@
  */
 
 import { ActivityScreen } from '@presentation/screens/activity/ActivityScreen';
+import { PageHead } from '@presentation/web/PageHead';
 
 export default function ActivityTabRoute(): JSX.Element {
-  return <ActivityScreen />;
+  return (
+    <>
+      <PageHead
+        title="Activity"
+        description="A unified timeline of expenses and settlements across your groups."
+      />
+      <ActivityScreen />
+    </>
+  );
 }
