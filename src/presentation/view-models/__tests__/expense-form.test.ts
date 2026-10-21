@@ -211,4 +211,128 @@ describe('todayDateOnly', () => {
     expect(todayDateOnly(new Date(Date.UTC(2026, 0, 5)))).toBe('2026-01-05');
     expect(todayDateOnly(new Date(Date.UTC(2026, 10, 25)))).toBe('2026-11-25');
   });
+
+  it('previews an exact split and rejects a mismatched total', () => {
+    const ok = createManualExpenseFormViewModel({
+      state: makeState({
+        amountInput: '42.50',
+        splitType: 'exact',
+        splitValues: { 'm-alice': '20.00', 'm-bob': '22.50' },
+      }),
+      members: MEMBERS,
+      defaultCurrencyCode: 'INR',
+    });
+    expect(ok.splitError).toBeNull();
+    expect(ok.splitPreview.map((e) => e.amountMinor)).toEqual([2000, 2250]);
+
+    const bad = createManualExpenseFormViewModel({
+      state: makeState({
+        amountInput: '42.50',
+        splitType: 'exact',
+        splitValues: { 'm-alice': '20.00', 'm-bob': '20.00' },
+      }),
+      members: MEMBERS,
+      defaultCurrencyCode: 'INR',
+    });
+    expect(bad.splitError).toContain('add up to');
+    expect(bad.canSubmit).toBe(false);
+  });
+
+  it('previews a percentage split and requires exactly 100%', () => {
+    const ok = createManualExpenseFormViewModel({
+      state: makeState({
+        amountInput: '42.50',
+        splitType: 'percentage',
+        splitValues: { 'm-alice': '50', 'm-bob': '50' },
+      }),
+      members: MEMBERS,
+      defaultCurrencyCode: 'INR',
+    });
+    expect(ok.splitError).toBeNull();
+    expect(ok.splitPreview.map((e) => e.amountMinor)).toEqual([2125, 2125]);
+
+    const bad = createManualExpenseFormViewModel({
+      state: makeState({
+        amountInput: '42.50',
+        splitType: 'percentage',
+        splitValues: { 'm-alice': '50', 'm-bob': '40' },
+      }),
+      members: MEMBERS,
+      defaultCurrencyCode: 'INR',
+    });
+    expect(bad.splitError).toContain('must total 100%');
+  });
+
+  it('previews weighted shares and rejects zero units', () => {
+    const ok = createManualExpenseFormViewModel({
+      state: makeState({
+        amountInput: '42.50',
+        splitType: 'shares',
+        splitValues: { 'm-alice': '1', 'm-bob': '3' },
+      }),
+      members: MEMBERS,
+      defaultCurrencyCode: 'INR',
+    });
+    expect(ok.splitError).toBeNull();
+    expect(ok.splitPreview.reduce((sum, e) => sum + e.amountMinor, 0)).toBe(4250);
+    expect(ok.splitPreview[0]?.amountMinor).toBeLessThan(ok.splitPreview[1]?.amountMinor ?? 0);
+
+    const bad = createManualExpenseFormViewModel({
+      state: makeState({
+        amountInput: '42.50',
+        splitType: 'shares',
+        splitValues: { 'm-alice': '0', 'm-bob': '1' },
+      }),
+      members: MEMBERS,
+      defaultCurrencyCode: 'INR',
+    });
+    expect(bad.splitError).toContain('share units');
+  });
+
+  it('accepts multiple payers whose contributions equal the total', () => {
+    const vm = createManualExpenseFormViewModel({
+      state: makeState({
+        amountInput: '42.50',
+        payerContributions: [
+          { memberId: 'm-alice', amountInput: '30.00' },
+          { memberId: 'm-bob', amountInput: '12.50' },
+        ],
+      }),
+      members: MEMBERS,
+      defaultCurrencyCode: 'INR',
+    });
+    expect(vm.payerError).toBeNull();
+    expect(vm.canSubmit).toBe(true);
+  });
+
+  it('rejects payer contributions that do not equal the total', () => {
+    const vm = createManualExpenseFormViewModel({
+      state: makeState({
+        amountInput: '42.50',
+        payerContributions: [
+          { memberId: 'm-alice', amountInput: '30.00' },
+          { memberId: 'm-bob', amountInput: '10.00' },
+        ],
+      }),
+      members: MEMBERS,
+      defaultCurrencyCode: 'INR',
+    });
+    expect(vm.payerError).toContain('add up to');
+    expect(vm.canSubmit).toBe(false);
+  });
+
+  it('rejects duplicate payer members', () => {
+    const vm = createManualExpenseFormViewModel({
+      state: makeState({
+        amountInput: '42.50',
+        payerContributions: [
+          { memberId: 'm-alice', amountInput: '20.00' },
+          { memberId: 'm-alice', amountInput: '22.50' },
+        ],
+      }),
+      members: MEMBERS,
+      defaultCurrencyCode: 'INR',
+    });
+    expect(vm.payerError).toContain('only appear once');
+  });
 });

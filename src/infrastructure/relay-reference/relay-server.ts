@@ -24,7 +24,7 @@ import { createHash } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 
 import type { EncryptedSyncEvent } from '@domain/sync-crypto';
-import { verifyEventSignature } from '@domain/sync-crypto';
+import { hashInvitationToken, verifyEventSignature } from '@domain/sync-crypto';
 
 import { DEVICE_ID_HEADER, SIGNATURE_HEADER, verifyRequest } from './request-signature';
 
@@ -50,6 +50,21 @@ interface GroupState {
   readonly creatorDeviceId: string;
   readonly members: Set<string>;
   readonly events: Map<string, StoredEvent>;
+  /** Encrypted group-key wraps addressed to one device. */
+  readonly keybox: Map<string, KeyboxEntry>;
+  /** Invitation hashes; the raw token is never stored. */
+  readonly invites: Map<
+    string,
+    { readonly tokenHash: string; readonly expiresAt: number; consumedAt?: number }
+  >;
+}
+
+export interface KeyboxEntry {
+  readonly mailboxId: string;
+  readonly recipientDeviceId: string;
+  readonly submittedBy: string;
+  readonly wrapped: Readonly<Record<string, unknown>>;
+  readonly createdAt: number;
 }
 
 export interface RelayOptions {
@@ -204,6 +219,116 @@ export async function startRelay(options: RelayOptions = {}): Promise<RelayHandl
         return;
       }
 
+      const inviteMatch = /^\/v1\/groups\/([^/]+)\/invites$/.exec(path);
+      if (inviteMatch !== null && method === 'POST') {
+        const groupId = decodeURIComponent(inviteMatch[1]!);
+        const caller = authenticate(req, method, path, body);
+        const group = requireMember(groupId, caller.deviceId);
+        const parsed = JSON.parse(body) as {
+          invitationId?: string;
+          tokenHash?: string;
+          expiresAt?: string;
+        };
+        const expiresAt = Date.parse(parsed.expiresAt ?? '');
+        if (
+          typeof parsed.invitationId !== 'string' ||
+          typeof parsed.tokenHash !== 'string' ||
+          !Number.isFinite(expiresAt)
+        ) {
+          throw new HttpError(400, 'invitationId, tokenHash and expiresAt are required.');
+        }
+        group.invites.set(parsed.invitationId, {
+          tokenHash: parsed.tokenHash,
+          expiresAt,
+        });
+        json(res, 201, { invitationId: parsed.invitationId });
+        return;
+      }
+
+      const joinMatch = /^\/v1\/groups\/([^/]+)\/join$/.exec(path);
+      if (joinMatch !== null && method === 'POST') {
+        const groupId = decodeURIComponent(joinMatch[1]!);
+        const parsed = JSON.parse(body) as { deviceId?: string; token?: string };
+        if (typeof parsed.deviceId !== 'string' || typeof parsed.token !== 'string') {
+          throw new HttpError(400, 'deviceId and token are required.');
+        }
+        const group = groups.get(groupId);
+        if (group === undefined) throw new HttpError(404, 'Group not found on relay.');
+        if (!devices.has(parsed.deviceId)) throw new HttpError(401, 'Register the device first.');
+
+        const tokenHash = hashInvitationToken(parsed.token);
+        const invite = [...group.invites.values()].find(
+          (candidate) =>
+            candidate.consumedAt === undefined &&
+            candidate.expiresAt > now() &&
+            candidate.tokenHash === tokenHash,
+        );
+        if (invite === undefined) throw new HttpError(403, 'Invalid or expired invitation.');
+        invite.consumedAt = now();
+        group.members.add(parsed.deviceId);
+        json(res, 200, { groupId, members: [...group.members] });
+        return;
+      }
+
+      const keyboxItemMatch = /^\/v1\/groups\/([^/]+)\/keys\/([^/]+)$/.exec(path);
+      if (keyboxItemMatch !== null && method === 'DELETE') {
+        const groupId = decodeURIComponent(keyboxItemMatch[1]!);
+        const mailboxId = decodeURIComponent(keyboxItemMatch[2]!);
+        const caller = authenticate(req, method, path, body);
+        const group = requireMember(groupId, caller.deviceId);
+        const entry = group.keybox.get(mailboxId);
+        if (entry === undefined || entry.recipientDeviceId !== caller.deviceId) {
+          throw new HttpError(404, 'Key envelope not found.');
+        }
+        group.keybox.delete(mailboxId);
+        json(res, 200, { deleted: mailboxId });
+        return;
+      }
+
+      const keysMatch = /^\/v1\/groups\/([^/]+)\/keys$/.exec(path);
+      if (keysMatch !== null) {
+        const groupId = decodeURIComponent(keysMatch[1]!);
+        const caller = authenticate(req, method, path, body);
+        const group = requireMember(groupId, caller.deviceId);
+
+        if (method === 'POST') {
+          const parsed = JSON.parse(body) as {
+            recipientDeviceId?: string;
+            wrapped?: Record<string, unknown>;
+          };
+          if (typeof parsed.recipientDeviceId !== 'string' || parsed.wrapped === undefined) {
+            throw new HttpError(400, 'recipientDeviceId and wrapped are required.');
+          }
+          if (!group.members.has(parsed.recipientDeviceId)) {
+            throw new HttpError(403, 'Recipient is not an active member of this group.');
+          }
+          const mailboxId = createHash('sha256')
+            .update(`${groupId}:${parsed.recipientDeviceId}:${Date.now()}:${Math.random()}`)
+            .digest('hex')
+            .slice(0, 24);
+          group.keybox.set(mailboxId, {
+            mailboxId,
+            recipientDeviceId: parsed.recipientDeviceId,
+            submittedBy: caller.deviceId,
+            wrapped: parsed.wrapped,
+            createdAt: now(),
+          });
+          json(res, 201, { mailboxId });
+          return;
+        }
+
+        if (method === 'GET') {
+          const entries = [...group.keybox.values()].filter(
+            (entry) => entry.recipientDeviceId === caller.deviceId,
+          );
+          json(res, 200, { groupId, keys: entries });
+          return;
+        }
+
+        json(res, 405, { error: 'Method not allowed.' });
+        return;
+      }
+
       const memberMatch = /^\/v1\/groups\/([^/]+)\/members\/([^/]+)$/.exec(path);
       if (memberMatch !== null && method === 'DELETE') {
         const groupId = decodeURIComponent(memberMatch[1]!);
@@ -242,6 +367,8 @@ export async function startRelay(options: RelayOptions = {}): Promise<RelayHandl
             creatorDeviceId: caller.deviceId,
             members: new Set([caller.deviceId]),
             events: new Map(),
+            keybox: new Map(),
+            invites: new Map(),
           };
           groups.set(groupId, group);
         } else {

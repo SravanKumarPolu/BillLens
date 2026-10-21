@@ -105,6 +105,8 @@ export interface ExpenseUpdateInput {
   readonly expenseDate?: string;
   readonly note?: string;
   readonly category?: string;
+  /** Split method may change; currency is immutable. */
+  readonly splitType?: SplitType;
   readonly now?: DateTime;
   readonly expectedVersion: VersionNumber;
 }
@@ -138,6 +140,7 @@ export function updateExpense(current: Expense, input: ExpenseUpdateInput): Expe
     ...(input.expenseDate !== undefined ? { expenseDate: asDateTime(input.expenseDate) } : {}),
     ...(input.note !== undefined ? { note: input.note.trim() } : {}),
     ...(input.category !== undefined ? { category: input.category.trim() } : {}),
+    ...(input.splitType !== undefined ? { splitType: input.splitType } : {}),
     updatedAt: asDateTime(now),
     version: asVersionNumber(current.version + 1),
   };

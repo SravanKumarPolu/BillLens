@@ -21,6 +21,7 @@
 
 import { useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { InteractionManager } from 'react-native';
 
 import { Button } from '@presentation/design-system/components/Button';
 import { Card } from '@presentation/design-system/components/Card';
@@ -34,6 +35,7 @@ import {
   tryGetAppServices,
   useAppServicesReady,
   useServicesError,
+  warmUpOptionalServices,
 } from '@store/services-registry';
 
 /**
@@ -49,19 +51,24 @@ import {
  */
 async function bootServices(): Promise<void> {
   await initAppServices();
-  await startSyncCoordinator();
 
-  const services = tryGetAppServices();
-  const authService = services?.identity?.authService ?? null;
-  if (authService !== null) {
-    try {
-      await authService.restoreSession();
-    } catch (error) {
-      // Best-effort restore: auth store already reflects the degraded
-      // state; never block the app on a failed token refresh.
-      console.warn('[ServicesGate] session restore failed:', error);
+  // Everything below is optional for the first screen. It runs after the
+  // user can interact, so launch never waits on network, auth or OCR.
+  InteractionManager.runAfterInteractions(() => {
+    void startSyncCoordinator().catch((error: unknown) => {
+      console.warn('[ServicesGate] sync start failed:', error);
+    });
+
+    const authService = tryGetAppServices()?.identity?.authService ?? null;
+    if (authService !== null) {
+      void authService.restoreSession().catch((error: unknown) => {
+        // Auth store already reflects the degraded state.
+        console.warn('[ServicesGate] session restore failed:', error);
+      });
     }
-  }
+
+    void warmUpOptionalServices();
+  });
 }
 
 interface ServicesGateProps {

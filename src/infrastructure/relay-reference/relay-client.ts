@@ -92,6 +92,46 @@ export class RelayClient {
     await this.request('POST', `/v1/groups/${encodeURIComponent(groupId)}/members`, { deviceId });
   }
 
+  async createInvite(
+    groupId: string,
+    invite: { invitationId: string; tokenHash: string; expiresAt: string },
+  ): Promise<void> {
+    await this.request('POST', `/v1/groups/${encodeURIComponent(groupId)}/invites`, invite);
+  }
+
+  async joinGroup(groupId: string, token: string): Promise<void> {
+    await this.request('POST', `/v1/groups/${encodeURIComponent(groupId)}/join`, {
+      deviceId: this.identity.deviceId,
+      token,
+    });
+  }
+
+  async submitWrappedKey(
+    groupId: string,
+    recipientDeviceId: string,
+    wrapped: Readonly<Record<string, unknown>>,
+  ): Promise<{ mailboxId: string }> {
+    return this.request('POST', `/v1/groups/${encodeURIComponent(groupId)}/keys`, {
+      recipientDeviceId,
+      wrapped,
+    });
+  }
+
+  async fetchWrappedKeys(groupId: string): Promise<readonly { mailboxId: string; wrapped: Record<string, unknown> }[]> {
+    const result = await this.request<{ keys: { mailboxId: string; wrapped: Record<string, unknown> }[] }>(
+      'GET',
+      `/v1/groups/${encodeURIComponent(groupId)}/keys`,
+    );
+    return result.keys;
+  }
+
+  async deleteWrappedKey(groupId: string, mailboxId: string): Promise<void> {
+    await this.request(
+      'DELETE',
+      `/v1/groups/${encodeURIComponent(groupId)}/keys/${encodeURIComponent(mailboxId)}`,
+    );
+  }
+
   async removeMember(groupId: string, deviceId: string): Promise<void> {
     await this.request(
       'DELETE',

@@ -17,7 +17,9 @@
  */
 
 import * as Crypto from 'expo-crypto';
-import { File, Paths } from 'expo-file-system';
+import { File } from 'expo-file-system';
+
+import { ensureLocalImage } from '@utils/local-image';
 
 import type {
   CapturedImageData,
@@ -45,19 +47,20 @@ function inferMime(uri: string): string | undefined {
 
 export class ExpoImageDataReader implements ImageDataReader {
   async read(uri: string): Promise<CapturedImageData> {
-    // The pipeline always receives app-local `file://` URIs (camera writes
-    // into the app sandbox; expo-image-picker copies gallery picks into
-    // it). Bare relative paths are resolved against the document
-    // directory for robustness.
-    const file = uri.startsWith('file://') || uri.startsWith('/')
-      ? new File(uri)
-      : new File(Paths.document, uri.replace(/^\/+/, ''));
+    // Gallery picks may be Android `content://` URIs whose permission is
+    // gone by the time OCR runs. Normalise to an app-local file first; this
+    // also gives a clear error for missing/empty/corrupt files.
+    const localUri = await ensureLocalImage(uri, 'image');
+    const file = new File(localUri);
     const info = file.info();
-    if (!info.exists) {
-      throw new Error(`Image file not found: ${uri}`);
+    if (!info.exists || (info.size ?? 0) <= 0) {
+      throw new Error(`Image file not found or empty: ${uri}`);
     }
     const base64 = await file.base64();
-    const mimeType = inferMime(uri);
+    if (base64.length === 0) {
+      throw new Error(`Image could not be decoded: ${uri}`);
+    }
+    const mimeType = inferMime(localUri);
     return {
       base64,
       sizeBytes: info.size ?? Math.floor((base64.length * 3) / 4),

@@ -64,13 +64,23 @@ function ThemedRootStack(): ReactNode {
       <RouterStack.Screen name="groups/[groupId]" options={{ headerShown: false }} />
       <RouterStack.Screen
         name="capture"
-        options={{ title: 'Capture', presentation: 'fullScreenModal' }}
+        // The nested capture Stack owns its headers; showing one here too
+        // produced the duplicated Capture/Camera bars reported on device.
+        options={{ headerShown: false, presentation: 'fullScreenModal' }}
       />
       <RouterStack.Screen
         name="expenses/new"
         options={{ title: 'New expense', presentation: 'modal' }}
       />
       <RouterStack.Screen name="expenses/[expenseId]" options={{ title: 'Expense' }} />
+      <RouterStack.Screen name="search" options={{ title: 'Search expenses' }} />
+      <RouterStack.Screen name="recurring/index" options={{ title: 'Recurring expenses' }} />
+      <RouterStack.Screen name="recurring/new" options={{ title: 'Repeat expense', presentation: 'modal' }} />
+      <RouterStack.Screen name="settings/backup" options={{ title: 'Backup and restore' }} />
+      <RouterStack.Screen
+        name="expenses/edit/[expenseId]"
+        options={{ title: 'Edit expense', presentation: 'modal' }}
+      />
       <RouterStack.Screen name="drafts/index" options={{ title: 'Drafts' }} />
       <RouterStack.Screen name="drafts/[draftId]" options={{ title: 'Review draft' }} />
       <RouterStack.Screen

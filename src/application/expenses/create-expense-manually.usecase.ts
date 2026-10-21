@@ -14,7 +14,7 @@ import type { AuditRepository } from '@domain/repositories/audit.repository';
 import type { ExpenseRepository } from '@domain/repositories/expense.repository';
 import type { GroupMemberRepository } from '@domain/repositories/group-member.repository';
 import type { GroupRepository } from '@domain/repositories/group.repository';
-import { calculateEqualSplit } from '@domain/services/splits';
+import { resolveManualSplit, type ManualSplitInput } from './manual-expense-split';
 import { Money } from '@domain/value-objects';
 import type { DateTime } from '@domain/value-objects';
 
@@ -46,6 +46,8 @@ export interface CreateExpenseManuallyInput {
   readonly payerContributions: readonly ManualPayerContribution[];
   /** Participants who owe a share. Must be non-empty. */
   readonly participantIds: readonly string[];
+  /** Defaults to an equal split when omitted (backwards compatible). */
+  readonly split?: ManualSplitInput;
   readonly createdBy: string;
   /**
    * Client-generated expense id. When the SAME id is retried after a
@@ -160,9 +162,20 @@ export class CreateExpenseManuallyUseCase {
       );
     }
 
-    // 4. Equal split via the domain split engine (deterministic remainder).
+    // 4. Domain split engine (equal by default; exact/percentage/shares
+    //    when supplied). Every strategy validates that the allocation
+    //    reconciles to the total and distributes remainders
+    //    deterministically.
     const total = Money.fromMinor(input.amountMinor, input.currencyCode);
-    const splitResult = calculateEqualSplit(total, input.participantIds.map(asMemberId));
+    const splitType = input.split?.splitType ?? 'equal';
+    const splitResult = resolveManualSplit(
+      {
+        participantIds: input.participantIds,
+        currencyCode: input.currencyCode,
+        ...(input.split !== undefined ? { split: input.split } : {}),
+      },
+      total,
+    );
 
     // 5. Build + validate the aggregate.
     const now = input.now ?? (new Date().toISOString() as DateTime);
@@ -174,7 +187,7 @@ export class CreateExpenseManuallyUseCase {
       amountMinor: input.amountMinor,
       currencyCode: input.currencyCode,
       expenseDate: normalizeExpenseDate(input.expenseDate, now),
-      splitType: 'equal',
+      splitType,
       ...(input.note !== undefined ? { note: input.note } : {}),
       createdBy: input.createdBy as never,
       now,
@@ -190,12 +203,31 @@ export class CreateExpenseManuallyUseCase {
       }),
     );
 
+    const percentageByMember = new Map<string, number>();
+    const unitsByMember = new Map<string, number>();
+    if (input.split?.splitType === 'percentage') {
+      for (const allocation of input.split.allocations) {
+        percentageByMember.set(allocation.memberId, allocation.basisPoints);
+      }
+    }
+    if (input.split?.splitType === 'shares') {
+      for (const allocation of input.split.allocations) {
+        unitsByMember.set(allocation.memberId, allocation.units);
+      }
+    }
+
     const splits = splitResult.entries.map((entry) =>
       createExpenseSplit({
         id: asExpenseSplitId(generateId()),
         expenseId,
         memberId: entry.memberId,
         amountMinor: entry.amountMinor,
+        ...(splitType === 'percentage'
+          ? { percentageBasisPoints: percentageByMember.get(entry.memberId as string) ?? 0 }
+          : {}),
+        ...(splitType === 'shares'
+          ? { shareUnits: unitsByMember.get(entry.memberId as string) ?? 1 }
+          : {}),
         now,
       }),
     );
@@ -228,7 +260,7 @@ export class CreateExpenseManuallyUseCase {
         source: 'manual_form',
         amountMinor: input.amountMinor,
         currencyCode: input.currencyCode,
-        splitType: 'equal',
+        splitType,
         payerCount: payers.length,
         participantCount: splits.length,
       },
@@ -263,7 +295,7 @@ function generateId(): string {
  * draft-path normalizer: undefined → now; date-only → midnight UTC; full
  * ISO → validated as-is.
  */
-function normalizeExpenseDate(expenseDate: string | undefined, now: string): string {
+export function normalizeExpenseDate(expenseDate: string | undefined, now: string): string {
   if (expenseDate === undefined || expenseDate.trim().length === 0) {
     return now;
   }

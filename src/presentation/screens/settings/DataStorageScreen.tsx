@@ -32,6 +32,7 @@ import {
   tryGetAppServices,
   useAppServicesReady,
 } from '@store/services-registry';
+import { buildReportHtml, collectReportRows } from '@application/export/financial-report';
 import { useGroupStore } from '@store/group-store';
 import { RETENTION_OPTIONS, useRetentionStore } from '@store/retention-store';
 
@@ -45,6 +46,8 @@ export interface DataStorageViewProps {
   readonly message: string | null;
   readonly onExportJson: () => void;
   readonly onExportCsv: () => void;
+  readonly onExportPdf?: () => void;
+  readonly onExportXlsx?: () => void;
   readonly onRemoveLocalCopy: (row: RetentionRow) => void;
 }
 
@@ -80,6 +83,8 @@ export function DataStorageView({
   message,
   onExportJson,
   onExportCsv,
+  onExportPdf,
+  onExportXlsx,
   onRemoveLocalCopy,
 }: DataStorageViewProps): JSX.Element {
   const theme = useTheme();
@@ -131,6 +136,28 @@ export function DataStorageView({
                 icon="grid-outline"
               />
             </Row>
+            {onExportPdf !== undefined && onExportXlsx !== undefined ? (
+            <Row gap="sm" align="center">
+              <Button
+                label="PDF report"
+                variant="secondary"
+                size="sm"
+                onPress={onExportPdf}
+                disabled={busy}
+                accessibilityLabel="Export a PDF expense report"
+                icon="document-outline"
+              />
+              <Button
+                label="XLSX workbook"
+                variant="ghost"
+                size="sm"
+                onPress={onExportXlsx}
+                disabled={busy}
+                accessibilityLabel="Export an XLSX expense workbook"
+                icon="grid-outline"
+              />
+            </Row>
+            ) : null}
             {message !== null ? (
               <Text variant="caption" color="secondary" accessibilityRole="alert">
                 {message}
@@ -326,6 +353,49 @@ export function DataStorageScreen(): JSX.Element {
     [groups],
   );
 
+  const exportReport = useCallback(
+    async (kind: 'pdf' | 'xlsx'): Promise<void> => {
+      const services = tryGetAppServices();
+      if (services === null) return;
+      setBusy(true);
+      setMessage(null);
+      try {
+        const exported = await services.data.exportLocalData.execute({
+          groupIds: groups.map((group) => group.id),
+        });
+        const base = `billlens-report-${exported.exportedAt.slice(0, 10)}`;
+        if (Platform.OS === 'web') {
+          setMessage('PDF and XLSX sharing is available in the mobile app.');
+          return;
+        }
+
+        if (kind === 'pdf') {
+          // Lazy: expo-print is only loaded when the user asks for a PDF.
+          const { printToFileAsync } = await import('expo-print');
+          const { uri } = await printToFileAsync({ html: buildReportHtml(exported) });
+          await Share.share({ url: uri, title: `${base}.pdf` });
+        } else {
+          // Lazy: the spreadsheet writer is a separate JS chunk.
+          const XLSX = await import('xlsx');
+          const sheet = XLSX.utils.json_to_sheet([...collectReportRows(exported)]);
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, sheet, 'Expenses');
+          const data = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+          const file = new File(Paths.cache, `${base}.xlsx`);
+          file.create({ overwrite: true });
+          file.write(new Uint8Array(data));
+          await Share.share({ url: file.uri, title: `${base}.xlsx` });
+        }
+        setMessage(`Exported ${exported.counts.expenses} expenses.`);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Export failed.');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [groups],
+  );
+
   const removeLocalCopy = useCallback(
     (row: RetentionRow): void => {
       const perform = async (): Promise<void> => {
@@ -372,6 +442,8 @@ export function DataStorageScreen(): JSX.Element {
       message={message}
       onExportJson={(): void => void exportPayload('json')}
       onExportCsv={(): void => void exportPayload('csv')}
+      onExportPdf={(): void => void exportReport('pdf')}
+      onExportXlsx={(): void => void exportReport('xlsx')}
       onRemoveLocalCopy={removeLocalCopy}
     />
   );

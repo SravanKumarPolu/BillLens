@@ -18,13 +18,28 @@
 - **Removing a member:** relay removal (creator only) + rotate + re-wrap for
   remaining devices. Not automated yet.
 
-## Invitations
+## Invitations and joining
 
-- 32-byte bearer token, SHA-256 hash stored by the relay/inviter.
-- No group key or key id in the token, URL or QR code.
-- After joining, the new device registers its X25519 key and an existing member
-  wraps the current group key to it (out-of-band in the current library; no UI
-  yet).
+1. An existing member creates a token; the relay stores only its SHA-256 hash
+   and expiry.
+2. The invitee registers its device public keys and redeems the token once via
+   `POST /join`; the relay adds it to the group.
+3. An existing member wraps the current group key to the invitee's X25519 key
+   and leaves the wrap in the relay keybox.
+4. The invitee fetches, unwraps (only it can), stores the epoch metadata and
+   deletes the mailbox entry.
+
+No cloud account is required: membership is authorised by an existing member
+plus the one-time token, and requests are signed by device keys.
+
+## Revocation and recovery
+
+- `revokeMember`: relay removal (creator only), membership marked `removed`,
+  key rotation, re-wrap of the new epoch for remaining devices. The removed
+  device cannot fetch and never receives the new key.
+- `recoverForDevice`: any member that still holds the key re-wraps it for the
+  new device. A fresh install with no member online cannot recover — the
+  service throws rather than inventing key material.
 
 ## Limits
 

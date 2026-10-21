@@ -32,10 +32,11 @@ import {
   type ImagePickerAsset,
   type ImagePickerResult,
   launchImageLibraryAsync,
-  MediaTypeOptions,
   requestMediaLibraryPermissionsAsync,
 } from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
+
+import { ensureLocalImage } from '@utils/local-image';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator } from 'react-native';
@@ -115,7 +116,7 @@ export function GalleryPickerScreen({ mode = 'scan', groupId }: GalleryPickerScr
     void (async () => {
       try {
         const result: ImagePickerResult = await launchImageLibraryAsync({
-          mediaTypes: MediaTypeOptions.Images,
+          mediaTypes: ['images'],
           allowsEditing: false,
           quality: 0.8,
           allowsMultipleSelection: false,
@@ -136,11 +137,15 @@ export function GalleryPickerScreen({ mode = 'scan', groupId }: GalleryPickerScr
         // use `router.replace` so the picker screen is removed from
         // the stack (pressing Back from the quality screen returns to
         // the capture entry, not back into the picker).
-        const query = buildImageQualityQuery(asset.uri, resolvedMode, resolvedGroupId);
+        // Android may return a content:// URI; copy it into app storage so
+        // FileSystem/OCR can read it after the picker's grant is gone.
+        const localUri = await ensureLocalImage(asset.uri, 'gallery');
+        const query = buildImageQualityQuery(localUri, resolvedMode, resolvedGroupId);
         router.replace(`/capture/image-quality${query}`);
         setStatus('succeeded');
       } catch (err) {
         if (cancelled) return;
+        console.warn('[GalleryPicker] pick failed:', err);
         setError(err instanceof Error ? err.message : 'Could not pick an image.');
         setStatus('failed');
       }

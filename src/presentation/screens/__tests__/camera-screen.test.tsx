@@ -17,6 +17,7 @@ import { View } from 'react-native';
 import {
   buildImageQualityQuery,
   CameraScreenView,
+  takeCameraPicture,
   type CameraViewModel,
 } from '@presentation/screens/capture/CameraScreen';
 
@@ -180,4 +181,32 @@ describe('CameraScreenView', () => {
     fireEvent.press(getByLabelText('Close the camera'));
     expect(handleCancel).toHaveBeenCalledTimes(1);
   });
+
+describe('takeCameraPicture', () => {
+  it('prefers the runtime takePictureAsync API', async () => {
+    const takePictureAsync = jest
+      .fn<(...args: unknown[]) => Promise<{ uri: string }>>()
+      .mockResolvedValue({ uri: 'file:///a.jpg' });
+    const takePicture = jest.fn<(...args: unknown[]) => Promise<{ uri: string }>>();
+    const picture = await takeCameraPicture({ takePictureAsync, takePicture }, { quality: 0.8 });
+    expect(picture.uri).toBe('file:///a.jpg');
+    expect(takePictureAsync).toHaveBeenCalledWith({ quality: 0.8 });
+    expect(takePicture).not.toHaveBeenCalled();
+  });
+
+  it('falls back to takePicture when that is the only API', async () => {
+    const takePicture = jest
+      .fn<(...args: unknown[]) => Promise<{ uri: string }>>()
+      .mockResolvedValue({ uri: 'file:///b.jpg' });
+    const picture = await takeCameraPicture({ takePicture }, { quality: 0.7 });
+    expect(picture.uri).toBe('file:///b.jpg');
+    expect(takePicture).toHaveBeenCalledWith({ quality: 0.7 });
+  });
+
+  it('throws a clear error when neither API exists', async () => {
+    await expect(takeCameraPicture({}, { quality: 0.8 })).rejects.toThrow(
+      /does not expose a picture API/,
+    );
+  });
+});
 });

@@ -14,6 +14,7 @@ import type { ReactNode } from 'react';
 import type { ColorValue } from 'react-native';
 
 import { CaptureFab } from '@presentation/components/CaptureFab';
+import { useOutstandingReminders } from '@presentation/notifications/use-outstanding-reminders';
 import { Icon, Stack, useTheme } from '@presentation/design-system';
 
 interface TabConfig {
@@ -100,6 +101,7 @@ function ThemedTabs(): ReactNode {
 }
 
 export default function TabsLayout(): ReactNode {
+  useOutstandingReminders();
   return (
     <Stack gap={0} style={{ flex: 1 }}>
       <ThemedTabs />

@@ -34,10 +34,11 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
-import { Pressable } from 'react-native';
+import { Alert, Pressable, Switch } from 'react-native';
 
 import { APP_METADATA } from '@config/app-metadata';
 import { Card } from '@presentation/design-system/components/Card';
+import { refreshOutstandingReminder } from '@presentation/notifications/outstanding-reminders';
 import { Icon } from '@presentation/design-system/components/Icon';
 import { Row } from '@presentation/design-system/components/Row';
 import { Screen } from '@presentation/design-system/components/Screen';
@@ -52,8 +53,11 @@ import {
   PRIVACY_DEFAULT_LABELS,
   type StorageMode,
 } from '@presentation/view-models/groups';
+import { useNotificationStore } from '@store/notification-store';
+import { tryGetAppServices } from '@store/services-registry';
 import { useAppState } from '@store/app-state-store';
 import { useCaptureStore } from '@store/capture-store';
+import { useGroupStore } from '@store/group-store';
 import { useThemeStore } from '@store/theme-store';
 
 // ---------------------------------------------------------------------------
@@ -97,9 +101,32 @@ export function SettingsScreen(): JSX.Element {
     [themeMode, defaultStorageMode, pendingSyncCount, hasFailedSync, failedSyncCount],
   );
 
+  const remindersEnabled = useNotificationStore((state) => state.outstandingReminders);
+  const setRemindersEnabled = useNotificationStore((state) => state.setOutstandingReminders);
+
+  const handleToggleReminders = async (enabled: boolean): Promise<void> => {
+    setRemindersEnabled(enabled);
+    const services = tryGetAppServices();
+    if (services === null) return;
+    const status = await refreshOutstandingReminder(
+      services,
+      useGroupStore.getState().groups.map((group) => group.id),
+      enabled,
+    );
+    if (enabled && status === 'denied') {
+      setRemindersEnabled(false);
+      Alert.alert(
+        'Notifications are off',
+        'Enable notifications for BillLens in Android settings, then try again.',
+      );
+    }
+  };
+
   return (
     <SettingsView
       viewModel={viewModel}
+      remindersEnabled={remindersEnabled}
+      onToggleReminders={(enabled): void => void handleToggleReminders(enabled)}
       onSelectTheme={(mode): void => setThemeMode(mode)}
       onSelectStorageMode={(mode): void => setDefaultStorageMode(mode)}
       onOpenFeedback={(): void => router.push('/settings/feedback')}
@@ -125,6 +152,8 @@ export interface SettingsViewProps {
   readonly onOpenSyncStatus: () => void;
   readonly onOpenData?: () => void;
   readonly onOpenDeleteAccount: () => void;
+  readonly remindersEnabled?: boolean;
+  readonly onToggleReminders?: (enabled: boolean) => void;
 }
 
 const THEME_OPTIONS: readonly { readonly mode: ThemeMode; readonly label: string; readonly icon: string }[] = [
@@ -149,6 +178,8 @@ export function SettingsView({
   onOpenSyncStatus,
   onOpenData,
   onOpenDeleteAccount,
+  remindersEnabled,
+  onToggleReminders,
 }: SettingsViewProps): JSX.Element {
   return (
     <Screen scrollable safeArea>
@@ -242,7 +273,48 @@ export function SettingsView({
         </SettingsSectionCard>
 
         {/* Data */}
+        {onToggleReminders !== undefined ? (
+          <SettingsSectionCard
+            title="Reminders"
+            icon="notifications-outline"
+            accessibilityLabel="Notification reminders"
+          >
+            <Row gap="md" align="center">
+              <Stack gap={2} style={{ flex: 1 }}>
+                <Text variant="body" color="primary">
+                  Outstanding balances
+                </Text>
+                <Text variant="caption" color="secondary">
+                  One local reminder a day while groups still have balances. No server, no push
+                  service.
+                </Text>
+              </Stack>
+              <Switch
+                value={remindersEnabled ?? false}
+                onValueChange={onToggleReminders}
+                accessibilityLabel="Daily outstanding balance reminder"
+              />
+            </Row>
+          </SettingsSectionCard>
+        ) : null}
+
         <SettingsSectionCard title="Data" icon="server-outline" accessibilityLabel="Data and storage">
+          <SettingsRow
+            icon="repeat-outline"
+            label="Recurring expenses"
+            description="Manage repeating expenses, their next dates, and paused schedules."
+            chevron
+            onPress={() => router.push('/recurring')}
+            accessibilityLabel="Recurring expenses — manage repeating schedules"
+          />
+          <SettingsRow
+            icon="shield-checkmark-outline"
+            label="Backup & restore"
+            description="Encrypted local backup of groups, expenses, splits and settlements. No cloud required."
+            chevron
+            onPress={() => router.push('/settings/backup')}
+            accessibilityLabel="Backup and restore — encrypted local backup"
+          />
           <SettingsRow
             icon="download-outline"
             label="Export & storage"

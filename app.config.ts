@@ -44,7 +44,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: appNames[appEnv],
   slug: 'billlens',
-  version: '2.9.0',
+  version: '2.16.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
   // Deep link scheme. All expo-router routes are addressable as
@@ -80,7 +80,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: bundleIdentifiers[appEnv].ios,
     // TestFlight build number — bumped per upload (EAS autoIncrement also
     // manages it; this is the floor).
-    buildNumber: '2.9.0',
+    buildNumber: '2.16.0',
     infoPlist: {
       NSCameraUsageDescription: 'BillLens uses the camera to scan receipts and payment screenshots for expense tracking.',
       NSPhotoLibraryUsageDescription: 'BillLens needs access to your photo library to import receipt images and payment screenshots.',
@@ -101,7 +101,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     package: bundleIdentifiers[appEnv].android,
     // Play internal-testing version code (2.6.0 → 20600). EAS
     // autoIncrement raises it per build; this is the floor.
-    versionCode: 20900,
+    versionCode: 21600,
     // v2.5.0: only CAMERA is declared explicitly — the expo-image-picker
     // config plugin injects the CORRECT media permission per target SDK
     // (READ_MEDIA_IMAGES on API 33+, READ_EXTERNAL_STORAGE below), which
@@ -133,6 +133,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-router',
+    'expo-notifications',
     // SDK 57 removed the top-level `splash` field; the splash screen is
     // configured through its plugin now.
     [

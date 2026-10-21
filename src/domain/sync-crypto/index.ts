@@ -26,6 +26,14 @@ export {
   type WrappedGroupKey,
 } from './group-key';
 export {
+  DEFAULT_INVITATION_TTL_MS,
+  assertInvitationUsable,
+  createInvitation,
+  hashInvitationToken,
+  verifyInvitationToken,
+  type GroupInvitation,
+} from './invitation';
+export {
   ENVELOPE_VERSION,
   assertFreshness,
   createEncryptedEvent,

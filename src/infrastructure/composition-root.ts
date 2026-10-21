@@ -57,6 +57,16 @@ import {
   GetExpenseDetailUseCase,
   ListRecentExpensesForGroupUseCase,
 } from '@application/expenses/index';
+import { SearchExpensesUseCase } from '@application/expenses/search-expenses.usecase';
+import {
+  CreateRecurringExpenseFromExpenseUseCase,
+  DeleteRecurringExpenseUseCase,
+  ListRecurringExpensesUseCase,
+  MaterializeRecurringExpensesUseCase,
+  SetRecurringExpensePausedUseCase,
+} from '@application/recurring/recurring-expenses.usecases';
+import { UpdateExpenseUseCase } from '@application/expenses/update-expense.usecase';
+import { VoidExpenseUseCase } from '@application/expenses/void-expense.usecase';
 import { ExportLocalDataUseCase } from '@application/export/export-local-data.usecase';
 import { AssessRetentionUseCase } from '@application/retention/assess-retention.usecase';
 import { DeleteLocalGroupCopyUseCase } from '@application/retention/delete-local-group-copy.usecase';
@@ -142,6 +152,14 @@ import { SqliteBalanceQueryPort } from './sqlite/sqlite-balance-query-port';
 import { SqliteCaptureSourceRepository } from './sqlite/sqlite-capture-source-repository';
 import { SqliteExpenseDraftRepository } from './sqlite/sqlite-expense-draft-repository';
 import { SqliteExpenseRepository } from './sqlite/sqlite-expense-repository';
+import { SqliteExpenseSearchRepository } from './sqlite/sqlite-expense-search-repository';
+import { SqliteRecurringExpenseRepository } from './sqlite/sqlite-recurring-expense-repository';
+import {
+  CreateBackupUseCase,
+  InspectBackupUseCase,
+  RestoreBackupUseCase,
+} from '@application/backup/backup.usecases';
+import { SqliteBackupStore } from './sqlite/sqlite-backup-store';
 import { SqliteExtractionResultRepository } from './sqlite/sqlite-extraction-result-repository';
 import { SqliteFeedbackRepository } from './sqlite/sqlite-feedback-repository';
 import { SqliteGroupMemberRepository } from './sqlite/sqlite-group-member-repository';
@@ -310,10 +328,27 @@ export interface RepositoryServices {
  * group home screen's recent-expenses read path and the expense-detail
  * read path (`/expenses/[expenseId]`).
  */
+export interface RecurringServices {
+  readonly createFromExpense: CreateRecurringExpenseFromExpenseUseCase;
+  readonly materializeDue: MaterializeRecurringExpensesUseCase;
+  readonly list: ListRecurringExpensesUseCase;
+  readonly setPaused: SetRecurringExpensePausedUseCase;
+  readonly remove: DeleteRecurringExpenseUseCase;
+}
+
+export interface BackupServices {
+  readonly create: CreateBackupUseCase;
+  readonly inspect: InspectBackupUseCase;
+  readonly restore: RestoreBackupUseCase;
+}
+
 export interface ExpenseServices {
   readonly createExpenseManually: CreateExpenseManuallyUseCase;
+  readonly searchExpenses: SearchExpensesUseCase;
   readonly listRecentExpenses: ListRecentExpensesForGroupUseCase;
   readonly getExpenseDetail: GetExpenseDetailUseCase;
+  readonly voidExpense: VoidExpenseUseCase;
+  readonly updateExpense: UpdateExpenseUseCase;
 }
 
 /** Group read + write services (member picker, group header, create-group write path). */
@@ -404,6 +439,8 @@ export interface AppServices {
   readonly identity: IdentityServices | null;
   readonly repositories: RepositoryServices;
   readonly expenses: ExpenseServices;
+  readonly recurring: RecurringServices;
+  readonly backup: BackupServices;
   readonly groups: GroupServices;
   readonly settlements: SettlementServices;
   readonly monitoring: MonitoringServices;
@@ -507,6 +544,13 @@ export interface CompositionRootInput {
  */
 export function createCompositionRoot(input: CompositionRootInput): AppServices {
   const { database } = input;
+
+  const generateId = (): string => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  };
 
   // --- Infrastructure adapters (one per port) -------------------------------
   const balanceQuery = new SqliteBalanceQueryPort(database);
@@ -681,7 +725,10 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
   };
 
   // Manual expense form + group home reads + expense detail.
+  const expenseSearchRepository = new SqliteExpenseSearchRepository(database);
+
   const expenses: ExpenseServices = {
+    searchExpenses: new SearchExpensesUseCase(expenseSearchRepository),
     createExpenseManually: new CreateExpenseManuallyUseCase(
       repositories.groups,
       repositories.members,
@@ -693,10 +740,47 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
       repositories.members,
       repositories.expenses,
     ),
+    updateExpense: new UpdateExpenseUseCase(
+      repositories.groups,
+      repositories.members,
+      repositories.expenses,
+      repositories.audit,
+      generateId,
+    ),
+    voidExpense: new VoidExpenseUseCase(
+      repositories.groups,
+      repositories.members,
+      repositories.expenses,
+      repositories.audit,
+      generateId,
+    ),
     getExpenseDetail: new GetExpenseDetailUseCase(
       repositories.expenses,
       repositories.members,
     ),
+  };
+
+  const recurringRepository = new SqliteRecurringExpenseRepository(database);
+  const recurring: RecurringServices = {
+    createFromExpense: new CreateRecurringExpenseFromExpenseUseCase(
+      repositories.expenses,
+      recurringRepository,
+      generateId,
+    ),
+    materializeDue: new MaterializeRecurringExpensesUseCase(
+      recurringRepository,
+      expenses.createExpenseManually,
+    ),
+    list: new ListRecurringExpensesUseCase(recurringRepository),
+    setPaused: new SetRecurringExpensePausedUseCase(recurringRepository),
+    remove: new DeleteRecurringExpenseUseCase(recurringRepository),
+  };
+
+  const backupStore = new SqliteBackupStore(database);
+  const backup: BackupServices = {
+    create: new CreateBackupUseCase(backupStore, input.appVersion ?? '0.0.0'),
+    inspect: new InspectBackupUseCase(backupStore),
+    restore: new RestoreBackupUseCase(backupStore),
   };
 
   const groups: GroupServices = {
@@ -749,12 +833,6 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
     new GuestAuthenticationProvider();
   const sessionStorage = session?.sessionStorage ?? null;
 
-  const generateId = (): string => {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
-    }
-    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-  };
 
   const identity: IdentityServices | null =
     input.secureStorage === undefined
@@ -826,6 +904,8 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
     identity,
     repositories,
     expenses,
+    recurring,
+    backup,
     groups,
     settlements,
     monitoring,

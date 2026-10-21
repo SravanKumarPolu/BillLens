@@ -2,6 +2,198 @@
 
 All notable changes to BillLens across Phases 1-10 are documented here.
 
+## [2.16.0] — 2026-10-21
+
+### Backup/restore and yearly recurrence
+
+- **Encrypted local backup/restore** (`/settings/backup`): table-level snapshot
+  of groups, members, expenses, payers, splits, settlements, recurring rules,
+  receipt metadata and payment handles. Excludes tokens, sync queues, analytics
+  and feedback. Receipt image files are explicitly not included.
+- PBKDF2-HMAC-SHA256 (210k iterations) + XChaCha20-Poly1305 with the header
+  bound as AAD. Wrong password and tampered ciphertext fail closed; tests cover
+  both. Restore validates schema version, previews counts, requires explicit
+  destructive confirmation, and runs in one SQLite transaction.
+- **Yearly recurring expenses**; 29 February anchors clamp to 28 February in
+  non-leap years and return to 29 February in leap years.
+- 3 real-SQLite backup/restore tests, 1 yearly schedule test.
+
+Item-level persistence/editor, on-device ML Kit OCR, and sync UI/relay remain
+unimplemented (see FEATURE_MATRIX). 210 suites / 4,871 tests pass.
+## [2.15.0] — 2026-10-21
+
+### Parity gaps closed
+
+- **Recurring expenses** (migration 0009): daily/weekly/monthly templates with
+  interval, start/end dates and month-end anchoring (31 Jan → 28/29 Feb → 31
+  Mar). Created from an existing expense, copying exact payer and split
+  allocations. Catch-up materialisation runs on group focus, is bounded to 50
+  occurrences, and uses deterministic expense ids + an occurrence primary key,
+  so retries never duplicate. Pause/resume/soft-delete UI at `/recurring`.
+- **Expense search** (`/search`): cross-group free text over title/note, group
+  and date filters, 20-row pagination. SQL constrains `group_id IN (...)` so the
+  existing `idx_expenses_group_date` index is used; `%`/`_` are escaped.
+- **PDF and XLSX export**: lazy-loaded `expo-print` and `xlsx` chunks; report
+  HTML escapes all user content; XLSX rows are generated locally. No server.
+- **Outstanding-balance reminders**: optional daily local notification, computed
+  from the existing settlement suggestions. Cancels itself when every group is
+  settled. No push service, no cloud.
+- Schema version **9**, **40 tables**, `db:verify` **10 blocks**.
+
+Not in this release: item-level expense persistence/editor and encrypted-sync
+UI/relay deployment (see FEATURE_MATRIX for exact blockers).
+
+209 suites / 4,865 tests pass. TypeScript, ESLint, Expo Doctor 21/21.
+## [2.14.0] — 2026-10-21
+
+### Capture workflow and manual expense fixes
+
+Reported on a physical Android device.
+
+- **Camera crash** (`undefined is not a function`): the screen called
+  `ref.takePicture`, but the runtime `CameraView` ref exposes
+  `takePictureAsync`. `takeCameraPicture()` now probes both and throws a clear
+  error if neither exists; covered by 3 tests.
+- **Gallery deprecation**: replaced `MediaTypeOptions.Images` with
+  `mediaTypes: ['images']` (SDK 57 API).
+- **Image storage**: gallery picks can be Android `content://` URIs, which the
+  modern `File` API cannot read. New `ensureLocalImage()` copies non-local URIs
+  into the cache with collision-resistant names, verifies non-empty size, and is
+  used by gallery, camera capture, image-quality validation and OCR reading.
+  The legacy API is used only for `copyAsync` (content:// support).
+- **Image validation** now reports missing/empty/corrupt copies with a clear
+  retry path instead of silently blocking.
+- **Manual expense**: added a container-level test that enters ₹100 on the real
+  screen against the repository graph and asserts one expense + four ₹25 splits
+  + navigation back. The submit path logs the error class/message only (never
+  payloads). No root cause reproduced in code — the prior startup/migration
+  failure is the likely device cause.
+- **Duplicate headers**: the root stack showed a Capture header on top of the
+  nested capture stack; root is now `headerShown: false`, so only the nested
+  Camera/Review headers render.
+
+OCR status: mock extraction works in development; remote OCR requires Supabase
++ provider credentials; no on-device OCR. The ₹100 Udupi receipt is **not**
+verified against a real OCR engine. 205 suites / 4,839 tests pass.
+## [2.13.0] — 2026-10-21
+
+### Expense editing and multiple payers
+
+- `UpdateExpenseUseCase`: edits title/amount/date/note/category/split method,
+  replaces payers and splits atomically, bumps the version, writes an audit
+  entry, and refuses stale versions or voided expenses. Currency stays
+  immutable; settlement history is never rewritten.
+- Shared `manual-expense-split.ts` is now used by create **and** update, so an
+  edited split can never drift from the create-time engine.
+- Expense form supports multiple payers (member + exact contribution per row,
+  must total the expense), and prefills payers/splits/participants when editing.
+- Expense detail has an Edit action; new route `/expenses/edit/[expenseId]`.
+- Fixed a shadowing bug where edit mode would have updated a freshly generated
+  id instead of the existing expense.
+- 4 update-use-case tests + 3 multi-payer view-model tests.
+
+Item-level manual editing remains **partial**: the domain item-split engine and
+draft review work, but expenses do not persist line items, so a manual item
+editor needs a new table + assignment UI. Documented, not claimed.
+202 suites / 4,829 tests pass; tsc/lint clean; web + Android exports, Doctor 21/21.
+## [2.12.0] — 2026-10-21
+
+### Split types: exact, percentage and shares (parity gap closed)
+
+The UI previously created **equal splits only**, despite the domain engine
+supporting every method. This closes a core Splid-parity gap.
+
+- `CreateExpenseManuallyInput` accepts an optional `split` union
+  (equal/exact/percentage/shares); allocations are member-keyed and mapped to
+  participant order. Percentages use basis points; shares use positive integer
+  units. Every method reconciles to the total via the domain split engine.
+- Persisted splits now carry `percentageBasisPoints` / `shareUnits` correctly
+  (previously omitted, which failed aggregate validation).
+- The expense form has a split-method selector and per-member inputs with
+  validation for: missing members, non-participants, totals that don't match,
+  percentages not equal to 100%, zero share units.
+- 7 new use-case tests + 3 view-model tests cover exact/percentage/shares and
+  rejection paths.
+
+Honest parity note: `docs/FEATURE_MATRIX.md` now records that BillLens is **not
+yet better than Splid overall** — recurring expenses, search, notifications,
+PDF/XLSX export, expense editing and production encrypted sync are still
+missing. 201 suites / 4,820 tests pass; tsc/lint clean; exports verified.
+## [2.11.0] — 2026-10-21
+
+### Startup deferral, lazy OCR and list virtualisation
+
+Measured performance pass on the existing app. No UI redesign, no new paid
+dependency.
+
+#### Startup
+- OCR provider is no longer constructed at boot: `LazyCaptureProcessor` resolves
+  it on first capture or during post-interaction warm-up. The selector is
+  dynamically imported, producing a **separate 6.8 KB web chunk**.
+- Sync coordinator, session restore and OCR warm-up now run after the first
+  interactions instead of during boot. SQLite/migrations still run before the
+  first screen (required).
+- `asyncRoutes` was tested and produced an identical bundle hash, so it was
+  reverted rather than left as dead config.
+
+#### Data & lists
+- Activity feed moved from `ScrollView + map` to `FlatList` (windowed, keyed,
+  memoised rows) with loading/error/empty states preserved.
+- Confirmed the expense list uses `idx_expenses_group_date`; 5,000-row benchmark:
+  **0.072 ms** with the index vs **1.367 ms** without (limit 20).
+
+#### Guardrails
+- `docs/PERFORMANCE_AND_LAZY_LOADING_STANDARDS.md` (budgets, patterns,
+  review checklist) and `AGENTS.md` for future work.
+- CI now fails if the web entry exceeds 650 KB gzip or the lazy OCR chunk
+  disappears.
+
+#### Measurements (production export, 2026-10-21)
+| Metric | Before | After |
+|---|---|---|
+| Web entry (gzip) | ≈588 KB | 602,526 B (≈588 KB) — unchanged ±1 KB |
+| Lazy OCR chunk | none | **6.8 KB, separate** |
+| Android Hermes bundle | 4.7 MB | 4.7 MB (no native splitting) |
+| iOS Hermes bundle | — | 4.5 MB (export verified) |
+| 5k expenses, limit 20 | n/a | 0.072 ms indexed |
+
+Device cold/warm startup, memory and scroll FPS were **not** measured (no
+physical device/emulator available); no numbers are claimed for them.
+
+200 suites / 4,810 tests pass; tsc/lint clean; web + Android exports verified.
+## [2.10.0] — 2026-10-21
+
+### Durable encrypted-event processing, conflicts, invitations and expense voiding
+
+Integration work on top of 2.9.0's crypto core. Still not wired to the app UI
+and no relay is deployed; the encrypted path is not enabled in production.
+
+#### Durable state (migration 0008)
+- New tables: `sync_processed_events` (applying/processed/failed/conflict),
+  `sync_event_conflicts`, `sync_device_memberships`, `sync_key_epochs`,
+  `sync_event_cursors` (38 tables total).
+- `SqliteEncryptedSyncStore` + `EncryptedSyncEngine` persistence: duplicate
+  events never re-apply, state survives restart, failures are not acknowledged,
+  ack happens only after `processed`.
+
+#### Conflicts
+- `assertExpenseEventApplicable` compares amount, currency, payer shares and
+  participants; a mismatch records a conflict instead of overwriting.
+- Conflict rows can be marked `keep_local` / `accept_remote` (no UI yet).
+
+#### Invitations, keys, recovery
+- Relay now stores invitation hashes, supports one-time `join`, and a per-device
+  keybox; creator-only member removal.
+- `GroupAccessService`: create/accept invite, deliver/receive wrapped keys,
+  revoke + rotate, recover for a new device. No key material in tokens/URLs.
+- Six integration tests on the reference relay + SQLite stores.
+
+#### Deletion
+- `VoidExpenseUseCase` (owner/admin or creator) soft-deletes, recalculates
+  balances, writes an audit entry; expense detail screen exposes it.
+
+200 suites / 4,810 tests pass; `tsc`, lint, SQLite execution, web and Android
+exports verified. Physical-device sync and production relay remain unverified.
 ## [2.9.0] — 2026-10-21
 
 ### Encrypted group-sync core (tested, not deployed)

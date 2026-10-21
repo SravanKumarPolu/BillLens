@@ -146,6 +146,11 @@ export function GroupsListView({
             </Text>
           </Stack>
           <IconButton
+            icon="search-outline"
+            onPress={() => router.push('/search')}
+            accessibilityLabel="Search all expenses"
+          />
+          <IconButton
             icon="add-circle-outline"
             onPress={handleCreateGroup}
             accessibilityLabel="Create a new group from the header"

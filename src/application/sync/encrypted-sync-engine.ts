@@ -23,8 +23,12 @@
 import type { EncryptedSyncEvent, GroupKeyring } from '@domain/sync-crypto';
 import {
   assertFreshness,
+  eventDigest,
   openEncryptedEvent,
 } from '@domain/sync-crypto';
+
+import type { EncryptedSyncStore } from './encrypted-sync-store.port';
+import { FinancialConflictError } from './financial-conflict';
 
 export interface EncryptedEventSource {
   fetchEvents(groupId: string): Promise<readonly EncryptedSyncEvent[]>;
@@ -40,11 +44,14 @@ export interface EncryptedSyncEngineInput {
   readonly apply: (payload: Readonly<Record<string, unknown>>) => Promise<void>;
   readonly processed?: Set<string>;
   readonly now?: () => Date;
+  /** When present, processed state survives restarts. */
+  readonly store?: EncryptedSyncStore;
 }
 
 export interface PullResult {
   readonly applied: number;
   readonly skipped: number;
+  readonly conflicts: number;
 }
 
 export class EncryptedSyncEngine {
@@ -64,11 +71,29 @@ export class EncryptedSyncEngine {
     const acknowledged: string[] = [];
     let applied = 0;
     let skipped = 0;
+    let conflicts = 0;
+    const now = this.input.now ?? ((): Date => new Date());
 
     for (const event of events) {
-      if (this.processed.has(event.header.eventId)) {
+      const eventId = event.header.eventId;
+      if (this.input.store !== undefined) {
+        const record = await this.input.store.getProcessedEvent(eventId);
+        if (record?.status === 'processed' || record?.status === 'conflict') {
+          skipped += 1;
+          acknowledged.push(eventId);
+          continue;
+        }
+        await this.input.store.beginProcessing({
+          eventId,
+          groupId: event.header.groupId,
+          deviceId: event.header.deviceId,
+          keyId: event.header.keyId,
+          digest: eventDigest(event),
+          at: now().toISOString(),
+        });
+      } else if (this.processed.has(eventId)) {
         skipped += 1;
-        acknowledged.push(event.header.eventId);
+        acknowledged.push(eventId);
         continue;
       }
 
@@ -77,25 +102,67 @@ export class EncryptedSyncEngine {
         throw new Error(`Unknown sender device: ${event.header.deviceId}`);
       }
 
-      assertFreshness(event.header, (this.input.now ?? ((): Date => new Date()))());
+      assertFreshness(event.header, now());
 
-      const opened = openEncryptedEvent(event, {
-        senderSigningPublicKey: signingKey,
-        groupKey: {
-          keyId: event.header.keyId,
-          key: this.input.keyring.get(event.header.keyId),
-        },
-      });
+      try {
+        const opened = openEncryptedEvent(event, {
+          senderSigningPublicKey: signingKey,
+          groupKey: {
+            keyId: event.header.keyId,
+            key: this.input.keyring.get(event.header.keyId),
+          },
+        });
 
-      await this.input.apply(opened.payload);
-      this.processed.add(event.header.eventId);
-      acknowledged.push(event.header.eventId);
+        await this.input.apply(opened.payload);
+      } catch (error) {
+        if (error instanceof FinancialConflictError) {
+          const at = now().toISOString();
+          if (this.input.store !== undefined) {
+            await this.input.store.recordConflict({
+              id: `${eventId}:${error.conflict.entityId}`,
+              groupId: this.input.groupId,
+              eventId,
+              entityType: error.conflict.entityType,
+              entityId: error.conflict.entityId,
+              localVersion: error.conflict.localVersion,
+              remoteVersion: error.conflict.remoteVersion,
+              localPayload: error.conflict.localPayload,
+              remotePayload: error.conflict.remotePayload,
+              status: 'unresolved',
+              createdAt: at,
+            });
+            await this.input.store.markConflict(eventId, error.conflict.reason, at);
+          }
+          this.processed.add(eventId);
+          acknowledged.push(eventId);
+          conflicts += 1;
+          continue;
+        }
+
+        if (this.input.store !== undefined) {
+          await this.input.store.markFailed(
+            eventId,
+            error instanceof Error ? error.message : String(error),
+            now().toISOString(),
+          );
+        }
+        throw error;
+      }
+
+      if (this.input.store !== undefined) {
+        await this.input.store.markProcessed(eventId, eventDigest(event), now().toISOString());
+      }
+      this.processed.add(eventId);
+      acknowledged.push(eventId);
       applied += 1;
     }
 
     if (acknowledged.length > 0) {
       await this.input.source.acknowledge(this.input.groupId, acknowledged);
+      if (this.input.store !== undefined) {
+        await this.input.store.markAcknowledged(acknowledged, now().toISOString());
+      }
     }
-    return { applied, skipped };
+    return { applied, skipped, conflicts };
   }
 }

@@ -13,7 +13,7 @@
  */
 
 import { getCurrency } from '@domain/entities/currency';
-import { calculateEqualSplit } from '@domain/services/splits';
+import { calculateEqualSplit, calculateSplit } from '@domain/services/splits';
 import { Money } from '@domain/value-objects';
 
 // ---------------------------------------------------------------------------
@@ -27,6 +27,8 @@ export interface ExpenseFormMember {
 }
 
 /** Raw form state — exactly what the screen's useState hooks hold. */
+export type ExpenseSplitMethod = 'equal' | 'exact' | 'percentage' | 'shares';
+
 export interface ManualExpenseFormState {
   readonly title: string;
   /** Raw decimal string as typed (e.g. "42.50"). Not yet parsed. */
@@ -36,7 +38,13 @@ export interface ManualExpenseFormState {
   readonly dateInput: string;
   readonly note: string;
   readonly payerMemberId: string | null;
+  /** When set, overrides the single payer (multiple payers). */
+  readonly payerContributions?: readonly { readonly memberId: string; readonly amountInput: string }[];
   readonly participantIds: readonly string[];
+  /** Defaults to 'equal' when omitted (older callers/tests). */
+  readonly splitType?: ExpenseSplitMethod;
+  /** Member-keyed raw inputs: amount, percentage or share units. */
+  readonly splitValues?: Readonly<Record<string, string>>;
 }
 
 export interface ManualExpenseFormInput {
@@ -58,6 +66,7 @@ export interface ManualExpenseFormViewModel {
   readonly dateError: string | null;
   readonly payerError: string | null;
   readonly participantsError: string | null;
+  readonly splitError: string | null;
   /** True when every field passes validation. */
   readonly canSubmit: boolean;
   /** Parsed minor units, or null while the amount is invalid/empty. */
@@ -100,6 +109,7 @@ export interface AmountParseResult {
 export function parseAmountToMinor(
   raw: string,
   currencyCode: string,
+  options: { readonly allowZero?: boolean } = {},
 ): AmountParseResult {
   const trimmed = raw.trim();
   if (trimmed.length === 0) {
@@ -134,7 +144,7 @@ export function parseAmountToMinor(
   if (!Number.isSafeInteger(minor)) {
     return { ok: false, minor: null, error: 'Amount is too large.' };
   }
-  if (minor <= 0) {
+  if (minor < 0 || (minor === 0 && options.allowZero !== true)) {
     return { ok: false, minor: null, error: 'Amount must be greater than zero.' };
   }
   return { ok: true, minor, error: null };
@@ -189,9 +199,36 @@ export function createManualExpenseFormViewModel(
     dateError = 'Use a valid date (YYYY-MM-DD).';
   }
 
-  // Payer
-  const payerError =
-    state.payerMemberId === null ? 'Choose who paid this expense.' : null;
+  // Payer(s)
+  let payerError: string | null = null;
+  const multiplePayers = state.payerContributions !== undefined && state.payerContributions.length > 0;
+  if (multiplePayers) {
+    const rows = state.payerContributions ?? [];
+    const seen = new Set<string>();
+    let total = 0;
+    for (const row of rows) {
+      if (row.memberId.length === 0) {
+        payerError = 'Choose a member for every payer row.';
+        break;
+      }
+      if (seen.has(row.memberId)) {
+        payerError = 'A member can only appear once as a payer.';
+        break;
+      }
+      seen.add(row.memberId);
+      const parsed = parseAmountToMinor(row.amountInput, currencyCode, { allowZero: true });
+      if (!parsed.ok || parsed.minor === null) {
+        payerError = 'Enter a valid contribution for every payer.';
+        break;
+      }
+      total += parsed.minor;
+    }
+    if (payerError === null && amount.ok && amount.minor !== null && total !== amount.minor) {
+      payerError = `Payer contributions add up to ${formatMinor(total, currencyCode)}, but the total is ${formatMinor(amount.minor, currencyCode)}.`;
+    }
+  } else if (state.payerMemberId === null) {
+    payerError = 'Choose who paid this expense.';
+  }
 
   // Participants
   let participantsError: string | null = null;
@@ -199,26 +236,101 @@ export function createManualExpenseFormViewModel(
     participantsError = 'Choose at least one person to split with.';
   }
 
-  // Split preview — only meaningful once the amount parses and there
-  // is at least one participant. Uses the DOMAIN engine so the preview
-  // is byte-identical to the persisted shares.
+  // Split preview — only meaningful once the amount parses and there is at
+  // least one participant. Uses the DOMAIN engine so the preview is
+  // byte-identical to the persisted shares, for every split method.
+  const splitType: ExpenseSplitMethod = state.splitType ?? 'equal';
+  const splitValues = state.splitValues ?? {};
+  let splitError: string | null = null;
   let splitPreview: readonly SplitPreviewEntry[] = [];
+  const nameById = new Map(input.members.map((m) => [m.id, m.displayName]));
+
   if (amount.ok && amount.minor !== null && state.participantIds.length > 0) {
     try {
       const total = Money.fromMinor(amount.minor, currencyCode);
-      const result = calculateEqualSplit(
-        total,
-        state.participantIds.map((id) => id as never),
-      );
-      const nameById = new Map(input.members.map((m) => [m.id, m.displayName]));
-      splitPreview = result.entries.map((entry) => ({
-        memberId: entry.memberId,
-        displayName: nameById.get(entry.memberId) ?? 'Unknown member',
-        amountMinor: entry.amountMinor,
-      }));
-    } catch {
-      // A currency the domain rejects → the amount error path will
-      // surface it on submit; keep the preview empty.
+      const participantIds = state.participantIds.map((id) => id as never);
+
+      if (splitType === 'exact') {
+        const parsed = state.participantIds.map((id) =>
+          parseAmountToMinor(splitValues[id] ?? '', currencyCode, { allowZero: true }),
+        );
+        const invalidIndex = parsed.findIndex((entry) => !entry.ok || entry.minor === null);
+        if (invalidIndex !== -1) {
+          const memberId = state.participantIds[invalidIndex]!;
+          splitError = `Enter an exact amount for ${nameById.get(memberId) ?? 'each member'}.`;
+        } else {
+          const allocated = parsed.reduce((sum, entry) => sum + (entry.minor ?? 0), 0);
+          if (allocated !== amount.minor) {
+            splitError = `Exact amounts add up to ${formatMinor(allocated, currencyCode)}, but the total is ${formatMinor(amount.minor, currencyCode)}.`;
+          } else {
+            const result = calculateSplit({
+              totalAmount: total,
+              participantIds,
+              splitType: 'exact',
+              exactAmounts: parsed.map((entry) => Money.fromMinor(entry.minor ?? 0, currencyCode)),
+            });
+            splitPreview = result.entries.map((entry) => ({
+              memberId: entry.memberId,
+              displayName: nameById.get(entry.memberId) ?? 'Unknown member',
+              amountMinor: entry.amountMinor,
+            }));
+          }
+        }
+      } else if (splitType === 'percentage') {
+        const parsed = state.participantIds.map((id) =>
+          parsePercentBasisPoints(splitValues[id] ?? ''),
+        );
+        const invalidIndex = parsed.findIndex((entry) => entry.basisPoints === null);
+        if (invalidIndex !== -1) {
+          const memberId = state.participantIds[invalidIndex]!;
+          splitError = `Enter a percentage for ${nameById.get(memberId) ?? 'each member'}.`;
+        } else {
+          const sum = parsed.reduce((acc, entry) => acc + (entry.basisPoints ?? 0), 0);
+          if (sum !== 10_000) {
+            splitError = `Percentages add up to ${(sum / 100).toFixed(2)}%; they must total 100%.`;
+          } else {
+            const result = calculateSplit({
+              totalAmount: total,
+              participantIds,
+              splitType: 'percentage',
+              basisPoints: parsed.map((entry) => entry.basisPoints ?? 0),
+            });
+            splitPreview = result.entries.map((entry) => ({
+              memberId: entry.memberId,
+              displayName: nameById.get(entry.memberId) ?? 'Unknown member',
+              amountMinor: entry.amountMinor,
+            }));
+          }
+        }
+      } else if (splitType === 'shares') {
+        const parsed = state.participantIds.map((id) => parseShareUnits(splitValues[id] ?? ''));
+        const invalidIndex = parsed.findIndex((entry) => entry.units === null);
+        if (invalidIndex !== -1) {
+          const memberId = state.participantIds[invalidIndex]!;
+          splitError = `Enter share units (1 or more) for ${nameById.get(memberId) ?? 'each member'}.`;
+        } else {
+          const result = calculateSplit({
+            totalAmount: total,
+            participantIds,
+            splitType: 'shares',
+            shareUnits: parsed.map((entry) => entry.units ?? 0),
+          });
+          splitPreview = result.entries.map((entry) => ({
+            memberId: entry.memberId,
+            displayName: nameById.get(entry.memberId) ?? 'Unknown member',
+            amountMinor: entry.amountMinor,
+          }));
+        }
+      } else {
+        const result = calculateEqualSplit(total, participantIds);
+        splitPreview = result.entries.map((entry) => ({
+          memberId: entry.memberId,
+          displayName: nameById.get(entry.memberId) ?? 'Unknown member',
+          amountMinor: entry.amountMinor,
+        }));
+      }
+    } catch (error) {
+      splitError = error instanceof Error ? error.message : 'This split is not valid.';
       splitPreview = [];
     }
   }
@@ -228,7 +340,8 @@ export function createManualExpenseFormViewModel(
     amount.ok &&
     dateError === null &&
     payerError === null &&
-    participantsError === null;
+    participantsError === null &&
+    splitError === null;
 
   return {
     titleError,
@@ -236,10 +349,46 @@ export function createManualExpenseFormViewModel(
     dateError,
     payerError,
     participantsError,
+    splitError,
     canSubmit,
     amountMinor: amount.ok ? amount.minor : null,
     splitPreview,
   };
+}
+
+/** Parse "33.33" into 3333 basis points (max 2 decimals, 0–100%). */
+export function parsePercentBasisPoints(raw: string): { basisPoints: number | null } {
+  const trimmed = raw.trim();
+  const match = trimmed.match(/^(\d{1,3})(?:\.(\d{1,2}))?$/);
+  if (match === null) return { basisPoints: null };
+  const whole = Number.parseInt(match[1] ?? '', 10);
+  const fraction = (match[2] ?? '').padEnd(2, '0');
+  const basisPoints = whole * 100 + Number.parseInt(fraction || '0', 10);
+  if (basisPoints < 0 || basisPoints > 10_000) return { basisPoints: null };
+  return { basisPoints };
+}
+
+/** Parse positive integer share units. */
+export function parseShareUnits(raw: string): { units: number | null } {
+  const trimmed = raw.trim();
+  if (!/^\d{1,6}$/.test(trimmed)) return { units: null };
+  const units = Number.parseInt(trimmed, 10);
+  return units > 0 ? { units } : { units: null };
+}
+
+/** Minor units formatted for an error message (best-effort, no throw). */
+function formatMinor(amountMinor: number, currencyCode: string): string {
+  try {
+    const decimals = currencyDecimals(currencyCode);
+    const divisor = 10 ** decimals;
+    const major = Math.floor(amountMinor / divisor);
+    const fraction = amountMinor % divisor;
+    return decimals === 0
+      ? `${major} ${currencyCode}`
+      : `${major}.${String(fraction).padStart(decimals, '0')} ${currencyCode}`;
+  } catch {
+    return `${amountMinor} ${currencyCode}`;
+  }
 }
 
 /** Today's date as "YYYY-MM-DD" (the form's default value). */

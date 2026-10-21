@@ -26,7 +26,7 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator } from 'react-native';
+import { Alert, ActivityIndicator } from 'react-native';
 
 import type { ExpenseDetailView } from '@application/expenses/get-expense-detail.usecase';
 import { AmountText } from '@presentation/design-system/components/AmountText';
@@ -114,7 +114,58 @@ export function ExpenseDetailScreen({ expenseId }: ExpenseDetailScreenProps): JS
     );
   }
 
-  return <ExpenseDetailScreenView view={view} onBack={() => router.back()} />;
+  const handleVoid = (): void => {
+    Alert.alert(
+      'Void this expense?',
+      'It will be removed from balances but kept in the audit history. This affects everyone in the group.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Void',
+          style: 'destructive',
+          onPress: (): void => {
+            void (async () => {
+              const services = tryGetAppServices();
+              if (services === null) return;
+              try {
+                const expense = await services.repositories.expenses.findById(expenseId as never);
+                if (expense === null) throw new Error('Expense not found.');
+                const members = await services.groups.listGroupMembers.execute(
+                  expense.groupId as never,
+                );
+                const actor =
+                  members.members.find((m) => m.role === 'owner') ?? members.members[0];
+                if (actor === undefined) throw new Error('No group member to act as.');
+                await services.expenses.voidExpense.execute({
+                  expenseId,
+                  groupId: expense.groupId as string,
+                  actorMemberId: actor.id,
+                  actorUserId: expense.createdBy as string,
+                  expectedVersion: expense.version as number,
+                });
+                router.back();
+              } catch (err) {
+                Alert.alert(
+                  'Could not void expense',
+                  err instanceof Error ? err.message : 'Unknown error.',
+                );
+              }
+            })();
+          },
+        },
+      ],
+    );
+  };
+
+  return (
+    <ExpenseDetailScreenView
+      view={view}
+      onBack={() => router.back()}
+      onEdit={() => router.push(`/expenses/edit/${encodeURIComponent(expenseId)}`)}
+      onRepeat={() => router.push(`/recurring/new?expenseId=${encodeURIComponent(expenseId)}`)}
+      onVoid={handleVoid}
+    />
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -124,9 +175,19 @@ export function ExpenseDetailScreen({ expenseId }: ExpenseDetailScreenProps): JS
 export interface ExpenseDetailViewProps {
   readonly view: ExpenseDetailView;
   readonly onBack: () => void;
+  /** Optional: omit in read-only previews/tests. */
+  readonly onEdit?: () => void;
+  readonly onRepeat?: () => void;
+  readonly onVoid?: () => void;
 }
 
-export function ExpenseDetailScreenView({ view, onBack }: ExpenseDetailViewProps): JSX.Element {
+export function ExpenseDetailScreenView({
+  view,
+  onBack,
+  onEdit,
+  onRepeat,
+  onVoid,
+}: ExpenseDetailViewProps): JSX.Element {
   const theme = useTheme();
   const isReconciled = view.sharesTotalMinor === view.amountMinor && view.payersTotalMinor === view.amountMinor;
 
@@ -269,7 +330,7 @@ export function ExpenseDetailScreenView({ view, onBack }: ExpenseDetailViewProps
           </Card>
         ) : null}
 
-        {/* Back */}
+        {/* Back / destructive action */}
         <Button
           label="Back"
           variant="ghost"
@@ -278,6 +339,36 @@ export function ExpenseDetailScreenView({ view, onBack }: ExpenseDetailViewProps
           accessibilityLabel="Go back"
           icon="arrow-back-outline"
         />
+        {onEdit !== undefined ? (
+          <Button
+            label="Edit expense"
+            variant="secondary"
+            size="md"
+            onPress={onEdit}
+            accessibilityLabel="Edit this expense"
+            icon="create-outline"
+          />
+        ) : null}
+        {onRepeat !== undefined ? (
+          <Button
+            label="Repeat this expense"
+            variant="secondary"
+            size="md"
+            onPress={onRepeat}
+            accessibilityLabel="Repeat this expense on a schedule"
+            icon="repeat-outline"
+          />
+        ) : null}
+        {onVoid !== undefined ? (
+          <Button
+            label="Void expense"
+            variant="ghost"
+            size="md"
+            onPress={onVoid}
+            accessibilityLabel="Void this expense — removes it from balances and keeps an audit entry"
+            icon="trash-outline"
+          />
+        ) : null}
       </Stack>
     </Screen>
   );

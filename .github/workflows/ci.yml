@@ -82,6 +82,17 @@ jobs:
       - name: Export
         run: npx expo export -p web
 
+      - name: Assert performance budget
+        run: |
+          set -euo pipefail
+          entry=$(ls dist/_expo/static/js/web/entry-*.js | head -1)
+          gzip_bytes=$(gzip -c "$entry" | wc -c | tr -d ' ')
+          echo "web entry gzip: ${gzip_bytes} bytes"
+          # Budget from docs/PERFORMANCE_AND_LAZY_LOADING_STANDARDS.md.
+          test "$gzip_bytes" -lt 665600
+          # Optional OCR provider must stay in its own lazy chunk.
+          ls dist/_expo/static/js/web/ocr-provider-selector-*.js
+
       - name: Assert document metadata
         run: |
           set -euo pipefail

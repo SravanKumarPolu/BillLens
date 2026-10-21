@@ -999,6 +999,86 @@ create table if not exists review_prompt_ledger (
  * Migrations are forward-only — there is no down-migration. To roll back,
  * write a new migration that reverses the change.
  */
+/**
+ * Migration 0008: encrypted sync state (v2.9.0).
+ *
+ * Durable state for the encrypted relay path. No key material lives here:
+ * group keys stay in SecureStore / the keyring; this table records only
+ * which epochs existed.
+ *
+ * `sync_processed_events.status` is a two-phase marker:
+ *   applying  — decryption/apply started; a crash here is safe because the
+ *               apply path is idempotent (client-generated ids/upserts)
+ *   processed — apply committed; the event may be acknowledged
+ *   failed    — apply threw; safe to retry
+ */
+export const MIGRATION_0008_ENCRYPTED_SYNC = `
+create table if not exists sync_processed_events (
+  event_id        text primary key,
+  group_id        text not null,
+  device_id       text not null,
+  key_id          text not null,
+  digest          text not null,
+  status          text not null default 'applying'
+                  check (status in ('applying', 'processed', 'failed', 'conflict')),
+  received_at     text not null,
+  processed_at    text,
+  acknowledged_at text,
+  error           text
+);
+
+create index if not exists idx_processed_events_group
+  on sync_processed_events (group_id, status);
+
+create table if not exists sync_event_conflicts (
+  id              text primary key,
+  group_id        text not null,
+  event_id        text not null,
+  entity_type     text not null,
+  entity_id       text not null,
+  local_version   integer not null,
+  remote_version  integer not null,
+  local_payload   text not null,
+  remote_payload  text not null,
+  status          text not null default 'unresolved'
+                  check (status in ('unresolved', 'keep_local', 'accept_remote')),
+  created_at      text not null,
+  resolved_at     text,
+  unique (group_id, event_id, entity_id)
+);
+
+create index if not exists idx_event_conflicts_group
+  on sync_event_conflicts (group_id, status);
+
+create table if not exists sync_device_memberships (
+  group_id              text not null,
+  device_id             text not null,
+  signing_public_key    text not null,
+  encryption_public_key text not null,
+  status                text not null default 'active'
+                        check (status in ('active', 'removed')),
+  added_at              text not null,
+  removed_at            text,
+  primary key (group_id, device_id)
+);
+
+create table if not exists sync_key_epochs (
+  group_id    text not null,
+  key_id      text not null,
+  created_at  text not null,
+  retired_at  text,
+  primary key (group_id, key_id)
+);
+
+create table if not exists sync_event_cursors (
+  group_id        text not null,
+  device_id       text not null,
+  last_created_at text,
+  updated_at      text not null,
+  primary key (group_id, device_id)
+);
+`;
+
 export interface Migration {
   readonly version: number;
   readonly name: string;
@@ -1198,6 +1278,52 @@ create index if not exists idx_sync_conflicts_unresolved on sync_conflicts (id) 
 create index if not exists idx_sync_conflicts_entity on sync_conflicts (entity_type, entity_id);
 `;
 
+
+export const MIGRATION_0009_RECURRING_EXPENSES = `
+-- ============================================================================
+-- recurring_expenses (templates materialised into ordinary expenses)
+-- ============================================================================
+create table if not exists recurring_expenses (
+  id                       text primary key,
+  group_id                 text not null references groups(id),
+  title                    text not null,
+  amount_minor             integer not null check (amount_minor > 0),
+  currency_code            text not null,
+  note                     text,
+  payers_json              text not null,
+  splits_json              text not null,
+  frequency                text not null check (frequency in ('daily', 'weekly', 'monthly', 'yearly')),
+  interval_count           integer not null default 1 check (interval_count >= 1),
+  start_date               text not null,
+  end_date                 text,
+  next_occurrence_date     text not null,
+  last_materialized_date   text,
+  paused                   integer not null default 0 check (paused in (0, 1)),
+  created_by               text not null,
+  created_at               text not null,
+  updated_at               text not null,
+  deleted_at               text,
+  version                  integer not null default 1,
+  client_created_at        text not null,
+  client_updated_at        text not null
+);
+
+create index if not exists idx_recurring_due on recurring_expenses (paused, next_occurrence_date);
+create index if not exists idx_recurring_group on recurring_expenses (group_id, next_occurrence_date);
+
+-- One row per generated occurrence. The (recurring_id, occurrence_date)
+-- unique key makes retries and crash recovery idempotent.
+create table if not exists recurring_occurrences (
+  recurring_id             text not null references recurring_expenses(id),
+  occurrence_date          text not null,
+  expense_id               text not null references expenses(id),
+  created_at               text not null,
+  primary key (recurring_id, occurrence_date)
+);
+
+create index if not exists idx_recurring_occurrence_expense on recurring_occurrences (expense_id);
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'initial_schema', sql: MIGRATION_0001_INITIAL_SCHEMA },
   { version: 2, name: 'phase6_track1_settlement_state_machine', sql: MIGRATION_0002_PHASE6_TRACK1 },
@@ -1206,6 +1332,8 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 5, name: 'identity_support', sql: MIGRATION_0005_IDENTITY_SUPPORT },
   { version: 6, name: 'sync_queue_alignment', sql: MIGRATION_0006_SYNC_QUEUE_ALIGNMENT },
   { version: 7, name: 'sync_cursors', sql: MIGRATION_0007_SYNC_CURSORS },
+  { version: 8, name: 'encrypted_sync', sql: MIGRATION_0008_ENCRYPTED_SYNC },
+  { version: 9, name: 'recurring_expenses', sql: MIGRATION_0009_RECURRING_EXPENSES },
 ];
 
 /**

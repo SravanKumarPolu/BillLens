@@ -90,6 +90,22 @@ export function useGroupDashboardData(groupId: string): GroupDashboardData {
 
     setLoading(true);
     try {
+      // Catch up recurring templates before reading the group. Idempotent:
+      // deterministic expense ids + occurrence rows make repeated focus
+      // events safe.
+      try {
+        await services.recurring.materializeDue.execute({
+          groupIds: [groupId],
+          today: new Date().toISOString().slice(0, 10),
+        });
+      } catch (recurringError) {
+        console.warn(
+          '[GroupDashboard] recurring materialisation failed:',
+          recurringError instanceof Error ? recurringError.message : 'unknown',
+        );
+      }
+      if (isStale()) return;
+
       // Members first — the transfers projection needs the id→name map.
       const groupInfo = await services.groups.listGroupMembers.execute(groupId);
       if (isStale()) return;

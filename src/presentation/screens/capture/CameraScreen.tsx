@@ -41,6 +41,8 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, View } from 'react-native';
 
+import { ensureLocalImage } from '@utils/local-image';
+
 import { Button } from '@presentation/design-system/components/Button';
 import { Card } from '@presentation/design-system/components/Card';
 import { Icon } from '@presentation/design-system/components/Icon';
@@ -58,6 +60,29 @@ import { useReducedMotion } from '@presentation/hooks/use-reduced-motion';
 // ---------------------------------------------------------------------------
 
 export type CameraPermissionStatus = 'undetermined' | 'granted' | 'denied';
+
+/**
+ * Capture a frame from the native camera ref.
+ *
+ * Expo Camera's runtime ref exposes `takePictureAsync`; newer type
+ * definitions also describe `takePicture`. Calling `takePicture` directly
+ * threw "undefined is not a function" on device, so probe both and fail
+ * with a clear message if neither exists.
+ */
+export async function takeCameraPicture(
+  ref: unknown,
+  options: { readonly quality: number },
+): Promise<CameraCapturedPicture> {
+  const camera = ref as {
+    takePictureAsync?: (options: { quality: number }) => Promise<CameraCapturedPicture>;
+    takePicture?: (options: { quality: number }) => Promise<CameraCapturedPicture>;
+  };
+  const takePicture = camera.takePictureAsync ?? camera.takePicture;
+  if (typeof takePicture !== 'function') {
+    throw new Error('This camera build does not expose a picture API.');
+  }
+  return takePicture.call(camera, options);
+}
 
 export interface CameraViewModel {
   readonly permission: CameraPermissionStatus;
@@ -111,16 +136,17 @@ export function CameraScreen({ mode = 'scan', groupId }: CameraScreenProps = {})
     setCapturing(true);
     setError(null);
     try {
-      const picture: CameraCapturedPicture = await ref.takePicture({
-        quality: 0.8,
-      });
-      if (picture.uri.length === 0) {
-        setError('No image was captured. Please try again.');
-        return;
+      const picture = await takeCameraPicture(ref, { quality: 0.8 });
+      if (!picture.uri || picture.uri.length === 0) {
+        throw new Error('No image was captured. Please try again.');
       }
-      const query = buildImageQualityQuery(picture.uri, resolvedMode, resolvedGroupId);
+      // Camera URIs are app-local, but normalise anyway so stale/odd paths
+      // fail here with a clear message rather than later in OCR.
+      const localUri = await ensureLocalImage(picture.uri, 'capture');
+      const query = buildImageQualityQuery(localUri, resolvedMode, resolvedGroupId);
       router.replace(`/capture/image-quality${query}`);
     } catch (err) {
+      console.warn('[CameraScreen] capture failed:', err);
       setError(err instanceof Error ? err.message : 'Could not capture the photo.');
     } finally {
       setCapturing(false);

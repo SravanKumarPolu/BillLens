@@ -24,7 +24,7 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, TextInput } from 'react-native';
+import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 
 import type { CreateExpenseManuallyInput } from '@application/expenses';
 import {
@@ -42,7 +42,11 @@ import {
 } from '@presentation/design-system';
 import {
   type ExpenseFormMember,
+  type ExpenseSplitMethod,
   type ManualExpenseFormState,
+  parseAmountToMinor,
+  parsePercentBasisPoints,
+  parseShareUnits,
   type ManualExpenseFormViewModel,
   createManualExpenseFormViewModel,
   todayDateOnly,
@@ -62,6 +66,8 @@ const COMMON_CURRENCIES: readonly string[] = ['USD', 'EUR', 'GBP', 'INR', 'JPY',
 
 export interface NewExpenseScreenProps {
   readonly groupId: string;
+  /** When present, the form edits this expense instead of creating one. */
+  readonly expenseId?: string;
 }
 
 interface GroupFormData {
@@ -70,7 +76,7 @@ interface GroupFormData {
   readonly members: readonly ExpenseFormMember[];
 }
 
-export function NewExpenseScreen({ groupId }: NewExpenseScreenProps): JSX.Element {
+export function NewExpenseScreen({ groupId, expenseId }: NewExpenseScreenProps): JSX.Element {
   const [formTitle, setTitle] = useState('');
   const [amountInput, setAmountInput] = useState('');
   const [currencyCode, setCurrencyCode] = useState('');
@@ -78,12 +84,19 @@ export function NewExpenseScreen({ groupId }: NewExpenseScreenProps): JSX.Elemen
   const [note, setNote] = useState('');
   const [payerMemberId, setPayerMemberId] = useState<string | null>(null);
   const [participantIds, setParticipantIds] = useState<readonly string[]>([]);
+  const [splitType, setSplitType] = useState<ExpenseSplitMethod>('equal');
+  const [splitValues, setSplitValues] = useState<Record<string, string>>({});
+  const [multiPayer, setMultiPayer] = useState(false);
+  const [payerRows, setPayerRows] = useState<
+    readonly { readonly memberId: string; readonly amountInput: string }[]
+  >([]);
 
   const [groupData, setGroupData] = useState<GroupFormData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [expectedVersion, setExpectedVersion] = useState<number | null>(null);
 
   const upsertGroup = useGroupStore((s) => s.upsertGroup);
   const existingGroup = useGroupStore((s) => s.groups.find((g) => g.id === groupId));
@@ -122,6 +135,73 @@ export function NewExpenseScreen({ groupId }: NewExpenseScreenProps): JSX.Elemen
         setParticipantIds(members.map((m) => m.id));
         setCurrencyCode((current) => (current === '' ? result.currencyCode : current));
         setLoadError(null);
+
+        if (expenseId !== undefined) {
+          const [expense, splits, payers] = await Promise.all([
+            services.repositories.expenses.findById(expenseId as never),
+            services.repositories.expenses.listSplits(expenseId as never),
+            services.repositories.expenses.listPayers(expenseId as never),
+          ]);
+          if (cancelled) return;
+          if (expense === null || expense.deletedAt !== undefined) {
+            setLoadError('This expense could not be found.');
+            return;
+          }
+          setTitle(expense.title);
+          setAmountInput(formatMinorInput(expense.amountMinor, expense.currencyCode));
+          setCurrencyCode(expense.currencyCode);
+          setDateInput(expense.expenseDate.slice(0, 10));
+          setNote(expense.note ?? '');
+          setParticipantIds(splits.map((split) => split.memberId as string));
+          setSplitType(
+            expense.splitType === 'equal' ||
+              expense.splitType === 'exact' ||
+              expense.splitType === 'percentage' ||
+              expense.splitType === 'shares'
+              ? expense.splitType
+              : 'equal',
+          );
+          if (expense.splitType === 'exact') {
+            setSplitValues(
+              Object.fromEntries(
+                splits.map((split) => [
+                  split.memberId as string,
+                  formatMinorInput(split.amountMinor, expense.currencyCode),
+                ]),
+              ),
+            );
+          } else if (expense.splitType === 'percentage') {
+            setSplitValues(
+              Object.fromEntries(
+                splits.map((split) => [
+                  split.memberId as string,
+                  ((split.percentageBasisPoints ?? 0) / 100).toFixed(2),
+                ]),
+              ),
+            );
+          } else if (expense.splitType === 'shares') {
+            setSplitValues(
+              Object.fromEntries(
+                splits.map((split) => [
+                  split.memberId as string,
+                  String(split.shareUnits ?? 1),
+                ]),
+              ),
+            );
+          }
+          if (payers.length > 1) {
+            setMultiPayer(true);
+            setPayerRows(
+              payers.map((payer) => ({
+                memberId: payer.memberId as string,
+                amountInput: formatMinorInput(payer.amountMinor, expense.currencyCode),
+              })),
+            );
+          } else if (payers[0] !== undefined) {
+            setPayerMemberId(payers[0].memberId as string);
+          }
+          setExpectedVersion(expense.version as number);
+        }
       } catch (error) {
         if (cancelled) return;
         setLoadError(
@@ -134,7 +214,7 @@ export function NewExpenseScreen({ groupId }: NewExpenseScreenProps): JSX.Elemen
     return () => {
       cancelled = true;
     };
-  }, [groupId]);
+  }, [groupId, expenseId]);
 
   const formState: ManualExpenseFormState = useMemo(
     () => ({
@@ -144,9 +224,25 @@ export function NewExpenseScreen({ groupId }: NewExpenseScreenProps): JSX.Elemen
       dateInput,
       note,
       payerMemberId,
+      ...(multiPayer ? { payerContributions: payerRows } : {}),
       participantIds,
+      splitType,
+      splitValues,
     }),
-    [formTitle, amountInput, currencyCode, groupData, dateInput, note, payerMemberId, participantIds],
+    [
+      formTitle,
+      amountInput,
+      currencyCode,
+      groupData,
+      dateInput,
+      note,
+      payerMemberId,
+      multiPayer,
+      payerRows,
+      participantIds,
+      splitType,
+      splitValues,
+    ],
   );
 
   const viewModel = useMemo(
@@ -175,6 +271,81 @@ export function NewExpenseScreen({ groupId }: NewExpenseScreenProps): JSX.Elemen
     );
   }, [groupData]);
 
+  const handleToggleMultiPayer = useCallback(() => {
+    if (multiPayer) {
+      setMultiPayer(false);
+      return;
+    }
+    const first = payerMemberId ?? groupData?.members[0]?.id ?? '';
+    setPayerRows([{ memberId: first, amountInput: amountInput.trim() }]);
+    setMultiPayer(true);
+  }, [multiPayer, payerMemberId, groupData, amountInput]);
+
+  const handleChangePayerRow = useCallback(
+    (index: number, patch: { readonly memberId?: string; readonly amountInput?: string }) => {
+      setPayerRows((rows) =>
+        rows.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+      );
+    },
+    [],
+  );
+
+  const handleAddPayerRow = useCallback(() => {
+    setPayerRows((rows) => {
+      const used = new Set(rows.map((row) => row.memberId));
+      const next = groupData?.members.find((member) => !used.has(member.id));
+      return [...rows, { memberId: next?.id ?? '', amountInput: '' }];
+    });
+  }, [groupData]);
+
+  const handleRemovePayerRow = useCallback((index: number) => {
+    setPayerRows((rows) => (rows.length <= 1 ? rows : rows.filter((_, i) => i !== index)));
+  }, []);
+
+  const handleSelectSplitType = useCallback(
+    (next: ExpenseSplitMethod) => {
+      setSplitType(next);
+      if (next === 'equal') return;
+      const members = participantIds;
+      const minor = parseAmountToMinor(
+        amountInput,
+        currencyCode || groupData?.currencyCode || 'USD',
+        { allowZero: true },
+      ).minor;
+
+      if (next === 'shares') {
+        setSplitValues(Object.fromEntries(members.map((id) => [id, '1'])));
+        return;
+      }
+      if (next === 'percentage') {
+        const base = Math.floor(10_000 / Math.max(1, members.length));
+        const values: Record<string, string> = {};
+        members.forEach((id, index) => {
+          const bp = index === members.length - 1 ? 10_000 - base * (members.length - 1) : base;
+          values[id] = (bp / 100).toFixed(2);
+        });
+        setSplitValues(values);
+        return;
+      }
+      // exact: prefill equal major-unit strings; the user adjusts them.
+      if (minor !== null) {
+        const base = Math.floor(minor / Math.max(1, members.length));
+        const values: Record<string, string> = {};
+        members.forEach((id, index) => {
+          const share =
+            index === members.length - 1 ? minor - base * (members.length - 1) : base;
+          values[id] = formatMinorInput(share, currencyCode || groupData?.currencyCode || 'USD');
+        });
+        setSplitValues(values);
+      }
+    },
+    [participantIds, amountInput, currencyCode, groupData],
+  );
+
+  const handleChangeSplitValue = useCallback((memberId: string, value: string) => {
+    setSplitValues((current) => ({ ...current, [memberId]: value }));
+  }, []);
+
   const handleSubmit = useCallback((): void => {
     if (!viewModel.canSubmit || isSubmitting || groupData === null) return;
     const services = tryGetAppServices();
@@ -185,9 +356,42 @@ export function NewExpenseScreen({ groupId }: NewExpenseScreenProps): JSX.Elemen
     setIsSubmitting(true);
     setSubmitError(null);
 
-    // Generate the expense id ONCE so a retry after a failure reuses it
-    // (the repository's upsert semantics make the retry idempotent).
-    const expenseId = generateExpenseId();
+    // Generate the NEW expense id once so a retry after a failure reuses it
+    // (the repository's upsert semantics make the retry idempotent). In edit
+    // mode the prop `expenseId` identifies the record to update.
+    const newExpenseId = generateExpenseId();
+
+    const split =
+      splitType === 'equal'
+        ? undefined
+        : splitType === 'exact'
+          ? {
+              splitType: 'exact' as const,
+              allocations: participantIds.map((id) => ({
+                memberId: id,
+                amountMinor:
+                  parseAmountToMinor(
+                    splitValues[id] ?? '',
+                    formState.currencyCode,
+                    { allowZero: true },
+                  ).minor ?? 0,
+              })),
+            }
+          : splitType === 'percentage'
+            ? {
+                splitType: 'percentage' as const,
+                allocations: participantIds.map((id) => ({
+                  memberId: id,
+                  basisPoints: parsePercentBasisPoints(splitValues[id] ?? '').basisPoints ?? 0,
+                })),
+              }
+            : {
+                splitType: 'shares' as const,
+                allocations: participantIds.map((id) => ({
+                  memberId: id,
+                  units: parseShareUnits(splitValues[id] ?? '').units ?? 0,
+                })),
+              };
 
     const input: CreateExpenseManuallyInput = {
       groupId,
@@ -196,17 +400,45 @@ export function NewExpenseScreen({ groupId }: NewExpenseScreenProps): JSX.Elemen
       currencyCode: formState.currencyCode,
       ...(dateInput.trim().length > 0 ? { expenseDate: dateInput } : {}),
       ...(note.trim().length > 0 ? { note: note.trim() } : {}),
-      payerContributions: [
-        { memberId: payerMemberId as string, amountMinor: viewModel.amountMinor as number },
-      ],
+      payerContributions: multiPayer
+        ? payerRows.map((row) => ({
+            memberId: row.memberId,
+            amountMinor:
+              parseAmountToMinor(row.amountInput, formState.currencyCode, {
+                allowZero: true,
+              }).minor ?? 0,
+          }))
+        : [
+            {
+              memberId: payerMemberId as string,
+              amountMinor: viewModel.amountMinor as number,
+            },
+          ],
       participantIds,
+      ...(split !== undefined ? { split } : {}),
       createdBy: 'local-user',
-      expenseId,
+      expenseId: newExpenseId,
     };
 
     void (async () => {
       try {
-        await services.expenses.createExpenseManually.execute(input);
+        if (expenseId !== undefined && expectedVersion !== null) {
+          await services.expenses.updateExpense.execute({
+            expenseId,
+            title: input.title,
+            amountMinor: input.amountMinor,
+            currencyCode: input.currencyCode,
+            ...(input.expenseDate !== undefined ? { expenseDate: input.expenseDate } : {}),
+            ...(input.note !== undefined ? { note: input.note } : {}),
+            payerContributions: input.payerContributions,
+            participantIds: input.participantIds,
+            ...(input.split !== undefined ? { split: input.split } : {}),
+            expectedVersion,
+            actorUserId: 'local-user',
+          });
+        } else {
+          await services.expenses.createExpenseManually.execute(input);
+        }
         // Keep the UI stores coherent with the write (label + freshness).
         upsertGroup({
           id: groupId,
@@ -224,6 +456,12 @@ export function NewExpenseScreen({ groupId }: NewExpenseScreenProps): JSX.Elemen
         });
         router.back();
       } catch (error) {
+        // Diagnostics without logging financial values or payloads.
+        console.warn(
+          '[NewExpense] save failed:',
+          error instanceof Error ? error.name : 'unknown',
+          error instanceof Error ? error.message : '',
+        );
         setSubmitError(
           error instanceof Error ? error.message : 'Could not save the expense.',
         );
@@ -240,9 +478,15 @@ export function NewExpenseScreen({ groupId }: NewExpenseScreenProps): JSX.Elemen
     dateInput,
     note,
     payerMemberId,
+    multiPayer,
+    payerRows,
     participantIds,
+    splitType,
+    splitValues,
     upsertGroup,
     existingGroup,
+    expenseId,
+    expectedVersion,
   ]);
 
   const handleCancel = useCallback((): void => {
@@ -308,6 +552,14 @@ export function NewExpenseScreen({ groupId }: NewExpenseScreenProps): JSX.Elemen
       onPayerChange={setPayerMemberId}
       onToggleParticipant={handleToggleParticipant}
       onSelectAllParticipants={handleSelectAll}
+      multiPayer={multiPayer}
+      payerRows={payerRows}
+      onToggleMultiPayer={handleToggleMultiPayer}
+      onChangePayerRow={handleChangePayerRow}
+      onAddPayerRow={handleAddPayerRow}
+      onRemovePayerRow={handleRemovePayerRow}
+      onSelectSplitType={handleSelectSplitType}
+      onChangeSplitValue={handleChangeSplitValue}
       onSubmit={handleSubmit}
       onCancel={handleCancel}
     />
@@ -331,8 +583,16 @@ export interface NewExpenseViewProps {
   readonly onDateChange: (value: string) => void;
   readonly onNoteChange: (value: string) => void;
   readonly onPayerChange: (memberId: string) => void;
+  readonly multiPayer?: boolean;
+  readonly payerRows?: readonly { readonly memberId: string; readonly amountInput: string }[];
+  readonly onToggleMultiPayer?: () => void;
+  readonly onChangePayerRow?: (index: number, patch: { readonly memberId?: string; readonly amountInput?: string }) => void;
+  readonly onAddPayerRow?: () => void;
+  readonly onRemovePayerRow?: (index: number) => void;
   readonly onToggleParticipant: (memberId: string) => void;
   readonly onSelectAllParticipants: () => void;
+  readonly onSelectSplitType?: (method: ExpenseSplitMethod) => void;
+  readonly onChangeSplitValue?: (memberId: string, value: string) => void;
   readonly onSubmit: () => void;
   readonly onCancel: () => void;
 }
@@ -350,8 +610,16 @@ export function NewExpenseView({
   onDateChange,
   onNoteChange,
   onPayerChange,
+  multiPayer = false,
+  payerRows = [],
+  onToggleMultiPayer,
+  onChangePayerRow,
+  onAddPayerRow,
+  onRemovePayerRow,
   onToggleParticipant,
   onSelectAllParticipants,
+  onSelectSplitType,
+  onChangeSplitValue,
   onSubmit,
   onCancel,
 }: NewExpenseViewProps): JSX.Element {
@@ -403,11 +671,30 @@ export function NewExpenseView({
 
         <DateField value={fieldValues.dateInput} error={viewModel.dateError} onChangeText={onDateChange} />
 
-        <PayerField
-          members={members}
-          selectedId={fieldValues.payerMemberId}
-          error={viewModel.payerError}
-          onSelect={onPayerChange}
+        {multiPayer ? (
+          <MultiPayerField
+            members={members}
+            rows={payerRows}
+            error={viewModel.payerError}
+            currencyCode={currencyCode}
+            onChangeRow={onChangePayerRow ?? ((): void => undefined)}
+            onAddRow={onAddPayerRow ?? ((): void => undefined)}
+            onRemoveRow={onRemovePayerRow ?? ((): void => undefined)}
+          />
+        ) : (
+          <PayerField
+            members={members}
+            selectedId={fieldValues.payerMemberId}
+            error={viewModel.payerError}
+            onSelect={onPayerChange}
+          />
+        )}
+        <Button
+          label={multiPayer ? 'Use a single payer' : 'Split payment across payers'}
+          variant="ghost"
+          size="sm"
+          onPress={onToggleMultiPayer ?? ((): void => undefined)}
+          accessibilityLabel={multiPayer ? 'Use a single payer' : 'Split the payment across multiple payers'}
         />
 
         <ParticipantsField
@@ -418,9 +705,20 @@ export function NewExpenseView({
           onSelectAll={onSelectAllParticipants}
         />
 
+        <SplitMethodField
+          members={members}
+          splitType={fieldValues.splitType ?? 'equal'}
+          values={fieldValues.splitValues ?? {}}
+          error={viewModel.splitError}
+          currencyCode={currencyCode}
+          onChangeType={onSelectSplitType ?? ((): void => undefined)}
+          onChangeValue={onChangeSplitValue ?? ((): void => undefined)}
+        />
+
         <SplitPreviewCard
           viewModel={viewModel}
           currencyCode={currencyCode}
+          splitType={fieldValues.splitType ?? 'equal'}
         />
 
         <NoteField value={fieldValues.note} onChangeText={onNoteChange} />
@@ -761,12 +1059,168 @@ function ParticipantsField({
   );
 }
 
+function MultiPayerField({
+  members,
+  rows,
+  error,
+  currencyCode,
+  onChangeRow,
+  onAddRow,
+  onRemoveRow,
+}: {
+  readonly members: readonly ExpenseFormMember[];
+  readonly rows: readonly { readonly memberId: string; readonly amountInput: string }[];
+  readonly error: string | null;
+  readonly currencyCode: string;
+  readonly onChangeRow: (index: number, patch: { readonly memberId?: string; readonly amountInput?: string }) => void;
+  readonly onAddRow: () => void;
+  readonly onRemoveRow: (index: number) => void;
+}): ReactNode {
+  const theme = useTheme();
+  return (
+    <FieldShell label="Paid by" error={error}>
+      <Stack gap="md" align="stretch">
+        {rows.map((row, index) => (
+          <Stack
+            // Payer rows are positional; the member is chosen inside the row.
+            // eslint-disable-next-line react/no-array-index-key
+            key={`payer-${index}`}
+            gap="xs"
+            align="stretch"
+          >
+            <Row gap="xs" align="center" style={{ flexWrap: 'wrap' }}>
+              {members.map((member) => (
+                <Pill
+                  key={member.id}
+                  label={member.displayName}
+                  active={row.memberId === member.id}
+                  onPress={() => onChangeRow(index, { memberId: member.id })}
+                  accessibilityLabel={`Payer ${member.displayName} for row ${index + 1}`}
+                />
+              ))}
+            </Row>
+            <Row gap="sm" align="center">
+              <View style={{ flex: 1 }}>
+                <TextField
+                  label={`Contribution (${currencyCode})`}
+                  value={row.amountInput}
+                  onChangeText={(value) => onChangeRow(index, { amountInput: value })}
+                  keyboardType="decimal-pad"
+                  maxLength={18}
+                  error={null}
+                  placeholder="0.00"
+                  accessibilityLabel={`Payer ${index + 1} contribution`}
+                  accessibilityHint="Amount this member paid; contributions must equal the total"
+                />
+              </View>
+              {rows.length > 1 ? (
+                <Pressable
+                  onPress={() => onRemoveRow(index)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove payer row ${index + 1}`}
+                  style={{ padding: spacing.sm }}
+                >
+                  <Icon name="close-circle-outline" size={theme.iconSizes.lg} color={theme.colors.negative} />
+                </Pressable>
+              ) : null}
+            </Row>
+          </Stack>
+        ))}
+        <Button
+          label="Add payer"
+          variant="secondary"
+          size="sm"
+          onPress={onAddRow}
+          accessibilityLabel="Add another payer"
+          icon="add-circle-outline"
+        />
+      </Stack>
+    </FieldShell>
+  );
+}
+
+const SPLIT_METHODS: readonly { readonly value: ExpenseSplitMethod; readonly label: string }[] = [
+  { value: 'equal', label: 'Equal' },
+  { value: 'exact', label: 'Exact' },
+  { value: 'percentage', label: 'Percent' },
+  { value: 'shares', label: 'Shares' },
+];
+
+function SplitMethodField({
+  members,
+  splitType,
+  values,
+  error,
+  currencyCode,
+  onChangeType,
+  onChangeValue,
+}: {
+  readonly members: readonly ExpenseFormMember[];
+  readonly splitType: ExpenseSplitMethod;
+  readonly values: Readonly<Record<string, string>>;
+  readonly error: string | null;
+  readonly currencyCode: string;
+  readonly onChangeType: (method: ExpenseSplitMethod) => void;
+  readonly onChangeValue: (memberId: string, value: string) => void;
+}): ReactNode {
+  const suffix =
+    splitType === 'percentage' ? '%' : splitType === 'shares' ? 'shares' : currencyCode;
+  return (
+    <FieldShell label="Split" error={error}>
+      <Stack gap="sm" align="stretch">
+        <Row gap="sm" align="center" style={{ flexWrap: 'wrap' }}>
+          {SPLIT_METHODS.map((method) => (
+            <Pill
+              key={method.value}
+              label={method.label}
+              active={splitType === method.value}
+              onPress={() => onChangeType(method.value)}
+              accessibilityLabel={`Split method: ${method.label}`}
+            />
+          ))}
+        </Row>
+
+        {splitType !== 'equal' ? (
+          <Stack gap="sm" align="stretch">
+            {members.map((member) => (
+              <TextField
+                key={member.id}
+                label={`${member.displayName} (${suffix})`}
+                value={values[member.id] ?? ''}
+                onChangeText={(value) => onChangeValue(member.id, value)}
+                keyboardType={splitType === 'shares' ? 'numeric' : 'decimal-pad'}
+                maxLength={12}
+                error={null}
+                placeholder={splitType === 'percentage' ? '0.00' : splitType === 'shares' ? '1' : '0.00'}
+                accessibilityLabel={`${member.displayName} split value in ${suffix}`}
+                accessibilityHint={`Enter ${suffix} for ${member.displayName}`}
+              />
+            ))}
+          </Stack>
+        ) : (
+          <Text variant="caption" color="muted">
+            Everyone selected owes an equal share; remainders are allocated deterministically.
+          </Text>
+        )}
+
+        {error !== null ? (
+          <Text variant="error" color="negative" accessibilityRole="alert">
+            {error}
+          </Text>
+        ) : null}
+      </Stack>
+    </FieldShell>
+  );
+}
+
 function SplitPreviewCard({
   viewModel,
   currencyCode,
+  splitType,
 }: {
   readonly viewModel: ManualExpenseFormViewModel;
   readonly currencyCode: string;
+  readonly splitType: ExpenseSplitMethod;
 }): ReactNode {
   if (viewModel.splitPreview.length === 0) {
     return null;
@@ -775,7 +1229,7 @@ function SplitPreviewCard({
     <Card elevation="sm" padding="lg">
       <Stack gap="md" align="stretch">
         <Text variant="label" color="secondary">
-          Split preview (equal)
+          Split preview ({splitType})
         </Text>
         <Stack gap="xs" align="stretch">
           {viewModel.splitPreview.map((entry) => (
@@ -849,6 +1303,14 @@ function Pill({ label, active, onPress, accessibilityLabel }: PillProps): ReactN
  * reused on retries, so the repository's upsert semantics make the
  * retry idempotent (no duplicate expense).
  */
+/** Major-unit string for an exact-split input (no floats in the math). */
+function formatMinorInput(amountMinor: number, currencyCode: string): string {
+  const decimals = currencyCode === 'JPY' || currencyCode === 'KRW' ? 0 : 2;
+  if (decimals === 0) return String(amountMinor);
+  const divisor = 10 ** decimals;
+  return `${Math.floor(amountMinor / divisor)}.${String(amountMinor % divisor).padStart(decimals, '0')}`;
+}
+
 function generateExpenseId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();

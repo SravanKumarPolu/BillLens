@@ -17,8 +17,8 @@
 
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { useMemo } from 'react';
-import { ActivityIndicator, Pressable } from 'react-native';
+import { memo, useMemo } from 'react';
+import { ActivityIndicator, FlatList, Platform, Pressable, View } from 'react-native';
 
 import type { ActivityEntry, ActivityKind } from '@application/activity/list-recent-activity.usecase';
 import { AmountText } from '@presentation/design-system/components/AmountText';
@@ -131,47 +131,65 @@ export interface ActivityViewProps {
 }
 
 export function ActivityView({ viewModel }: ActivityViewProps): JSX.Element {
+  const showTimeline =
+    !viewModel.loading && viewModel.loadedOnce && viewModel.error === null;
+
+  // FlatList (not ScrollView + map): the feed is paginated but unbounded over
+  // time, and mounting every historical row is the dominant cost on long
+  // accounts. Only the visible window is rendered.
   return (
-    <Screen scrollable safeArea>
-      <Stack gap="xl" align="stretch" style={{ padding: spacing.xl }}>
-        <Stack gap="xs" align="stretch">
-          <Text variant="screenTitle" color="primary" accessibilityRole="header">
-            Activity
-          </Text>
-          <Text variant="body" color="secondary">
-            A unified timeline of expenses and settlements across your groups.
-          </Text>
-        </Stack>
+    <Screen safeArea>
+      <FlatList
+        data={showTimeline ? viewModel.entries : []}
+        keyExtractor={(entry) => entry.id}
+        renderItem={({ item }) => <ActivityCard entry={item} />}
+        ItemSeparatorComponent={ActivitySeparator}
+        contentContainerStyle={{ padding: spacing.xl }}
+        ListHeaderComponent={
+          <Stack gap="xl" align="stretch" style={{ marginBottom: spacing.xl }}>
+            <Stack gap="xs" align="stretch">
+              <Text variant="screenTitle" color="primary" accessibilityRole="header">
+                Activity
+              </Text>
+              <Text variant="body" color="secondary">
+                A unified timeline of expenses and settlements across your groups.
+              </Text>
+            </Stack>
 
-        {viewModel.loading && !viewModel.loadedOnce ? <LoadingCard /> : null}
+            {viewModel.loading && !viewModel.loadedOnce ? <LoadingCard /> : null}
 
-        {viewModel.error !== null ? <ErrorCard message={viewModel.error} /> : null}
-
-        {!viewModel.loading && viewModel.loadedOnce && viewModel.error === null
-          ? renderTimeline(viewModel)
-          : null}
-      </Stack>
+            {viewModel.error !== null ? <ErrorCard message={viewModel.error} /> : null}
+          </Stack>
+        }
+        ListEmptyComponent={
+          showTimeline ? (
+            <EmptyState />
+          ) : null
+        }
+        ListFooterComponent={
+          showTimeline && viewModel.hasMore ? (
+            <Text
+              variant="caption"
+              color="muted"
+              style={{ textAlign: 'center', marginTop: spacing.lg }}
+            >
+              Showing the most recent entries. Older activity is available per-group.
+            </Text>
+          ) : null
+        }
+        initialNumToRender={12}
+        maxToRenderPerBatch={12}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS !== 'web'}
+      />
     </Screen>
   );
 }
 
-function renderTimeline(viewModel: ActivityScreenViewModel): ReactNode {
-  if (viewModel.entries.length === 0) {
-    return <EmptyState />;
-  }
-  return (
-    <Stack gap="md" align="stretch">
-      {viewModel.entries.map((entry) => (
-        <ActivityCard key={entry.id} entry={entry} />
-      ))}
-      {viewModel.hasMore ? (
-        <Text variant="caption" color="muted" style={{ textAlign: 'center' }}>
-          Showing the most recent entries. Older activity is available per-group.
-        </Text>
-      ) : null}
-    </Stack>
-  );
+function ActivitySeparator(): ReactNode {
+  return <View style={{ height: 12 }} />;
 }
+
 
 // ---------------------------------------------------------------------------
 // Activity card
@@ -186,7 +204,7 @@ interface ActivityCardProps {
   readonly entry: ActivityEntryViewModel;
 }
 
-function ActivityCard({ entry }: ActivityCardProps): ReactNode {
+const ActivityCard = memo(function ActivityCard({ entry }: ActivityCardProps): ReactNode {
   const theme = useTheme();
   const handlePress = (): void => {
     router.push(entry.targetRoute);
@@ -249,7 +267,7 @@ function ActivityCard({ entry }: ActivityCardProps): ReactNode {
       )}
     </Pressable>
   );
-}
+});
 
 // ---------------------------------------------------------------------------
 // Loading / error / empty states

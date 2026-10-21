@@ -286,8 +286,8 @@ describe('two-device encrypted sync', () => {
   });
 
   it('applies nothing twice when a pull runs again', async () => {
-    expect(await engineA.pullOnce()).toEqual({ applied: 0, skipped: 0 });
-    expect(await engineB.pullOnce()).toEqual({ applied: 0, skipped: 0 });
+    expect(await engineA.pullOnce()).toEqual({ applied: 0, skipped: 0, conflicts: 0 });
+    expect(await engineB.pullOnce()).toEqual({ applied: 0, skipped: 0, conflicts: 0 });
 
     const countA = await dbB.get<{ count: number }>(
       "select count(*) as count from expenses where group_id = ? and deleted_at is null",

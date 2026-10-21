@@ -16,9 +16,14 @@ configured.**
 | `POST /v1/groups/:id/events` | member | submit an encrypted envelope |
 | `GET /v1/groups/:id/events` | member | unacknowledged envelopes |
 | `POST /v1/groups/:id/acks` | member | per-device acknowledgement |
+| `POST /v1/groups/:id/invites` | member | store an invitation hash + expiry |
+| `POST /v1/groups/:id/join` | invitee | redeem a one-time token |
+| `POST/GET /v1/groups/:id/keys` | member | per-device encrypted group-key wraps |
+| `DELETE /v1/groups/:id/keys/:mailboxId` | recipient | consume a key wrap |
 
-Every authenticated request signs `METHOD\nPATH\nsha256(body)` with the
-device's Ed25519 key. The relay stores only envelopes, membership ids and
+Invitation redemption is unauthenticated but requires a registered device and
+a live one-time token hash. Every other authenticated request signs
+`METHOD\nPATH\nsha256(body)` with the device's Ed25519 key. The relay stores only envelopes, membership ids and
 acks. Limits: 64 KB bodies, 5,000 events/group, 120 requests/minute/device,
 30-day event TTL (all configurable).
 

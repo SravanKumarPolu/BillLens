@@ -94,10 +94,12 @@ async function defaultReadImageFacts(
   uri: string,
 ): Promise<{ sizeBytes: number; mimeType?: string }> {
   const { File } = await import('expo-file-system');
-  const file = new File(uri);
+  const { ensureLocalImage } = await import('@utils/local-image');
+  const localUri = await ensureLocalImage(uri, 'image');
+  const file = new File(localUri);
   const info = file.info();
-  if (!info.exists) {
-    throw new Error(`Image file not found: ${uri}`);
+  if (!info.exists || (info.size ?? 0) <= 0) {
+    throw new Error(`Image file not found or empty: ${uri}`);
   }
   return { sizeBytes: info.size ?? 0 };
 }

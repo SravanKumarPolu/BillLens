@@ -42,7 +42,7 @@ import { create } from 'zustand';
 
 import { getEnv, hasSupabaseConfig } from '@config/env';
 import { ExpoImageHasher, ExpoImageDataReader } from '@infrastructure/capture/expo-image-ports';
-import { resolveOcrProvider } from '@infrastructure/capture/ocr-provider-selector';
+import { LazyCaptureProcessor } from '@infrastructure/capture/lazy-capture-processor';
 import type { AppServices } from '@infrastructure/composition-root';
 import { createCompositionRoot } from '@infrastructure/composition-root';
 import { SupabaseAuthenticationProvider } from '@infrastructure/remote/supabase-authentication-provider';
@@ -87,6 +87,21 @@ let servicesFactoryOverride:
 
 /** Last OCR provider selection reason (diagnostics / sync status screen). */
 let lastOcrSelectionReason: string | null = null;
+
+/**
+ * Optional warm-up registered by the production factory. Called after the
+ * first screen is interactive so launch never waits for OCR construction.
+ */
+let optionalWarmUp: (() => Promise<void>) | null = null;
+
+export async function warmUpOptionalServices(): Promise<void> {
+  if (optionalWarmUp === null) return;
+  try {
+    await optionalWarmUp();
+  } catch {
+    // Optional work: a failure must not affect the app.
+  }
+}
 
 /** Active OCR provider mode ('mock' | 'remote' | 'unavailable'). */
 let lastOcrSelectionMode: 'mock' | 'remote' | 'unavailable' | null = null;
@@ -191,35 +206,43 @@ async function productionFactory(): Promise<AppServices> {
     return token;
   };
 
-  const ocr = resolveOcrProvider({
-    ...(process.env.EXPO_PUBLIC_OCR_MODE === 'remote' ||
-    process.env.EXPO_PUBLIC_OCR_MODE === 'mock'
-      ? { modeOverride: process.env.EXPO_PUBLIC_OCR_MODE as 'remote' | 'mock' }
-      : {}),
-    supabaseUrl: env.supabaseUrl ?? '',
-    supabaseAnonKey: env.supabaseAnonKey ?? '',
-    // v2.5.0 PRODUCTION GUARD: mock OCR is permitted ONLY in non-
-    // production environments. Production builds resolve to the remote
-    // provider or to an explicit "unavailable" state — sample extraction
-    // data can never masquerade as a real scan.
-    allowMock: env.appEnv !== 'production',
-    ...(cloudConfigured ? { getAccessToken } : {}),
-    loadImageBase64: async (uri) => {
-      const reader = new ExpoImageDataReader();
-      const data = await reader.read(uri);
-      return data.base64;
-    },
+  // OCR is NOT constructed at boot. The proxy resolves the provider on the
+  // first capture (or during the post-interaction warm-up below).
+  const lazyOcr = new LazyCaptureProcessor(async () => {
+    const { resolveOcrProvider } = await import(
+      '@infrastructure/capture/ocr-provider-selector'
+    );
+    const ocr = resolveOcrProvider({
+      ...(process.env.EXPO_PUBLIC_OCR_MODE === 'remote' ||
+      process.env.EXPO_PUBLIC_OCR_MODE === 'mock'
+        ? { modeOverride: process.env.EXPO_PUBLIC_OCR_MODE as 'remote' | 'mock' }
+        : {}),
+      supabaseUrl: env.supabaseUrl ?? '',
+      supabaseAnonKey: env.supabaseAnonKey ?? '',
+      // v2.5.0 PRODUCTION GUARD: mock OCR is permitted ONLY in non-
+      // production environments. Production builds resolve to the remote
+      // provider or to an explicit "unavailable" state.
+      allowMock: env.appEnv !== 'production',
+      ...(cloudConfigured ? { getAccessToken } : {}),
+      loadImageBase64: async (uri) => {
+        const reader = new ExpoImageDataReader();
+        const data = await reader.read(uri);
+        return data.base64;
+      },
+    });
+    lastOcrSelectionReason = ocr.reason;
+    lastOcrSelectionMode = ocr.mode;
+    return ocr;
   });
-  lastOcrSelectionReason = ocr.reason;
-  lastOcrSelectionMode = ocr.mode;
+  optionalWarmUp = async (): Promise<void> => {
+    await lazyOcr.resolve();
+  };
 
   return createCompositionRoot({
     database,
     secureStorage,
-    // v2.5.0: the resolved processor is ALWAYS injected (mock | remote |
-    // unavailable). The composition root's fail-loud default no longer
-    // has to catch anything.
-    captureProcessor: ocr.processor,
+    // Lazy: constructed on first capture or warm-up, never at boot.
+    captureProcessor: lazyOcr,
     ...(cloudConfigured
       ? {
           supabaseUrl: env.supabaseUrl,

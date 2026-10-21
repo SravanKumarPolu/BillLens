@@ -23,10 +23,13 @@ returns immediately when cloud config is absent.
 | Retention + local deletion | Implemented and guarded |
 | Encrypted envelope + device keys | Implemented, unit-tested |
 | Encrypted sync engine (pull/verify/apply/ack) | Implemented, tested on two SQLite files |
+| Durable processed events / acks / cursors / epochs | Implemented (migration 0008), restart-tested |
+| Financial conflict records | Implemented (detect + persist + resolve status); no resolution UI |
+| Secure invitations / keybox / revocation / recovery | Implemented and relay-tested; no screens |
 | Reference relay | Implemented, Node tests only; **not deployed** |
 | App wiring for encrypted sync | **Not implemented**; Supabase path remains |
-| Invitations UI / key-wrap delivery UI | **Not implemented** (crypto primitives + token only) |
-| Conflict resolution for encrypted events | **Not implemented** |
+| Expense voiding | Implemented (use case + detail screen) |
+| Conflict resolution UI | **Not implemented** |
 | Physical two-device test | **Unverified** (Node simulation only) |
 
 ## Boundaries

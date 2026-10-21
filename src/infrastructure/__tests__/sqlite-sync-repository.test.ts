@@ -33,7 +33,7 @@ describe('SqliteSyncRepository', () => {
     //      sync_conflicts rebuild (category CHECK aligned with the
     //      categories the coordinator actually writes).
     // Bump this assertion when adding new migrations.
-    expect(await getSchemaVersion(db)).toBe(7);
+    expect(await getSchemaVersion(db)).toBe(9);
   });
 
   it('enqueue inserts a pending operation', async () => {

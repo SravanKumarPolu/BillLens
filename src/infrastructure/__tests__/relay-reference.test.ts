@@ -16,6 +16,8 @@ import {
   generateGroupKey,
   publicIdentity,
   toHex,
+  unwrapGroupKey,
+  wrapGroupKey,
 } from '@domain/sync-crypto';
 import { RelayClient, RelayError } from '@infrastructure/relay-reference/relay-client';
 import { nodeHttpFetch } from './node-http-fetch';
@@ -137,6 +139,28 @@ describe('relay reference', () => {
     await expect(clientB.fetchEvents(group)).rejects.toMatchObject({ status: 403 });
     const members = await clientA.listMembers(group);
     expect(members.map((m) => m.deviceId)).toEqual([alice.deviceId]);
+  });
+
+  it('delivers an encrypted key wrap only to its recipient', async () => {
+    const group = 'g_keybox';
+    await clientA.addMember(group, alice.deviceId);
+    await clientA.addMember(group, bob.deviceId);
+    const wrapped = wrapGroupKey(groupKey, publicIdentity(bob).encryptionPublicKey);
+    const { mailboxId } = await clientA.submitWrappedKey(group, bob.deviceId, { ...wrapped });
+
+    expect(await clientA.fetchWrappedKeys(group)).toHaveLength(0);
+    const forB = await clientB.fetchWrappedKeys(group);
+    expect(forB).toHaveLength(1);
+    expect(forB[0]?.mailboxId).toBe(mailboxId);
+
+    const unwrapped = unwrapGroupKey(
+      forB[0]!.wrapped as unknown as ReturnType<typeof wrapGroupKey>,
+      bob.encryption.privateKey,
+    );
+    expect(unwrapped.keyId).toBe(groupKey.keyId);
+
+    await clientB.deleteWrappedKey(group, mailboxId);
+    expect(await clientB.fetchWrappedKeys(group)).toHaveLength(0);
   });
 
   it('rejects unauthenticated requests', async () => {

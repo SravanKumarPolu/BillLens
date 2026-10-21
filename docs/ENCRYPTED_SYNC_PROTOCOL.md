@@ -1,7 +1,7 @@
 # Encrypted sync protocol (v1)
 
-**Status: implemented and tested in Node; NOT wired into the app and NOT
-deployed.** The production app still uses the optional Supabase relay. This
+**Status: core, persistence, conflicts and key delivery implemented and tested
+in Node; still NOT wired into the app UI and NOT deployed.** The production app still uses the optional Supabase relay. This
 document describes the protocol that is implemented under
 `src/domain/sync-crypto`, `src/application/sync` and
 `src/infrastructure/relay-reference`.
@@ -63,15 +63,36 @@ document describes the protocol that is implemented under
 - Invitations are bearer tokens with a SHA-256 hash stored server-side; they
   contain **no key material**.
 
+## Durability (migration 0008)
+
+`sync_processed_events` records `applying → processed | failed | conflict`.
+Apply is idempotent by client-generated ids; a crash during apply re-runs the
+same event safely. Acknowledgements are written only after `processed`, and
+re-acknowledging is a no-op. Cursors, device membership, key epochs and
+conflict records are persisted in the same schema.
+
+Conflicts: when an incoming expense disagrees with local financial fields
+(amount, currency, payer shares, participants), `assertExpenseEventApplicable`
+throws `FinancialConflictError`. The engine writes a `sync_event_conflicts`
+row and marks the event `conflict` without applying it. A reviewer resolves
+with `keep_local` or `accept_remote`; the local expense is untouched until a
+deliberate resolution path applies it (not yet built).
+
+## Invitations and key delivery
+
+The relay now has an invitation hash registry (`POST /invites`), a one-time
+`POST /join`, and a per-device keybox (`POST/GET/DELETE /keys`). Invitees
+register a device key, redeem the token, then an existing member wraps the
+current group key to that device. The raw group key never appears in the
+token or URL.
+
 ## What is not implemented
 
-- **No app wiring.** The engine is a tested library; screens do not yet submit
-  or pull encrypted events.
-- **No conflict resolution for encrypted events.** The engine applies events in
-  order; entity version conflicts are currently handled only by the Supabase
-  path. Any production rollout must add the same explicit conflict rules.
-- **No persistent processed-id table.** The engine accepts an injected set; the
-  app must persist it (a table is the obvious place).
+- **No app wiring.** The engine and access service are tested libraries; screens
+  do not yet submit or pull encrypted events.
+- **Conflict review UI/resolution apply is not built** — records are persisted,
+  but accepting a remote payload is not wired.
+
 - **No physical two-device test.** Verified with two independent device
   identities, two separate SQLite files and the reference relay in Node.
 - **No key recovery.** Losing the device seed means group keys wrapped to it
