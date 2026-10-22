@@ -90,6 +90,52 @@ formatPercentage(0.75, 'en-US')         // '75%'
 formatPercentage(0.1234, 'en-US', 2)    // '12.34%'
 ```
 
+### 2.5 Relative time labels (Hermes compatibility)
+
+**Module:** `src/presentation/utils/relative-time.ts`
+
+The activity feed and the drafts inbox label rows with relative time
+("5 minutes ago", "Yesterday"). `Intl.RelativeTimeFormat` is an
+**optional** ECMA-402 API. Hermes implements only `Intl.Collator`,
+`Intl.DateTimeFormat`, `Intl.NumberFormat` and `getCanonicalLocales`;
+`Intl.RelativeTimeFormat`, `Intl.Segmenter` and `Intl.DisplayNames` are
+`undefined`, so `new Intl.RelativeTimeFormat(...)` throws
+`TypeError: undefined cannot be used as a constructor`.
+
+`formatRelativeTime(iso, now?)` therefore probes the constructor once,
+caches it against the constructor reference, and falls back when the
+API is absent or throws. It never throws, and returns `''` for an
+invalid timestamp so a single malformed row cannot take down a screen.
+
+| Input | Intl available | Fallback (no Intl.RelativeTimeFormat) |
+|-------|----------------|--------------------------------------|
+| `< 1 minute` past | `Just now` (fixed English) | `Just now` |
+| `< 1 minute` future | `In a few seconds` (fixed English) | `In a few seconds` |
+| same day, `< 1 hour` | `N minutes ago` (localised) | `N minute(s) ago` |
+| same day, `>= 1 hour` | `N hours ago` (localised) | `N hour(s) ago` |
+| previous day | `yesterday` (localised) | `Yesterday` |
+| next day | `tomorrow` (localised) | `Tomorrow` |
+| 2–6 days away | `N days ago` / `in N days` (localised) | `N days ago` / `In N days` |
+| older than 6 days | `Date.toLocaleDateString()` | `Date.toLocaleDateString()` |
+| invalid timestamp / invalid `now` | `''` | `''` |
+
+Localisation behaviour: when Intl is present the wording follows the
+device locale, unchanged from before. When it is absent the English
+fallback above is used; calendar dates still follow the device locale.
+Translated relative strings require an Intl-capable runtime or a future
+locale catalogue — no third-party service is introduced.
+
+Regression tests in
+`src/presentation/screens/__tests__/activity-screen.test.tsx` replace
+`Intl.RelativeTimeFormat` with `undefined` and with a throwing
+constructor, and render the Activity screen with several rows.
+
+> Do not add `Intl.Segmenter`, `Intl.DisplayNames`, `Intl.ListFormat`,
+> `Intl.PluralRules` or `Intl.Locale` calls without a feature check — Hermes
+> does not implement them. `Intl.NumberFormat` `notation`/`style: 'unit'` and
+> `Intl.DateTimeFormat` `dateStyle`/`timeStyle` are also unsupported, so keep
+> date formatting to explicit `year`/`month`/`day` parts.
+
 ## 3. Regional Configuration
 
 **Module:** `src/domain/i18n/regional-config.ts`

@@ -4,6 +4,30 @@ All notable changes to BillLens across Phases 1-10 are documented here.
 
 ## [2.25.0] — 2026-10-22
 
+### Android activity screen crash on Hermes (2026-10-23)
+
+- The activity tab crashed on Android with `TypeError: undefined cannot be
+  used as a constructor` at `ActivityScreen.tsx:87`. The screen had its own
+  `formatRelativeTime` that called `new Intl.RelativeTimeFormat(...)`
+  unguarded; Hermes does not implement `RelativeTimeFormat`, so the
+  constructor was `undefined`.
+- The duplicate helper was removed. The screen now uses the shared
+  `src/presentation/utils/relative-time.ts`, which feature-detects the
+  constructor, caches it against the constructor reference and falls back to
+  documented English labels when the API is absent or throws.
+- Invalid or empty activity timestamps now render a blank label instead of
+  throwing; the rest of the timeline still renders.
+- Covered: just now, minutes, hours, yesterday, 2–6 days, older calendar
+  dates, future timestamps, invalid timestamps.
+- Repository swept for other optional Intl usage: no `Intl.Segmenter`,
+  `Intl.DisplayNames`, `Intl.ListFormat` or `Intl.PluralRules` calls. The
+  remaining `Intl.NumberFormat` / `Intl.DateTimeFormat` calls are supported by
+  Hermes and were left unchanged.
+- Regression tests simulate a missing and a throwing `RelativeTimeFormat` and
+  render the Activity screen with mixed valid/invalid timestamps.
+- `expo-notifications` bumped `~57.0.23` → `~57.0.24` so `expo-doctor` passes
+  (pre-existing patch mismatch, no app behaviour change).
+
 ### Receipt persistence, history and item-level OCR confirmation
 
 - Draft confirmation now persists a Receipt row, receipt items and the linked
@@ -21,6 +45,12 @@ All notable changes to BillLens across Phases 1-10 are documented here.
   split totals, receipt history and deletion cleanup.
 - 221 suites / 4,927 tests pass.
 ## [2.24.0] — 2026-10-22
+
+### Android native build verification (2026-10-22)
+
+- Debug APK (`assembleDebug`) and debug AAB (`bundleDebug`) build successfully
+  with JDK 17. APK contains ML Kit OCR pipeline + models for all ABIs.
+- Runtime OCR/camera/device validation remains outstanding.
 
 ### UI/navigation audit and dead-control cleanup
 

@@ -31,6 +31,7 @@ import { Text } from '@presentation/design-system/components/Text';
 import { useTheme } from '@presentation/design-system/theme';
 import { spacing } from '@presentation/design-system/tokens';
 import { useActivityFeed } from '@presentation/hooks/use-activity-feed';
+import { formatRelativeTime } from '@presentation/utils/relative-time';
 
 // ---------------------------------------------------------------------------
 // View-model
@@ -56,38 +57,6 @@ export interface ActivityScreenViewModel {
   readonly hasMore: boolean;
   /** True once at least one load attempt has completed (even if it failed). */
   readonly loadedOnce: boolean;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const RELATIVE_TIME_UNITS: readonly { readonly unit: Intl.RelativeTimeFormatUnit; readonly seconds: number }[] = [
-  { unit: 'year', seconds: 31536000 },
-  { unit: 'month', seconds: 2592000 },
-  { unit: 'day', seconds: 86400 },
-  { unit: 'hour', seconds: 3600 },
-  { unit: 'minute', seconds: 60 },
-];
-
-/**
- * Format an ISO date-time as a compact "2 hours ago" / "5 days ago" label.
- *
- * Falls back to "Just now" for anything less than a minute ago, and to
- * the raw ISO date for anything older than a month.
- */
-export function formatRelativeTime(iso: string, now: Date = new Date()): string {
-  const then = new Date(iso);
-  if (Number.isNaN(then.getTime())) return '';
-  const secondsAgo = Math.max(0, Math.floor((now.getTime() - then.getTime()) / 1000));
-  if (secondsAgo < 60) return 'Just now';
-  for (const { unit, seconds } of RELATIVE_TIME_UNITS) {
-    if (secondsAgo >= seconds) {
-      const value = Math.floor(secondsAgo / seconds);
-      return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(-value, unit);
-    }
-  }
-  return then.toISOString().slice(0, 10);
 }
 
 // ---------------------------------------------------------------------------
