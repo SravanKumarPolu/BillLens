@@ -111,6 +111,99 @@ describeWithSqlite('itemised expenses', () => {
     expect(stored?.itemCharges).toEqual([{ type: 'tax', amountMinor: 1_000 }]);
   });
 
+  it('handles decimal quantities and multiple payers', async () => {
+    const result = await services.expenses.createExpenseManually.execute({
+      groupId: GROUP,
+      title: 'Decimal items',
+      amountMinor: 1_500,
+      currencyCode: 'INR',
+      expenseDate: '2026-10-21',
+      payerContributions: [
+        { memberId: A, amountMinor: 1_000 },
+        { memberId: B, amountMinor: 500 },
+      ],
+      participantIds: [A, B],
+      split: {
+        splitType: 'items',
+        lineItems: [
+          {
+            id: 'd1',
+            name: 'Loose tea',
+            quantity: 1.5,
+            unitPriceMinor: 1_000,
+            totalAmountMinor: 1_500,
+            assignedMemberIds: [A, B],
+          },
+        ],
+      },
+      createdBy: USER,
+    });
+    expect(result.splits).toEqual([
+      { memberId: A, amountMinor: 750 },
+      { memberId: B, amountMinor: 750 },
+    ]);
+  });
+
+  it('does not duplicate an itemized expense on retry with the same id', async () => {
+    const input = {
+      expenseId: 'itemized-retry-1',
+      groupId: GROUP,
+      title: 'Retry-safe',
+      amountMinor: 2_000,
+      currencyCode: 'INR',
+      expenseDate: '2026-10-21',
+      payerContributions: [{ memberId: A, amountMinor: 2_000 }],
+      participantIds: [A, B],
+      split: {
+        splitType: 'items' as const,
+        lineItems: [
+          {
+            id: 'r1',
+            name: 'Snack',
+            quantity: 2,
+            unitPriceMinor: 1_000,
+            totalAmountMinor: 2_000,
+            assignedMemberIds: [A, B],
+          },
+        ],
+      },
+      createdBy: USER,
+    };
+    await services.expenses.createExpenseManually.execute(input);
+    await services.expenses.createExpenseManually.execute(input);
+    const count = await db.get<{ count: number }>(
+      "select count(*) as count from expenses where title = 'Retry-safe'",
+    );
+    expect(count?.count).toBe(1);
+  });
+
+  it('rejects an item total that does not reconcile', async () => {
+    await expect(
+      services.expenses.createExpenseManually.execute({
+        groupId: GROUP,
+        title: 'Bad totals',
+        amountMinor: 2_000,
+        currencyCode: 'INR',
+        payerContributions: [{ memberId: A, amountMinor: 2_000 }],
+        participantIds: [A, B],
+        split: {
+          splitType: 'items',
+          lineItems: [
+            {
+              id: 'bad1',
+              name: 'Wrong',
+              quantity: 1,
+              unitPriceMinor: 1_000,
+              totalAmountMinor: 1_500,
+              assignedMemberIds: [A],
+            },
+          ],
+        },
+        createdBy: USER,
+      }),
+    ).rejects.toThrow(/does not match/);
+  });
+
   it('rejects a normal split edit on an itemised expense', async () => {
     const current = await services.repositories.expenses.findById(expenseId as never);
     await expect(

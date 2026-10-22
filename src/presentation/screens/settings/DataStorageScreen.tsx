@@ -12,9 +12,10 @@
  *   - only groups past the retention period are offered.
  */
 
+import { router } from 'expo-router';
 import { File, Paths } from 'expo-file-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, Share } from 'react-native';
+import { Alert, Platform, Pressable, Share } from 'react-native';
 
 import type { RetentionRow } from '@application/retention/assess-retention.usecase';
 import { Button } from '@presentation/design-system/components/Button';
@@ -34,12 +35,14 @@ import {
 } from '@store/services-registry';
 import { buildReportHtml, collectReportRows } from '@application/export/financial-report';
 import { useGroupStore } from '@store/group-store';
-import { RETENTION_OPTIONS, useRetentionStore } from '@store/retention-store';
+import { RETENTION_OPTIONS, useRetentionStore, type RetentionMode } from '@store/retention-store';
 
 export interface DataStorageViewProps {
   readonly cloudSyncEnabled: boolean;
   readonly retentionDays: number;
+  readonly retentionMode: RetentionMode;
   readonly onChangeRetention: (days: number) => void;
+  readonly onChangeRetentionMode: (mode: RetentionMode) => void;
   readonly rows: readonly RetentionRow[];
   readonly loading: boolean;
   readonly busy: boolean;
@@ -76,7 +79,9 @@ function stateTone(row: RetentionRow): 'positive' | 'warning' | 'secondary' {
 export function DataStorageView({
   cloudSyncEnabled,
   retentionDays,
+  retentionMode = 'review',
   onChangeRetention,
+  onChangeRetentionMode = (): void => undefined,
   rows,
   loading,
   busy,
@@ -171,9 +176,54 @@ export function DataStorageView({
             Retention
           </Text>
           <Text variant="caption" color="secondary">
-            A group becomes eligible after its configured quiet period
-            ({retentionDays} days). Nothing is deleted automatically, and groups with money
-            outstanding or pending settlements are never eligible.
+            Financial records are never deleted automatically. Retention only controls when a
+            settled, inactive group is offered for review, and whether unreferenced temporary
+            receipt files may be cleaned up.
+          </Text>
+          <Stack gap="sm">
+            {[
+              {
+                mode: 'manual' as const,
+                label: 'Keep until manually deleted',
+                description: 'No retention review or automatic cleanup.',
+              },
+              {
+                mode: 'review' as const,
+                label: 'Review records older than one year',
+                description: 'Shows eligible groups for your decision; deletes nothing.',
+              },
+              {
+                mode: 'auto_temp' as const,
+                label: 'Automatically clean temporary files',
+                description:
+                  'Old unreferenced receipt copies are queued for deletion. Financial records stay.',
+              },
+            ].map((option) => (
+              <Pressable
+                key={option.mode}
+                accessibilityRole="button"
+                accessibilityState={{ selected: retentionMode === option.mode }}
+                onPress={() => onChangeRetentionMode(option.mode)}
+                style={{
+                  borderWidth: 1,
+                  borderColor:
+                    retentionMode === option.mode ? theme.colors.brandPrimary : theme.colors.border,
+                  borderRadius: theme.borderRadius.md,
+                  padding: spacing.md,
+                  backgroundColor: theme.colors.surface,
+                }}
+              >
+                <Text variant="bodyStrong">{option.label}</Text>
+                <Text variant="caption" color="secondary">
+                  {option.description}
+                </Text>
+              </Pressable>
+            ))}
+          </Stack>
+
+          <Text variant="caption" color="secondary">
+            Review window: {retentionDays} days. Groups with outstanding money, pending
+            settlements or unsynced changes are always protected.
           </Text>
           <Row gap="sm" align="center">
             {RETENTION_OPTIONS.map((option) => (
@@ -270,6 +320,41 @@ export function DataStorageView({
             </Text>
           </Stack>
         </Card>
+
+        <Card elevation="none" padding="lg">
+          <Stack gap="xs" align="stretch">
+            <Text variant="cardTitle" color="primary">
+              Privacy and storage
+            </Text>
+            <Text variant="caption" color="secondary">
+              Data lives in the app&apos;s private SQLite database and files on this device. No
+              account is required and no expense data is uploaded unless you configure optional
+              cloud sync. The database is protected by the Android app sandbox, not by SQLite
+              encryption. Backups are encrypted; CSV/JSON/PDF/XLSX exports are not. Uninstalling
+              removes app data subject to OS behaviour. Deletion is logical, not a forensic wipe
+              of flash storage.
+            </Text>
+          </Stack>
+        </Card>
+
+        <Card elevation="none" padding="lg">
+          <Stack gap="sm" align="stretch">
+            <Text variant="cardTitle" color="primary">
+              Erase everything
+            </Text>
+            <Text variant="caption" color="secondary">
+              Permanently delete all local groups, expenses, settlements, receipts and
+              preferences. Requires typing DELETE and a final confirmation. Backup first.
+            </Text>
+            <Button
+              label="Erase all local data"
+              variant="ghost"
+              size="sm"
+              onPress={() => router.push('/settings/erase-data')}
+              accessibilityLabel="Open guarded local data erasure"
+            />
+          </Stack>
+        </Card>
       </Stack>
     </Screen>
   );
@@ -285,6 +370,8 @@ export function DataStorageScreen(): JSX.Element {
   const leaveGroup = useGroupStore((s) => s.leaveGroup);
   const cloudSyncEnabled = isCloudSyncConfigured();
   const retentionDays = useRetentionStore((s) => s.retentionDays);
+  const retentionMode = useRetentionStore((s) => s.mode);
+  const setRetentionMode = useRetentionStore((s) => s.setMode);
   const setRetentionDays = useRetentionStore((s) => s.setRetentionDays);
 
   const [rows, setRows] = useState<readonly RetentionRow[]>([]);
@@ -435,7 +522,9 @@ export function DataStorageScreen(): JSX.Element {
     <DataStorageView
       cloudSyncEnabled={cloudSyncEnabled}
       retentionDays={retentionDays}
+      retentionMode={retentionMode}
       onChangeRetention={setRetentionDays}
+      onChangeRetentionMode={setRetentionMode}
       rows={rows}
       loading={loading}
       busy={busy}

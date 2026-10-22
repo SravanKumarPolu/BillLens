@@ -1343,6 +1343,28 @@ alter table groups add column icon text;
 create index if not exists idx_groups_archived on groups (archived_at);
 `;
 
+
+export const MIGRATION_0012_FILE_CLEANUP_QUEUE = `
+-- Durable file-cleanup outbox. The intent is written in the same transaction
+-- that removes receipt rows, so an app kill cannot lose the cleanup work.
+create table if not exists file_cleanup_queue (
+  id              text primary key,
+  uri             text not null,
+  reason          text not null,
+  attempts        integer not null default 0 check (attempts >= 0),
+  last_error      text,
+  next_attempt_at text not null,
+  created_at      text not null,
+  updated_at      text not null,
+  completed_at    text
+);
+
+create index if not exists idx_cleanup_due
+  on file_cleanup_queue (completed_at, next_attempt_at, attempts);
+create index if not exists idx_cleanup_uri
+  on file_cleanup_queue (uri, completed_at);
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'initial_schema', sql: MIGRATION_0001_INITIAL_SCHEMA },
   { version: 2, name: 'phase6_track1_settlement_state_machine', sql: MIGRATION_0002_PHASE6_TRACK1 },
@@ -1355,6 +1377,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 9, name: 'recurring_expenses', sql: MIGRATION_0009_RECURRING_EXPENSES },
   { version: 10, name: 'expense_line_items', sql: MIGRATION_0010_EXPENSE_LINE_ITEMS },
   { version: 11, name: 'group_management', sql: MIGRATION_0011_GROUP_MANAGEMENT },
+  { version: 12, name: 'file_cleanup_queue', sql: MIGRATION_0012_FILE_CLEANUP_QUEUE },
 ];
 
 /**

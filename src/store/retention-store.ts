@@ -25,9 +25,14 @@ export const RETENTION_OPTIONS: readonly { readonly days: number; readonly label
   { days: 730, label: '2 years' },
 ] as const;
 
+export type RetentionMode = 'manual' | 'review' | 'auto_temp';
+
 export interface RetentionStore {
   readonly retentionDays: number;
+  /** Financial records are never auto-deleted; this only controls review/temp cleanup. */
+  readonly mode: RetentionMode;
   setRetentionDays: (days: number) => void;
+  setMode: (mode: RetentionMode) => void;
   reset: () => void;
 }
 
@@ -35,9 +40,11 @@ export const useRetentionStore = create<RetentionStore>()(
   persist(
     (set) => ({
       retentionDays: DEFAULT_RETENTION_DAYS,
+      mode: 'review',
+      setMode: (mode) => set({ mode }),
       setRetentionDays: (days) =>
         set({ retentionDays: Math.max(1, Math.floor(days)) }),
-      reset: () => set({ retentionDays: DEFAULT_RETENTION_DAYS }),
+      reset: () => set({ retentionDays: DEFAULT_RETENTION_DAYS, mode: 'review' }),
     }),
     {
       name: RETENTION_STORAGE_KEY,

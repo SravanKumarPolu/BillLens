@@ -217,6 +217,29 @@ describe('ImageQualityReviewView', () => {
     expect(onRetake).toHaveBeenCalled();
   });
 
+  it('offers image replacement and invokes it', () => {
+    const onReplace = jest.fn();
+    const { getByLabelText } = renderWithProviders(
+      <ImageQualityReviewView
+        viewModel={{
+          imageUri: 'file:///tmp/receipt.jpg',
+          warnings: [],
+          isPhase2Stub: false,
+        }}
+        checked
+        blocked={false}
+        onRetake={() => {}}
+        onReplace={onReplace}
+        onContinue={() => {}}
+      />,
+    );
+
+    fireEvent.press(
+      getByLabelText('Replace this image with another from the gallery or camera'),
+    );
+    expect(onReplace).toHaveBeenCalled();
+  });
+
   it('invokes onContinue when Continue is pressed', () => {
     const onContinue = jest.fn();
     const { getByLabelText } = renderWithProviders(

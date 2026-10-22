@@ -54,7 +54,6 @@ import { Button } from '@presentation/design-system/components/Button';
 import { Card } from '@presentation/design-system/components/Card';
 import { Divider } from '@presentation/design-system/components/Divider';
 import { Icon } from '@presentation/design-system/components/Icon';
-import { IconButton } from '@presentation/design-system/components/IconButton';
 import { Row } from '@presentation/design-system/components/Row';
 import { Screen } from '@presentation/design-system/components/Screen';
 import { Stack } from '@presentation/design-system/components/Stack';
@@ -253,6 +252,7 @@ export function DraftReviewScreen({
           // transition is what bumps it). The version guard makes a
           // replayed/double confirmation fail loudly instead of duping.
           expectedVersion: draft.version,
+          ...(sourceImageUri !== undefined ? { imageUri: sourceImageUri } : {}),
         });
         if (attempt !== confirmAttemptRef.current) return; // stale attempt
         setCurrentDraft(null);
@@ -295,6 +295,17 @@ export function DraftReviewScreen({
       onResolveIssue={handleResolveIssue}
       onDiscard={handleDiscard}
       onConfirm={handleConfirm}
+      {...(draft.groupId !== undefined
+        ? {
+            onOpenItemized: (): void => {
+              router.push(
+                `/expenses/itemized/new?groupId=${encodeURIComponent(
+                  draft.groupId as string,
+                )}&draftId=${encodeURIComponent(draft.id as string)}`,
+              );
+            },
+          }
+        : {})}
     />
   );
 }
@@ -322,6 +333,7 @@ export interface DraftReviewViewProps {
   readonly onResolveIssue: (issue: IssueViewModel) => void;
   readonly onDiscard: () => void;
   readonly onConfirm: () => void;
+  readonly onOpenItemized?: () => void;
 }
 
 export function DraftReviewView({
@@ -337,6 +349,7 @@ export function DraftReviewView({
   onResolveIssue,
   onDiscard,
   onConfirm,
+  onOpenItemized,
 }: DraftReviewViewProps): JSX.Element {
   return (
     <Screen scrollable safeArea avoidKeyboard>
@@ -378,7 +391,12 @@ export function DraftReviewView({
 
         <IssuesSection viewModel={viewModel} onResolveIssue={onResolveIssue} />
 
-        <ConfirmSection viewModel={viewModel} onConfirm={onConfirm} confirming={confirming} />
+        <ConfirmSection
+          viewModel={viewModel}
+          onConfirm={onConfirm}
+          onOpenItemized={onOpenItemized}
+          confirming={confirming}
+        />
       </Stack>
     </Screen>
   );
@@ -819,13 +837,6 @@ function LineItemCard({ item, currencyCode }: LineItemCardProps): ReactNode {
           {item.isEdited ? (
             <Badge variant="info" label="Edited" icon="create-outline" />
           ) : null}
-          <IconButton
-            icon="create-outline"
-            onPress={() => {}}
-            size="sm"
-            variant="ghost"
-            accessibilityLabel={`Edit line item ${item.name}`}
-          />
         </Row>
         <Row gap="md" align="center">
           <Text variant="caption" color="muted" style={{ flex: 1 }}>
@@ -887,18 +898,12 @@ function PayerSection({ viewModel }: PayerSectionProps): ReactNode {
           Payer
         </Text>
         {payer === null ? (
-          <Pressable
-            onPress={() => {}}
-            accessibilityRole="button"
-            accessibilityLabel="Select a payer for this expense"
-          >
-            <Row gap="sm" align="center">
-              <Icon name="person-add-outline" size={theme.iconSizes.md} color={theme.colors.brandPrimary} />
-              <Text variant="body" color="primary">
-                Select payer
-              </Text>
-            </Row>
-          </Pressable>
+          <Row gap="sm" align="center">
+            <Icon name="alert-circle-outline" size={theme.iconSizes.md} color={theme.colors.warning} />
+            <Text variant="caption" color="warning">
+              No payer detected. Use “Adjust items &amp; split” to choose one.
+            </Text>
+          </Row>
         ) : (
           <Row gap="sm" align="center">
             <Avatar name={payer} size="md" accessibilityLabel={`Payer: ${payer}`} />
@@ -1124,13 +1129,30 @@ function IssueCard({ issue, onResolve }: IssueCardProps): ReactNode {
 interface ConfirmSectionProps {
   readonly viewModel: DraftReviewViewModel;
   readonly onConfirm: () => void;
+  readonly onOpenItemized?: () => void;
   /** True while the save+confirm use cases are in flight (disables double-taps). */
   readonly confirming?: boolean;
 }
 
-function ConfirmSection({ viewModel, onConfirm, confirming = false }: ConfirmSectionProps): ReactNode {
+function ConfirmSection({
+  viewModel,
+  onConfirm,
+  onOpenItemized,
+  confirming = false,
+}: ConfirmSectionProps): ReactNode {
   return (
     <Stack gap="sm" align="stretch">
+      {onOpenItemized !== undefined ? (
+        <Button
+          label="Adjust items & split"
+          variant="secondary"
+          size="md"
+          onPress={onOpenItemized}
+          disabled={confirming}
+          accessibilityLabel="Open itemized editor for this receipt draft"
+          icon="list-outline"
+        />
+      ) : null}
       <Button
         label={
           confirming

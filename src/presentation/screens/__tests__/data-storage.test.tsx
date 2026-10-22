@@ -32,7 +32,9 @@ function renderView(overrides: Partial<Parameters<typeof DataStorageView>[0]> = 
   const props: Parameters<typeof DataStorageView>[0] = {
     cloudSyncEnabled: false,
     retentionDays: 365,
+    retentionMode: 'review',
     onChangeRetention: jest.fn(),
+    onChangeRetentionMode: jest.fn(),
     rows: [row()],
     loading: false,
     busy: false,

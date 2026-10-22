@@ -77,12 +77,9 @@ describe('WelcomeScreen', () => {
     expect(mockRouterPush).toHaveBeenCalledWith('/onboarding/guest-name');
   });
 
-  it('navigates to /auth/sign-in when "I already have an account" is pressed', () => {
-    const { getByLabelText } = renderWithProviders(<WelcomeScreen />);
-
-    fireEvent.press(getByLabelText('Sign in with an existing account'));
-
-    expect(mockRouterPush).toHaveBeenCalledWith('/auth/sign-in');
+  it('does not expose an unrouted sign-in control', () => {
+    const { queryByLabelText } = renderWithProviders(<WelcomeScreen />);
+    expect(queryByLabelText('Sign in with an existing account')).toBeNull();
   });
 });
 

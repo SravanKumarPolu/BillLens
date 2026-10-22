@@ -44,12 +44,40 @@ export class SqliteGroupManagementStore implements GroupManagementStore {
     return Number(row?.count ?? 0);
   }
 
-  async deleteGroupCascade(groupId: string): Promise<readonly string[]> {
+  async deleteGroupCascade(
+    groupId: string,
+    now: string,
+  ): Promise<{ readonly queued: number }> {
     return this.db.transaction(async (tx) => {
       const rows = await tx.all<{ image_uri: string }>(
         "select image_uri from receipts where group_id = ? and image_uri is not null and image_uri <> ''",
         [groupId],
       );
+
+      // Record cleanup intent in the SAME transaction that deletes receipt
+      // rows. A file still referenced by a receipt in another group is kept.
+      let queued = 0;
+      for (const [index, row] of rows.entries()) {
+        const shared = await tx.get<{ count: number }>(
+          `select count(*) as count from receipts
+           where image_uri = ? and group_id <> ? and deleted_at is null`,
+          [row.image_uri, groupId],
+        );
+        if (Number(shared?.count ?? 0) > 0) continue;
+        const active = await tx.get<{ id: string }>(
+          'select id from file_cleanup_queue where uri = ? and completed_at is null limit 1',
+          [row.image_uri],
+        );
+        if (active !== null) continue;
+        const id = `cleanup-${groupId}-${index}-${Date.now()}`;
+        await tx.run(
+          `insert into file_cleanup_queue
+             (id, uri, reason, attempts, last_error, next_attempt_at, created_at, updated_at)
+           values (?, ?, 'group_deleted', 0, null, ?, ?, ?)`,
+          [id, row.image_uri, now, now, now],
+        );
+        queued += 1;
+      }
 
       const statements: readonly [string, readonly string[]][] = [
         ['delete from settlement_reminders where group_id = ?', [groupId]],
@@ -86,7 +114,7 @@ export class SqliteGroupManagementStore implements GroupManagementStore {
         ['delete from groups where id = ?', [groupId]],
       ];
       for (const [sql, params] of statements) await tx.run(sql, params);
-      return rows.map((row) => row.image_uri);
+      return { queued };
     });
   }
 }

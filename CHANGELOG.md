@@ -2,6 +2,134 @@
 
 All notable changes to BillLens across Phases 1-10 are documented here.
 
+## [2.25.0] — 2026-10-22
+
+### Receipt persistence, history and item-level OCR confirmation
+
+- Draft confirmation now persists a Receipt row, receipt items and the linked
+  expense atomically. Previously no production code ever inserted into
+  `receipts`, so receipt history, backup images and receipt retention had no
+  records to operate on.
+- OCR drafts with reconciled line items now confirm using `ItemSplitStrategy`
+  instead of silently falling back to an equal split.
+- Receipt images and metadata are linked to the expense via `receipt_id`;
+  receipt history lists saved receipts and allows guarded deletion, which
+  soft-deletes metadata and queues the image in the existing cleanup outbox.
+- Fixed `expense_drafts` inserts omitting required `client_created_at` /
+  `client_updated_at`, which made real SQLite draft persistence fail.
+- New real-SQLite tests: atomic receipt/items/expense confirmation, item-level
+  split totals, receipt history and deletion cleanup.
+- 221 suites / 4,927 tests pass.
+## [2.24.0] — 2026-10-22
+
+### UI/navigation audit and dead-control cleanup
+
+- Removed the onboarding “I already have an account” control whose `/auth/sign-in`
+  route does not exist; the Verify screen’s fallback now returns to onboarding.
+- Selected expense-type chip is no longer a no-op button.
+- Removed nonfunctional draft line-item edit icons and the fake payer selector;
+  the real path is “Adjust items & split”.
+- Added explicit parameter redirects for group edit/members/delete, item editor
+  and itemized creation when deep links omit required IDs.
+- Archived groups now show a read-only banner and hide primary mutation actions.
+- Added a route-link test that fails if a literal `router.push/replace` target
+  has no route file.
+- Edit Group now has a screen heading; payer rows wrap on narrow screens.
+- 220 suites / 4,924 tests pass. No device run.
+## [2.23.0] — 2026-10-22
+
+### Retention, temp cleanup and guarded local erasure
+
+- Retention modes: keep manually, review after the configured window, or
+  automatically clean unreferenced temporary receipt files. Financial records
+  are never auto-deleted.
+- Bounded daily cleanup (max 50) finds old files not referenced by receipts or
+  capture sources and enqueues them in the existing durable cleanup queue —
+  no second queue.
+- Guarded “Erase all local data”: preview counts, exact `DELETE` confirmation,
+  native destructive dialog, transactional table wipe, schema and cleanup queue
+  preserved, preferences cleared, local receipt files queued.
+- Privacy copy states SQLite is not encrypted at rest beyond the OS sandbox,
+  exports are unencrypted, optional cloud is not required, and deletion is not
+  a forensic flash wipe.
+- Tests: UTC boundary, leap-year boundary, temp-cleanup cutoff/bounds,
+  referenced-vs-orphan detection, full erase idempotency and queue intent.
+  219 suites / 4,923 tests pass.
+## [2.22.0] — 2026-10-22
+
+### Camera/gallery replacement and native OCR hardening
+
+- Image review now offers “Choose another image”, routing back to the camera or
+  gallery while preserving scan mode and group.
+- ML Kit adapter: bounded one-time retry for transient native failures,
+  cancellation checks, empty-output rejection and actionable manual-entry
+  messages. Native recognition is still unverified on hardware.
+- Native compatibility: added a prebuild plugin that rewrites the ML Kit
+  module's legacy `com.facebook.react:react-native:+` dependency to
+  `react-android` for RN 0.86. Expo autolinking resolves the module.
+- Android SDK is installed but **no Java runtime** is available, so Gradle
+  compile/AAB was not run. Expo Doctor exclusion remains documented.
+- Tests: image replacement UI, OCR retry/failure/empty/cancellation. 216 suites
+  / 4,913 tests pass.
+## [2.21.0] — 2026-10-22
+
+### Item-first expense creation and receipt conversion
+
+- New `/expenses/itemized/new` screen creates an itemized expense directly —
+  no placeholder expense. Entries include items, decimal quantities, unit
+  prices, per-item participants, tax/tip/service/discount and multiple payers.
+- Uses the existing `ItemSplitStrategy` through `createExpenseManually`; a live
+  member preview is computed by the same engine.
+- A deterministic expense id is created at mount, so retries cannot duplicate;
+  saving is disabled during submission and until payer totals reconcile.
+- The New Expense screen now offers Simple / Itemized / Scan receipt modes.
+- Receipt drafts expose “Adjust items & split”, pre-filling the itemized screen
+  from the parsed draft (items, charges) while keeping manual fallback.
+- Unsaved item-first input is autosaved to AsyncStorage and restored on return;
+  the draft is cleared only after successful persistence.
+- Tests: decimal quantities, multiple payers, duplicate id retry and
+  reconciliation rejection over real SQLite. 215 suites / 4,908 tests pass.
+## [2.20.0] — 2026-10-22
+
+### Group lifecycle safety and durable file cleanup
+
+- Archived groups are now guarded at both the application and SQLite write
+  boundaries. Expense create/edit/void, settlement create/transitions, reccurring
+  template mutations/generation and member add/rename/deactivate all fail with a
+  clear read-only error. Read, export, backup and restore remain allowed.
+- Migration 0012 adds `file_cleanup_queue`. Group deletion records cleanup intent
+  in the same transaction that removes receipt rows; files still referenced by
+  another group are never queued.
+- `ProcessFileCleanupQueueUseCase` processes jobs idempotently with bounded
+  batches, 1/5/30/120/720-minute backoff, five attempts, permanent-failure rows
+  retained for diagnostics and 30-day pruning of completed jobs.
+- Startup and post-deletion workers drain the queue; missing files count as
+  success, and app termination cannot lose intent.
+- Deletion UI shows a non-fake progress state, disables repeated submission and
+  disables Cancel while deleting.
+- Tests: 7 group lifecycle tests including the full archived mutation matrix and
+  settlement transition; 4 cleanup tests covering shared files, restart, retry,
+  missing files and the attempt cap. 215 suites / 4,905 tests pass.
+## [2.19.0] — 2026-10-22
+
+### Encrypted receipt-image backups (format v2)
+
+- Backup payload v2 includes receipt image bytes inside the authenticated
+  XChaCha20-Poly1305 envelope, with SHA-256 integrity, MIME/extension checks,
+  original-URI mapping and deduplication by file hash.
+- Optional financial-only mode; v1 payloads (no attachments) still restore.
+- Limits: 12 MB per image, 60 MB total, 200 attachments. Missing files are
+  reported in the preview and excluded; they never fail the financial backup.
+- Restore stages files first, verifies hashes/sizes/storage, rewrites every
+  `image_uri` to the new app-managed path, then replaces tables transactionally.
+  SQL failure removes staged files; SQLite and filesystem atomicity is not
+  claimed.
+- UI: include-images toggle, receipt count/size, format version, attachment
+  presence, missing-image warnings and destructive restore preview.
+- Tests: 8 attachment tests (round-trip, dedup, missing, v1, unsupported
+  version, hash mismatch, insufficient storage, rollback) over real files/SQLite.
+
+No cloud storage or paid service. 214 suites / 4,897 tests pass.
 ## [2.18.0] — 2026-10-22
 
 ### Group editing, members, archive and safe deletion

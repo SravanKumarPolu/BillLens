@@ -77,7 +77,13 @@ function ThemedRootStack(): ReactNode {
       <RouterStack.Screen name="recurring/index" options={{ title: 'Recurring expenses' }} />
       <RouterStack.Screen name="recurring/new" options={{ title: 'Repeat expense', presentation: 'modal' }} />
       <RouterStack.Screen name="settings/backup" options={{ title: 'Backup and restore' }} />
+      <RouterStack.Screen name="settings/erase-data" options={{ title: 'Erase local data' }} />
+      <RouterStack.Screen name="receipts/index" options={{ title: 'Receipts' }} />
       <RouterStack.Screen name="expenses/items/[expenseId]" options={{ title: 'Edit items' }} />
+      <RouterStack.Screen
+        name="expenses/itemized/new"
+        options={{ title: 'Itemized expense', presentation: 'modal' }}
+      />
       <RouterStack.Screen name="groups/edit/[groupId]" options={{ title: 'Edit group' }} />
       <RouterStack.Screen name="groups/members/[groupId]" options={{ title: 'Manage members' }} />
       <RouterStack.Screen name="groups/delete/[groupId]" options={{ title: 'Delete group' }} />

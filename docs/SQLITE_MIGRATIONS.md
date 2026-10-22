@@ -42,8 +42,8 @@ function, so the first launch failed at prepare time. It is now `length()`.
 |---|---|
 | `sql-statements.test.ts` | 7 cases: comments, block comments, strings, escaped quotes, comment-only input |
 | `sqlite-schema-portability.test.ts` | rejects PostgreSQL-only constructs in every registered migration |
-| `sqlite-migrations-execution.test.ts` | runs the real `runMigrations` on a real SQLite file; asserts 40 tables, version 11, idempotent second boot |
-| `npm run db:verify` | extracts the schema blocks and executes them in `sqlite3` (12 blocks, 40 tables); fails on the original errors |
+| `sqlite-migrations-execution.test.ts` | runs the real `runMigrations` on a real SQLite file; asserts 41 tables, version 12, idempotent second boot |
+| `npm run db:verify` | extracts the schema blocks and executes them in `sqlite3` (13 blocks, 41 tables); fails on the original errors |
 
 Both migration guards reproduce the device error when the old code is
 restored (`near "tracks": syntax error`, `unknown function: char_length`).

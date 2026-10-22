@@ -562,6 +562,12 @@ export function NewExpenseScreen({ groupId, expenseId }: NewExpenseScreenProps):
       onChangeSplitValue={handleChangeSplitValue}
       onSubmit={handleSubmit}
       onCancel={handleCancel}
+      onOpenItemized={() =>
+        router.replace(`/expenses/itemized/new?groupId=${encodeURIComponent(groupId)}`)
+      }
+      onOpenScan={() =>
+        router.push(`/capture?mode=scan&groupId=${encodeURIComponent(groupId)}`)
+      }
     />
   );
 }
@@ -595,6 +601,8 @@ export interface NewExpenseViewProps {
   readonly onChangeSplitValue?: (memberId: string, value: string) => void;
   readonly onSubmit: () => void;
   readonly onCancel: () => void;
+  readonly onOpenItemized?: () => void;
+  readonly onOpenScan?: () => void;
 }
 
 export function NewExpenseView({
@@ -622,6 +630,8 @@ export function NewExpenseView({
   onChangeSplitValue,
   onSubmit,
   onCancel,
+  onOpenItemized,
+  onOpenScan,
 }: NewExpenseViewProps): JSX.Element {
   const theme = useTheme();
   const currencyCode = fieldValues.currencyCode;
@@ -637,6 +647,16 @@ export function NewExpenseView({
             Add an expense to {groupName} without scanning a receipt.
           </Text>
         </Stack>
+
+        <Row gap="sm" style={{ flexWrap: 'wrap' }}>
+          <ModeChip label="Simple expense" selected />
+          {onOpenItemized !== undefined ? (
+            <ModeChip label="Itemized expense" selected={false} onPress={onOpenItemized} />
+          ) : null}
+          {onOpenScan !== undefined ? (
+            <ModeChip label="Scan receipt" selected={false} onPress={onOpenScan} />
+          ) : null}
+        </Row>
 
         {submitError !== null ? (
           <Card elevation="sm" padding="md" accessibilityRole="alert">
@@ -844,6 +864,47 @@ function TextField({
         ]}
       />
     </FieldShell>
+  );
+}
+
+function ModeChip({
+  label,
+  selected,
+  onPress,
+}: {
+  readonly label: string;
+  readonly selected: boolean;
+  readonly onPress?: () => void;
+}): ReactNode {
+  const theme = useTheme();
+  const style = {
+        paddingHorizontal: spacing.md,
+        paddingVertical: 6,
+        borderRadius: theme.borderRadius.full,
+        borderWidth: 1,
+        borderColor: selected ? theme.colors.brandPrimary : theme.colors.border,
+        backgroundColor: selected ? theme.colors.brandPrimary : theme.colors.surface,
+  } as const;
+  if (onPress === undefined) {
+    return (
+      <View accessibilityState={{ selected }} style={style}>
+        <Text variant="caption" color={selected ? 'onColor' : 'secondary'}>
+          {label}
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={style}
+    >
+      <Text variant="caption" color={selected ? 'onColor' : 'secondary'}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 

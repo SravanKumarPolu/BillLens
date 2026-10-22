@@ -55,6 +55,7 @@ import {
   paginateRows,
   parseOffsetCursor,
 } from './row-mappers';
+import { assertGroupWritableDb } from './group-write-guard';
 import { enqueueSyncOpWithin, syncIdempotencyKey } from './sync-op-writer';
 
 const SETTLEMENT_COLUMNS = `
@@ -262,6 +263,7 @@ export class SqliteSettlementRepository implements SettlementRepository {
   // -----------------------------------------------------------------------
 
   async save(settlement: Settlement): Promise<void> {
+    await assertGroupWritableDb(this.db, settlement.groupId as string);
     await this.db.transaction(async (tx) => {
       const existing = await tx.get<SqlRow>(`select id from settlements where id = ?`, [
         settlement.id,
@@ -288,6 +290,11 @@ export class SqliteSettlementRepository implements SettlementRepository {
   }
 
   async softDelete(id: SettlementId, metadata: DeleteMetadata): Promise<SoftDeleteResult> {
+    const existing = await this.db.get<{ group_id: string }>(
+      'select group_id from settlements where id = ?',
+      [id],
+    );
+    if (existing !== null) await assertGroupWritableDb(this.db, existing.group_id);
     return this.db.transaction(async (tx) => {
       const row = await tx.get<SqlRow>(
         `select ${SETTLEMENT_COLUMNS} from settlements where id = ?`,
@@ -330,6 +337,7 @@ export class SqliteSettlementRepository implements SettlementRepository {
   }
 
   async saveReversal(reversal: Settlement): Promise<Settlement> {
+    await assertGroupWritableDb(this.db, reversal.groupId as string);
     await this.db.transaction(async (tx) => {
       const existing = await tx.get<SqlRow>(`select id from settlements where id = ?`, [
         reversal.id,

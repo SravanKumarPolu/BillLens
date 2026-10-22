@@ -1,5 +1,8 @@
 import {
   asExpenseId,
+  asReceiptId,
+  createReceipt,
+  createReceiptItem,
   asExpensePayerId,
   asExpenseSplitId,
   asGroupId,
@@ -12,7 +15,7 @@ import {
 } from '@domain/entities';
 import { InvalidEntityError } from '@domain/errors';
 import type { UnitOfWork } from '@domain/repositories/unit-of-work';
-import { SplitEngine } from '@domain/services/splits';
+import { calculateItemSplit, SplitEngine } from '@domain/services/splits';
 import { Money } from '@domain/value-objects';
 import type { ExpenseDraftId } from '@shared-types/index';
 
@@ -25,11 +28,14 @@ export interface CreateExpenseFromDraftInput {
   readonly groupId: string;
   /** The version the caller expects the draft to be at (optimistic concurrency). */
   readonly expectedVersion: number;
+  /** Local receipt image URI; when present a Receipt row is persisted atomically. */
+  readonly imageUri?: string;
 }
 
 export interface CreateExpenseFromDraftOutput {
   readonly expenseId: string;
   readonly draftStatus: string;
+  readonly receiptId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -135,6 +141,53 @@ export class CreateExpenseFromDraftUseCase {
       //    (YYYY-MM-DD, as the OCR pipeline produces) — `createExpense`
       //    requires a full ISO date-time, so we normalize here.
       const expenseId = asExpenseId(generateId());
+      const receiptId = input.imageUri !== undefined ? asReceiptId(`receipt-${draft.id}`) : undefined;
+      const chargesTotal = draft.charges.reduce((sum, charge) => sum + charge.amountMinor, 0);
+      const itemsTotal = draft.lineItems.reduce((sum, item) => sum + item.totalAmountMinor, 0);
+      const useItems =
+        draft.lineItems.length > 0 &&
+        itemsTotal + chargesTotal === draft.amountMinor &&
+        draft.lineItems.every(
+          (item) => item.assignedMemberIds.length > 0 && item.totalAmountMinor >= 0,
+        );
+
+      if (receiptId !== undefined) {
+        const now = new Date().toISOString() as never;
+        const receipt = createReceipt({
+          id: receiptId,
+          groupId: asGroupId(input.groupId),
+          source: 'paper',
+          ...(draft.merchantName !== undefined ? { merchantName: draft.merchantName } : {}),
+          ...(draft.currencyCode !== undefined ? { currencyCode: draft.currencyCode } : {}),
+          ...(draft.amountMinor !== undefined ? { totalAmountMinor: draft.amountMinor } : {}),
+          ...(draft.expenseDate !== undefined
+            ? {
+                receiptDate: draft.expenseDate.includes('T')
+                  ? draft.expenseDate
+                  : `${draft.expenseDate}T00:00:00.000Z`,
+              }
+            : {}),
+          imageUri: input.imageUri as string,
+          uploadedBy: draft.createdBy,
+          privacy: { storageMode: 'local_only', retainSourceImage: true, retainRawText: false },
+          now,
+        });
+        const receiptItems = draft.lineItems.map((item, index) =>
+          createReceiptItem({
+            id: `receipt-item-${draft.id}-${index}` as never,
+            receiptId,
+            name: item.name,
+            quantity: item.quantity,
+            unitPriceMinor: item.unitPriceMinor,
+            ...(item.discountMinor !== undefined ? { discountMinor: item.discountMinor } : {}),
+            ...(item.taxMinor !== undefined ? { taxMinor: item.taxMinor } : {}),
+            assignedMemberIds: item.assignedMemberIds,
+            now,
+          }),
+        );
+        await ctx.receipts.save(receipt, receiptItems);
+      }
+
       const expense = createExpense({
         id: expenseId,
         groupId: asGroupId(input.groupId),
@@ -142,7 +195,27 @@ export class CreateExpenseFromDraftUseCase {
         amountMinor: draft.amountMinor,
         currencyCode: draft.currencyCode as string,
         expenseDate: normalizeExpenseDate(draft.expenseDate),
-        splitType: 'equal',
+        splitType: useItems ? 'items' : 'equal',
+        ...(receiptId !== undefined ? { receiptId } : {}),
+        ...(useItems
+          ? {
+              lineItems: draft.lineItems.map((item) => ({
+                id: item.id as string,
+                name: item.name,
+                quantity: item.quantity,
+                unitPriceMinor: item.unitPriceMinor,
+                totalAmountMinor: item.totalAmountMinor,
+                assignedMemberIds: item.assignedMemberIds,
+                ...(item.discountMinor !== undefined ? { discountMinor: item.discountMinor } : {}),
+                ...(item.taxMinor !== undefined ? { taxMinor: item.taxMinor } : {}),
+              })),
+              itemCharges: draft.charges.map((charge) => ({
+                type: charge.type,
+                amountMinor: charge.amountMinor,
+                ...(charge.label !== undefined ? { label: charge.label } : {}),
+              })),
+            }
+          : {}),
         createdBy: draft.createdBy,
       });
 
@@ -168,13 +241,30 @@ export class CreateExpenseFromDraftUseCase {
       const participantCount = draft.participantCandidates.length;
       const splits: ReturnType<typeof createExpenseSplit>[] = [];
       if (participantCount > 0) {
-        const splitResult = SplitEngine.equal({
-          totalAmount: Money.fromMinor(
-            draft.amountMinor as number,
-            draft.currencyCode as string,
-          ),
-          participantIds: draft.participantCandidates,
-        });
+        const total = Money.fromMinor(draft.amountMinor as number, draft.currencyCode as string);
+        const splitResult = useItems
+          ? calculateItemSplit(
+              total,
+              draft.participantCandidates,
+              draft.lineItems.map((item) => ({
+                id: item.id as string,
+                totalAmountMinor: item.totalAmountMinor,
+                assignedMemberIds: item.assignedMemberIds,
+                quantity: item.quantity,
+                unitPriceMinor: item.unitPriceMinor,
+                ...(item.discountMinor !== undefined ? { discountMinor: item.discountMinor } : {}),
+                ...(item.taxMinor !== undefined ? { taxMinor: item.taxMinor } : {}),
+              })),
+              draft.charges.map((charge) => ({
+                type: charge.type,
+                amountMinor: charge.amountMinor,
+                ...(charge.label !== undefined ? { label: charge.label } : {}),
+              })),
+            )
+          : SplitEngine.equal({
+              totalAmount: total,
+              participantIds: draft.participantCandidates,
+            });
         for (const entry of splitResult.entries) {
           splits.push(
             createExpenseSplit({
@@ -230,6 +320,7 @@ export class CreateExpenseFromDraftUseCase {
       return {
         expenseId: expenseId as string,
         draftStatus: confirmedDraft.status,
+        ...(receiptId !== undefined ? { receiptId: receiptId as string } : {}),
       };
     });
   }

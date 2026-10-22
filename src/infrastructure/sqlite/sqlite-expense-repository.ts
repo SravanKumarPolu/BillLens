@@ -39,6 +39,7 @@ import {
   paginateRows,
   parseOffsetCursor,
 } from './row-mappers';
+import { assertGroupWritableDb } from './group-write-guard';
 import { enqueueSyncOpWithin, syncIdempotencyKey } from './sync-op-writer';
 
 const EXPENSE_COLUMNS = `
@@ -258,6 +259,13 @@ export class SqliteExpenseRepository implements ExpenseRepository {
   }
 
   async softDelete(id: ExpenseId, metadata: DeleteMetadata): Promise<SoftDeleteResult> {
+    const existingExpense = await this.db.get<{ group_id: string }>(
+      'select group_id from expenses where id = ?',
+      [id],
+    );
+    if (existingExpense !== null) {
+      await assertGroupWritableDb(this.db, existingExpense.group_id);
+    }
     return this.db.transaction(async (tx) => {
       const row = await tx.get<SqlRow>(
         `select ${EXPENSE_COLUMNS} from expenses where id = ?`,

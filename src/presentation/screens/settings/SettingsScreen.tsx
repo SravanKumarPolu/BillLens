@@ -308,6 +308,14 @@ export function SettingsView({
             accessibilityLabel="Recurring expenses — manage repeating schedules"
           />
           <SettingsRow
+            icon="receipt-outline"
+            label="Receipt history"
+            description="View and remove receipt images stored on this device."
+            chevron
+            onPress={() => router.push('/receipts')}
+            accessibilityLabel="Receipt history — view saved receipt images"
+          />
+          <SettingsRow
             icon="shield-checkmark-outline"
             label="Backup & restore"
             description="Encrypted local backup of groups, expenses, splits and settlements. No cloud required."

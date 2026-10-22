@@ -86,12 +86,6 @@ export function WelcomeScreen(): JSX.Element {
     router.push('/onboarding/guest-name');
   };
 
-  const handleSignIn = (): void => {
-    // No-op for now — auth flow is added in a later prompt. Navigate
-    // defensively so the route can light up when it exists.
-    router.push('/auth/sign-in');
-  };
-
   return (
     <Screen scrollable safeArea>
       <Stack gap="xxl" align="stretch" style={{ padding: spacing.xl }}>
@@ -120,13 +114,6 @@ export function WelcomeScreen(): JSX.Element {
             onPress={handleGetStarted}
             accessibilityLabel="Get started with BillLens onboarding"
             icon="arrow-forward"
-          />
-          <Button
-            label="I already have an account"
-            variant="ghost"
-            size="md"
-            onPress={handleSignIn}
-            accessibilityLabel="Sign in with an existing account"
           />
         </Stack>
       </Stack>

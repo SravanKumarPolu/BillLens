@@ -165,6 +165,7 @@ export function GroupHomeView({
   archived = false,
   onOpenMenu,
 }: GroupHomeViewProps): JSX.Element {
+  const theme = useTheme();
   return (
     <Screen scrollable safeArea>
       <Stack gap="xl" align="stretch" style={{ padding: spacing.xl }}>
@@ -196,7 +197,19 @@ export function GroupHomeView({
 
         <BalanceSummary viewModel={viewModel} />
 
-        <PrimaryActions groupId={viewModel.id} />
+        {archived ? (
+          <Card elevation="none" padding="md" accessibilityRole="text">
+            <Row gap="sm" align="center">
+              <Icon name="archive-outline" size={theme.iconSizes.md} color={theme.colors.warning} />
+              <Text variant="caption" color="secondary" style={{ flex: 1 }}>
+                This group is archived and read-only. Restore it from the group menu to add or
+                edit expenses.
+              </Text>
+            </Row>
+          </Card>
+        ) : (
+          <PrimaryActions groupId={viewModel.id} />
+        )}
 
         <RecentExpensesSection viewModel={viewModel} />
 
