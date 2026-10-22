@@ -55,15 +55,15 @@ describeWithSqlite('runMigrations on real SQLite', () => {
       );
       expect(tables.length).toBeGreaterThanOrEqual(30);
 
-      // All seven migrations recorded, no re-run on a second boot.
+      // All migrations are recorded, with no re-run on a second boot.
       const version = await db.get<{ version: number }>(
         'select max(version) as version from schema_version',
       );
-      expect(version?.version).toBe(12);
+      expect(version?.version).toBe(13);
 
       await runMigrations(db);
       const rows = await db.all<{ count: number }>('select count(*) as count from schema_version');
-      expect(rows[0]?.count).toBe(12);
+      expect(rows[0]?.count).toBe(13);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

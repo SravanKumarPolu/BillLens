@@ -17,12 +17,14 @@ export default function CaptureImageQualityRoute(): JSX.Element {
     imageUri?: string;
     groupId?: string;
     mode?: 'payment' | 'scan';
+    sourceType?: string;
   }>();
   return (
     <ImageQualityReviewScreen
       imageUri={params.imageUri}
       groupId={params.groupId}
       mode={params.mode}
+      sourceType={params.sourceType}
     />
   );
 }

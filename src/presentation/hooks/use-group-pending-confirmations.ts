@@ -23,6 +23,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 
 import type { Settlement, SettlementDisputeReason } from '@domain/entities/settlement';
+import { reconcileOutstandingReminder } from '@presentation/notifications/outstanding-reminders';
 import { useAppServicesReady, tryGetAppServices } from '@store/services-registry';
 
 // ---------------------------------------------------------------------------
@@ -160,6 +161,10 @@ export function useGroupPendingConfirmations(
           expectedVersion,
           confirmedByMemberId: confirmedByMemberId as never,
         });
+        // A completed settlement changes the balances: refresh the local
+        // reminder now so a settled book cancels today rather than at the
+        // next app launch.
+        void reconcileOutstandingReminder();
         // Reload the list — the just-confirmed settlement should drop out
         // of `pending_confirmation` status and move the group's balances.
         await load();
@@ -192,6 +197,7 @@ export function useGroupPendingConfirmations(
           reason,
           ...(note !== undefined && note.trim().length > 0 ? { note: note.trim() } : {}),
         });
+        void reconcileOutstandingReminder();
         await load();
         setState((prev) => ({ ...prev, acting: false }));
       } catch (err) {

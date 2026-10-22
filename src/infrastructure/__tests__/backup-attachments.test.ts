@@ -268,7 +268,7 @@ describeWithSqlite('receipt attachments in backups', () => {
     const rollbackDir = join(dir, 'rollback-files');
     mkdirSync(rollbackDir, { recursive: true });
     const failingStore = {
-      getSchemaVersion: async () => 12,
+      getSchemaVersion: async () => 13,
       readTables: async () => ({}),
       replaceTables: async () => {
         throw new Error('simulated transaction failure');

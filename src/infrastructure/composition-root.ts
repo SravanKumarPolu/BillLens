@@ -35,6 +35,12 @@
  */
 
 import { ListRecentActivityUseCase } from '@application/activity/index';
+import type {
+  LocalNotificationPort,
+  OutstandingReminderStore,
+  RemotePushPort,
+} from '@application/notifications/notification-capability.port';
+import { RefreshOutstandingReminderUseCase } from '@application/notifications/refresh-outstanding-reminder.usecase';
 import {
   GetBalanceBreakdownUseCase,
   GetGroupBalancesUseCase,
@@ -141,6 +147,8 @@ import type { IncrementalDownloadPort } from '@domain/services/sync/incremental-
 
 import { UnavailableCaptureProcessor } from './capture/unavailable-capture-processor';
 import { ExpoConnectivityPort } from './connectivity/expo-connectivity-port';
+import { UnavailableLocalNotificationPort } from './notifications/unavailable-local-notification-port';
+import { SqliteOutstandingReminderStore } from './sqlite/sqlite-outstanding-reminder-store';
 import { GuestAuthenticationProvider } from './remote/guest-authentication-provider';
 import { SupabaseIncrementalDownloadPort } from './remote/supabase-incremental-download-port';
 import { SupabaseRemoteSyncPort } from './remote/supabase-remote-sync-port';
@@ -489,8 +497,21 @@ export interface AppServices {
   readonly monitoring: MonitoringServices;
   readonly feedback: FeedbackServices;
   readonly activity: ActivityServices;
+  readonly notifications: NotificationServices;
   readonly data: DataServices;
   readonly receipts: ReceiptServices;
+}
+
+/**
+ * Notification services. Local reminders are always available (the
+ * decision + persistence path is runtime-independent); `push` is null
+ * unless the bootstrap explicitly wires it, because remote push is
+ * optional and must never block local use.
+ */
+export interface NotificationServices {
+  readonly outstandingReminder: RefreshOutstandingReminderUseCase;
+  readonly localNotifications: LocalNotificationPort;
+  readonly push: RemotePushPort | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -573,6 +594,17 @@ export interface CompositionRootInput {
   readonly supabaseUrl?: string;
   /** Supabase anon key (default: read from SUPABASE_ANON_KEY env). */
   readonly supabaseAnonKey?: string;
+  /**
+   * Notification adapters. The composition root never imports Expo
+   * native modules (see the header rules), so the defaults are a
+   * hermetic "unsupported" capability plus the SQLite reminder store;
+   * the production bootstrap injects `ExpoLocalNotificationPort`.
+   */
+  readonly notifications?: {
+    readonly capability?: LocalNotificationPort;
+    readonly store?: OutstandingReminderStore;
+    readonly push?: RemotePushPort | null;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -674,6 +706,22 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
     receipts: new SqliteReceiptRepository(database),
     settlements: new SqliteSettlementRepository(database),
     audit: new SqliteAuditRepository(database),
+  };
+
+  // --- Notifications -------------------------------------------------------
+  // The reminder decision is persisted in SQLite regardless of whether this
+  // runtime can present it (migration 0013). The capability is injected:
+  // the production bootstrap passes the Expo adapter, unit harnesses keep
+  // the hermetic default and never import expo-notifications.
+  const localNotifications =
+    input.notifications?.capability ?? new UnavailableLocalNotificationPort();
+  const notifications: NotificationServices = {
+    outstandingReminder: new RefreshOutstandingReminderUseCase({
+      capability: localNotifications,
+      store: input.notifications?.store ?? new SqliteOutstandingReminderStore(database),
+    }),
+    localNotifications,
+    push: input.notifications?.push ?? null,
   };
 
   // --- Capture pipeline (v2.4.0) -------------------------------------------
@@ -980,6 +1028,7 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
     monitoring,
     feedback,
     activity,
+    notifications,
     receipts: {
       listHistory: new ListReceiptHistoryUseCase(
         repositories.receipts,

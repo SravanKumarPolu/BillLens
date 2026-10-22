@@ -15,8 +15,8 @@ describe('SqliteSyncCursorRepository (v2.6.0 — bidirectional sync)', () => {
     repo = new SqliteSyncCursorRepository(db);
   });
 
-  it('migration 0007 applied — schema version is 7', async () => {
-    expect(await getSchemaVersion(db)).toBe(12);
+  it('migration 0007 is applied in the current schema', async () => {
+    expect(await getSchemaVersion(db)).toBe(13);
   });
 
   it('get returns null before any save (first sync = full download)', async () => {

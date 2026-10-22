@@ -45,6 +45,8 @@ import { ExpoImageHasher, ExpoImageDataReader } from '@infrastructure/capture/ex
 import { LazyCaptureProcessor } from '@infrastructure/capture/lazy-capture-processor';
 import type { AppServices } from '@infrastructure/composition-root';
 import { createCompositionRoot } from '@infrastructure/composition-root';
+import { ExpoLocalNotificationPort } from '@infrastructure/notifications/expo-local-notification-port';
+import { ExpoRemotePushRegistration } from '@infrastructure/notifications/remote-push-registration';
 import { SupabaseAuthenticationProvider } from '@infrastructure/remote/supabase-authentication-provider';
 import { SupabaseRemoteSyncPort } from '@infrastructure/remote/supabase-remote-sync-port';
 import { ExpoLocalDataWiper } from '@infrastructure/security/expo-local-data-wiper';
@@ -259,6 +261,14 @@ async function productionFactory(): Promise<AppServices> {
     authStateWriter: getAuthStoreWriter(),
     imageReader: new ExpoImageDataReader(),
     imageHasher: new ExpoImageHasher(),
+    // Local reminders: the Expo adapter is the ONLY place the native
+    // notification package is loaded, and it refuses to load at all in
+    // Expo Go / web. Remote push is wired but never started here — a
+    // caller must explicitly opt in (`register({ enabled: true })`).
+    notifications: {
+      capability: new ExpoLocalNotificationPort(),
+      push: new ExpoRemotePushRegistration(),
+    },
     localWiper: new ExpoLocalDataWiper(database),
     // Production device-secret hash: expo-crypto SHA-256.
     hashDeviceSecret: async (input) => new ExpoImageHasher().hashImageBase64(input),

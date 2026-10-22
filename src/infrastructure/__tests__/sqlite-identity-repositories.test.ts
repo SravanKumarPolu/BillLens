@@ -16,10 +16,10 @@ import { SqliteGuestIdentityRepository } from '../sqlite/sqlite-guest-identity-r
 import { InMemoryDatabase } from './in-memory-database';
 
 describe('migration 0005 (identity_support)', () => {
-  it('applies and reports schema version 6 (v2.5.0 migration applied after)', async () => {
+  it('applies and reports the current schema version', async () => {
     const db = new InMemoryDatabase();
     await runMigrations(db);
-    expect(await getSchemaVersion(db)).toBe(12);
+    expect(await getSchemaVersion(db)).toBe(13);
   });
 });
 

@@ -95,7 +95,7 @@ describeWithSqlite('full local data wipe', () => {
     const schema = await db.get<{ version: number }>(
       'select max(version) as version from schema_version',
     );
-    expect(schema?.version).toBe(12);
+    expect(schema?.version).toBe(13);
 
     const queue = await db.get<{ count: number }>(
       "select count(*) as count from file_cleanup_queue where reason = 'local_data_erased'",

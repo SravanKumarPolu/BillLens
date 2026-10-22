@@ -133,7 +133,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-router',
-    'expo-notifications',
+    // Local reminder notifications only. The channel id matches
+    // REMINDER_CHANNEL_ID in the notification adapter;
+    // `defaultChannel` is the Android fallback for the rare payload that
+    // arrives without one. Remote push stays disabled until an EAS project
+    // is configured (see docs/notification-architecture.md).
+    [
+      'expo-notifications',
+      {
+        defaultChannel: 'billlens-reminders',
+        color: '#2B3A8C',
+      },
+    ],
     './plugins/with-mlkit-android-compat',
     // SDK 57 removed the top-level `splash` field; the splash screen is
     // configured through its plugin now.
