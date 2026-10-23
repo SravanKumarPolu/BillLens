@@ -7,12 +7,14 @@
  *     ship a currency picker yet).
  *   - Members list with roles.
  *   - Privacy preferences summary.
- *   - Danger zone: Archive group, Leave group.
+ *   - Danger zone: Archive / Unarchive group.
  *
- * Phase 2: members and privacy edits are read-only — they will be
- * wired up to the SQLite repositories in a later prompt. The
- * editable-name field and the archive/leave actions are live and
- * update the group store.
+ * v2.26.0: the editable-name field and the archive/unarchive actions
+ * persist through the real group use cases (version-guarded SQLite
+ * writes — the same path as the group home menu). The previous
+ * store-only "Leave group" control was removed: leaving is not a
+ * supported local action yet (it needs the identity adapters), and the
+ * old control only filtered the UI list while claiming data loss.
  *
  * Architecture:
  *   - The thin container reads `useGroupStore` and builds a
@@ -23,7 +25,7 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, TextInput } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, TextInput } from 'react-native';
 
 import { Avatar } from '@presentation/design-system/components/Avatar';
 import { Button } from '@presentation/design-system/components/Button';
@@ -44,6 +46,7 @@ import {
   validateGroupName,
 } from '@presentation/view-models/groups';
 import { useGroupStore, type GroupSummary } from '@store/group-store';
+import { tryGetAppServices } from '@store/services-registry';
 
 // ---------------------------------------------------------------------------
 // Container
@@ -55,10 +58,7 @@ export interface GroupSettingsScreenProps {
 
 export function GroupSettingsScreen({ groupId }: GroupSettingsScreenProps): JSX.Element {
   const group = useGroupStore((s) => s.groups.find((g) => g.id === groupId));
-  const renameGroup = useGroupStore((s) => s.renameGroup);
-  const archiveGroup = useGroupStore((s) => s.archiveGroup);
-  const unarchiveGroup = useGroupStore((s) => s.unarchiveGroup);
-  const leaveGroup = useGroupStore((s) => s.leaveGroup);
+  const upsertGroup = useGroupStore((s) => s.upsertGroup);
   const groupMembers = useGroupMembers(groupId);
 
   const [name, setName] = useState(group?.name ?? '');
@@ -69,24 +69,79 @@ export function GroupSettingsScreen({ groupId }: GroupSettingsScreenProps): JSX.
   const validation = validateGroupName(name);
   const isDirty = name.trim() !== (group?.name ?? '');
 
+  const refreshStore = (archived: boolean): void => {
+    const store = useGroupStore.getState();
+    const existing = store.groups.find((entry) => entry.id === groupId);
+    if (existing !== undefined) {
+      upsertGroup({ ...existing, name, archived });
+    }
+  };
+
+  // v2.26.0: the save path now persists through `UpdateGroupUseCase`
+  // (version-guarded, archived-group guard) instead of only mutating
+  // the UI store — the previous store-only rename silently diverged
+  // from the SQLite row.
   const handleSaveName = (): void => {
     if (!validation.isValid) return;
     if (!isDirty) return;
-    renameGroup(groupId, name);
+    const services = tryGetAppServices();
+    if (services === null) return;
+    void (async () => {
+      try {
+        const current = await services.groups.get.execute(groupId);
+        await services.groups.update.execute({
+          groupId,
+          name: name.trim(),
+          currencyCode: current.currencyCode as string,
+          expectedVersion: current.version as number,
+          actorUserId: 'local-user',
+        });
+        refreshStore(group?.archived ?? false);
+      } catch (err) {
+        Alert.alert(
+          'Could not rename group',
+          err instanceof Error ? err.message : 'Try again.',
+        );
+      }
+    })();
   };
 
+  // v2.26.0: archive/restore now persist through the real use cases
+  // (same path as the group home menu) instead of only flipping the UI
+  // store flag.
   const handleArchive = (): void => {
-    archiveGroup(groupId);
-    router.back();
+    const services = tryGetAppServices();
+    if (services === null) return;
+    void (async () => {
+      try {
+        const current = await services.groups.get.execute(groupId);
+        await services.groups.archive.execute(groupId, current.version as number);
+        refreshStore(true);
+        router.back();
+      } catch (err) {
+        Alert.alert(
+          'Could not archive group',
+          err instanceof Error ? err.message : 'Try again.',
+        );
+      }
+    })();
   };
 
   const handleUnarchive = (): void => {
-    unarchiveGroup(groupId);
-  };
-
-  const handleLeave = (): void => {
-    leaveGroup(groupId);
-    router.replace('/(tabs)/groups');
+    const services = tryGetAppServices();
+    if (services === null) return;
+    void (async () => {
+      try {
+        const current = await services.groups.get.execute(groupId);
+        await services.groups.restore.execute(groupId, current.version as number);
+        refreshStore(false);
+      } catch (err) {
+        Alert.alert(
+          'Could not restore group',
+          err instanceof Error ? err.message : 'Try again.',
+        );
+      }
+    })();
   };
 
   return (
@@ -100,7 +155,6 @@ export function GroupSettingsScreen({ groupId }: GroupSettingsScreenProps): JSX.
       onSaveName={handleSaveName}
       onArchive={handleArchive}
       onUnarchive={handleUnarchive}
-      onLeave={handleLeave}
       onBack={() => router.back()}
       members={groupMembers.members}
       membersLoading={groupMembers.loading}
@@ -123,7 +177,6 @@ export interface GroupSettingsViewProps {
   readonly onSaveName: () => void;
   readonly onArchive: () => void;
   readonly onUnarchive: () => void;
-  readonly onLeave: () => void;
   readonly onBack: () => void;
   readonly members: readonly { id: string; displayName: string; role: 'owner' | 'admin' | 'member'; isCurrentUser: boolean }[];
   readonly membersLoading: boolean;
@@ -140,7 +193,6 @@ export function GroupSettingsView({
   onSaveName,
   onArchive,
   onUnarchive,
-  onLeave,
   onBack,
   members,
   membersLoading,
@@ -344,14 +396,6 @@ export function GroupSettingsView({
                 accessibilityLabel="Archive this group"
               />
             )}
-            <PressableAction
-              icon="log-out-outline"
-              label="Leave group"
-              description="Remove yourself from this group. You will lose access to its data."
-              onPress={onLeave}
-              accessibilityLabel="Leave this group permanently"
-              destructive
-            />
           </Stack>
         </Card>
       </Stack>

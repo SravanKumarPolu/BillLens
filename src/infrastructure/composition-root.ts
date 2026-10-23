@@ -51,6 +51,7 @@ import {
   ValidateBalanceInvariantsUseCase,
 } from '@application/balances/index';
 import {
+  DiscardExpenseDraftUseCase,
   GetExpenseDraftUseCase,
   ProcessCaptureUseCase,
   SaveExpenseDraftReviewUseCase,
@@ -286,6 +287,8 @@ export interface CaptureServices {
   readonly saveDraftReview: SaveExpenseDraftReviewUseCase;
   /** Loads a persisted draft for review (deep-link / focus hydration). */
   readonly getDraft: GetExpenseDraftUseCase;
+  /** Persists a draft discard (v2.26.0: durable, not store-only). */
+  readonly discardDraft: DiscardExpenseDraftUseCase;
   /** Atomic draft → Expense confirmation (version-guarded + idempotent). */
   readonly createExpenseFromDraft: CreateExpenseFromDraftUseCase;
   /** Technical pre-flight image quality checks (size/format). */
@@ -746,6 +749,7 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
           ),
           saveDraftReview: new SaveExpenseDraftReviewUseCase(repositories.drafts),
           getDraft: new GetExpenseDraftUseCase(repositories.drafts),
+          discardDraft: new DiscardExpenseDraftUseCase(repositories.drafts),
           createExpenseFromDraft: new CreateExpenseFromDraftUseCase(unitOfWork),
           repositories: {
             captureSources: captureSourcesRepo,
@@ -757,6 +761,7 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
           processCapture: unavailablePipeline(),
           saveDraftReview: new SaveExpenseDraftReviewUseCase(repositories.drafts),
           getDraft: new GetExpenseDraftUseCase(repositories.drafts),
+          discardDraft: new DiscardExpenseDraftUseCase(repositories.drafts),
           createExpenseFromDraft: new CreateExpenseFromDraftUseCase(unitOfWork),
           repositories: {
             captureSources: captureSourcesRepo,

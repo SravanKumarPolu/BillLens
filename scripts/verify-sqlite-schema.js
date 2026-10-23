@@ -10,13 +10,26 @@
  *
  * Usage: node scripts/verify-sqlite-schema.js
  *
- * Skips with a warning when the `sqlite3` CLI is unavailable so the
- * check stays optional for contributors without it.
+ * Engine preference: Node's built-in `node:sqlite` (`DatabaseSync`,
+ * real SQLite bundled with Node >= 22.5), falling back to the `sqlite3`
+ * CLI binary. Skips with a warning only when NEITHER engine is available
+ * so the check stays optional for contributors on very old Node versions.
  */
 
 const { execFileSync } = require('node:child_process');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
+
+/** Load `node:sqlite` when the runtime provides it; null otherwise. */
+function loadNodeSqlite() {
+  try {
+    return require('node:sqlite');
+  } catch {
+    return null;
+  }
+}
+
+const nodeSqlite = loadNodeSqlite();
 
 const SCHEMA_PATH = join(__dirname, '..', 'src', 'infrastructure', 'sqlite', 'schema.ts');
 
@@ -49,28 +62,42 @@ function main() {
     .map((name) => `-- ${name}\n${blocks.get(name)}`)
     .join('\n');
 
+  let tables;
   try {
-    execFileSync('sqlite3', ['-bail', ':memory:'], { input: sql, stdio: 'pipe' });
+    if (nodeSqlite) {
+      const db = new nodeSqlite.DatabaseSync(':memory:');
+      try {
+        db.exec(sql);
+        const row = db
+          .prepare("select count(*) as count from sqlite_master where type = 'table'")
+          .get();
+        tables = String(row.count);
+      } finally {
+        db.close();
+      }
+    } else {
+      execFileSync('sqlite3', ['-bail', ':memory:'], { input: sql, stdio: 'pipe' });
+      tables = execFileSync('sqlite3', [':memory:'], {
+        input: `${sql}\nselect count(*) from sqlite_master where type = 'table';`,
+        stdio: 'pipe',
+      })
+        .toString()
+        .trim()
+        .split('\n')
+        .pop();
+    }
   } catch (error) {
     if (error.code === 'ENOENT') {
-      console.warn('⚠ sqlite3 CLI not found — skipping SQLite execution check.');
+      console.warn(
+        '⚠ neither node:sqlite nor the sqlite3 CLI is available — skipping SQLite execution check.',
+      );
       return;
     }
-    const stderr = error.stderr ? error.stderr.toString() : String(error);
+    const stderr = error.stderr ? error.stderr.toString() : error.message || String(error);
     console.error('✖ Local schema does not execute in SQLite:');
     console.error(stderr.trim());
     process.exit(1);
   }
-
-  // Count tables as a sanity check that the schema really ran.
-  const tables = execFileSync('sqlite3', [':memory:'], {
-    input: `${sql}\nselect count(*) from sqlite_master where type = 'table';`,
-    stdio: 'pipe',
-  })
-    .toString()
-    .trim()
-    .split('\n')
-    .pop();
 
   console.log(
     `✓ SQLite schema executes cleanly — ${blocks.size} blocks, ${tables} tables created.`,

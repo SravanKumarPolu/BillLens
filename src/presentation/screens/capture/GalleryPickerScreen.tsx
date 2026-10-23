@@ -34,6 +34,7 @@ import {
   launchImageLibraryAsync,
   requestMediaLibraryPermissionsAsync,
 } from 'expo-image-picker';
+import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { ensureLocalImage } from '@utils/local-image';
@@ -178,7 +179,10 @@ export function GalleryPickerScreen({ mode = 'scan', groupId }: GalleryPickerScr
   return <GalleryPickerView viewModel={viewModel} onCancel={handleCancel} onTryAgain={handleTryAgain} />;
 }
 
-/** Build the `?imageUri=…&mode=…&groupId=…` query for the image-quality screen. */
+/** The capture surface this screen represents (see buildImageQualityQuery). */
+const SOURCE_TYPE = 'gallery';
+
+/** Build the `?imageUri=…&mode=…&groupId=…&sourceType=…` query for the image-quality screen. */
 export function buildImageQualityQuery(
   imageUri: string,
   mode: 'payment' | 'scan',
@@ -187,6 +191,10 @@ export function buildImageQualityQuery(
   const params = new URLSearchParams();
   params.set('imageUri', imageUri);
   params.set('mode', mode);
+  // v2.26.0: propagate the capture source so the image-quality screen's
+  // "Choose another image" routes back to the SAME capture surface
+  // (previously it always opened the gallery, even for camera captures).
+  params.set('sourceType', SOURCE_TYPE);
   if (groupId !== undefined && groupId.length > 0) {
     params.set('groupId', groupId);
   }
@@ -347,6 +355,9 @@ function PermissionDeniedCard({
           </Text>
         ) : null}
         <Stack gap="sm" align="stretch" style={{ width: '100%' }}>
+          {/* v2.26.0: "Try again" re-requests in-app when possible; a
+              second, explicit action opens the device settings — the
+              copy already pointed users there. */}
           <Button
             label="Try again"
             variant="primary"
@@ -354,6 +365,16 @@ function PermissionDeniedCard({
             onPress={onTryAgain}
             accessibilityLabel="Request gallery permission again"
             icon="refresh-outline"
+          />
+          <Button
+            label="Open settings"
+            variant="secondary"
+            size="md"
+            onPress={(): void => {
+              void Linking.openSettings();
+            }}
+            accessibilityLabel="Open the device settings to grant photo library permission"
+            icon="settings-outline"
           />
           <Button
             label="Cancel"

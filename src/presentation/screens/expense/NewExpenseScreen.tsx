@@ -44,6 +44,7 @@ import {
   type ExpenseFormMember,
   type ExpenseSplitMethod,
   type ManualExpenseFormState,
+  currencyDecimals,
   parseAmountToMinor,
   parsePercentBasisPoints,
   parseShareUnits,
@@ -1368,7 +1369,10 @@ function Pill({ label, active, onPress, accessibilityLabel }: PillProps): ReactN
  */
 /** Major-unit string for an exact-split input (no floats in the math). */
 function formatMinorInput(amountMinor: number, currencyCode: string): string {
-  const decimals = currencyCode === 'JPY' || currencyCode === 'KRW' ? 0 : 2;
+  // v2.26.0: domain currency decimals (0 for JPY/KRW/VND, 3 for KWD/BHD,
+  // …) instead of the previous JPY/KRW-only special case, which
+  // misformatted every other non-2-decimal currency on edit prefill.
+  const decimals = currencyDecimals(currencyCode);
   if (decimals === 0) return String(amountMinor);
   const divisor = 10 ** decimals;
   return `${Math.floor(amountMinor / divisor)}.${String(amountMinor % divisor).padStart(decimals, '0')}`;

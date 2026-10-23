@@ -36,6 +36,7 @@ import {
   type CameraCapturedPicture,
   type CameraViewRef,
 } from 'expo-camera';
+import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -179,7 +180,10 @@ export function CameraScreen({ mode = 'scan', groupId }: CameraScreenProps = {})
   );
 }
 
-/** Build the `?imageUri=…&mode=…&groupId=…` query for the image-quality screen. */
+/** The capture surface this screen represents (see buildImageQualityQuery). */
+const SOURCE_TYPE = 'camera';
+
+/** Build the `?imageUri=…&mode=…&groupId=…&sourceType=…` query for the image-quality screen. */
 export function buildImageQualityQuery(
   imageUri: string,
   mode: 'payment' | 'scan',
@@ -188,6 +192,10 @@ export function buildImageQualityQuery(
   const params = new URLSearchParams();
   params.set('imageUri', imageUri);
   params.set('mode', mode);
+  // v2.26.0: propagate the capture source so the image-quality screen's
+  // "Choose another image" routes back to the SAME capture surface
+  // (previously it always opened the gallery, even for camera captures).
+  params.set('sourceType', SOURCE_TYPE);
   if (groupId !== undefined && groupId.length > 0) {
     params.set('groupId', groupId);
   }
@@ -467,13 +475,26 @@ function PermissionDeniedCard({
           </Text>
         ) : null}
         <Stack gap="sm" align="stretch" style={{ width: '100%' }}>
+          {/* v2.26.0: the copy says "grant camera permission in your
+              device settings" — the action now actually opens them
+              (previously the button just navigated back). */}
           <Button
-            label="Try again"
+            label="Open settings"
             variant="primary"
             size="md"
+            onPress={(): void => {
+              void Linking.openSettings();
+            }}
+            accessibilityLabel="Open the device settings to grant camera permission"
+            icon="settings-outline"
+          />
+          <Button
+            label="Go back"
+            variant="ghost"
+            size="md"
             onPress={onCancel}
-            accessibilityLabel="Try camera permission again"
-            icon="refresh-outline"
+            accessibilityLabel="Go back without the camera"
+            icon="arrow-back-outline"
           />
         </Stack>
       </Stack>

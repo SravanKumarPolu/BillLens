@@ -27,6 +27,7 @@ import {
   asDraftChargeId,
   asDraftLineItemId,
   asExpenseDraftId,
+  asGroupId,
   asMemberId,
   asUserId,
   createDraftCharge,
@@ -87,6 +88,9 @@ function makeDraft(overrides: Partial<Parameters<typeof createExpenseDraft>[0]> 
     expenseDate: '2026-07-29',
     payerCandidates: [MEMBER_A],
     participantCandidates: [MEMBER_A, MEMBER_B],
+    // v2.26.0: base fixture links a group (a groupless draft now blocks
+    // confirmation until the user links one from the review screen).
+    groupId: asGroupId('g_1'),
     lineItems: [
       createDraftLineItem({
         id: asDraftLineItemId('li_1'),

@@ -150,7 +150,11 @@ export default function BackupScreen(): ReactNode {
 
     Alert.alert(
       'Replace local data?',
-      `This replaces ${preview.counts.groups} groups, ${preview.counts.expenses} expenses and ${preview.counts.settlements} settlements on this device. It cannot be undone. Receipt images are not included.`,
+      `This replaces ${preview.counts.groups} groups, ${preview.counts.expenses} expenses and ${preview.counts.settlements} settlements on this device. It cannot be undone. ${
+        preview.includesAttachments
+          ? 'Receipt images from the backup will be restored alongside the records.'
+          : 'This backup does not include receipt images.'
+      }`,
       [
         { text: 'Cancel', style: 'cancel' },
         {

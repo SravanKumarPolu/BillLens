@@ -104,6 +104,8 @@ export interface DraftReviewViewModel {
   readonly splitMethod: string;
   readonly issues: readonly IssueViewModel[];
   readonly blockingIssueCount: number;
+  /** True when the draft has no group linked yet (v2.26.0: blocking, with an in-screen group picker). */
+  readonly missingGroup: boolean;
   readonly canConfirm: boolean;
   readonly hasImageSource: boolean;
   readonly hasLineItems: boolean;
@@ -345,16 +347,18 @@ export function createDraftReviewViewModel(input: DraftReviewInput): DraftReview
   const totalMissing = draft.amountMinor === undefined;
 
   // canConfirm: no blocking issues AND total is not missing AND payer
-  // is set AND at least one participant is set (when items exist they
-  // must all be assigned — otherwise the line-item issues will already
-  // be blocking).
+  // is set AND at least one participant is set AND a group is linked
+  // (when items exist they must all be assigned — otherwise the
+  // line-item issues will already be blocking).
   const missingPayer = payerMemberId === null;
   const missingParticipants = participantIds.length === 0;
+  const missingGroup = draft.groupId === undefined;
   const canConfirm =
     blockingIssueCount === 0 &&
     !totalMismatch &&
     !missingPayer &&
-    !missingParticipants;
+    !missingParticipants &&
+    !missingGroup;
 
   return {
     draftId: draft.id,
@@ -375,6 +379,7 @@ export function createDraftReviewViewModel(input: DraftReviewInput): DraftReview
     splitMethod,
     issues,
     blockingIssueCount,
+    missingGroup,
     canConfirm,
     hasImageSource: draft.captureSourceId !== undefined,
     hasLineItems: lineItems.length > 0,

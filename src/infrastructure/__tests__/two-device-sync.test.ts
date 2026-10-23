@@ -35,7 +35,9 @@ import { startRelay, type RelayHandle } from '@infrastructure/relay-reference/re
 import { runMigrations } from '@infrastructure/sqlite/schema';
 
 import { nodeHttpFetch } from './node-http-fetch';
-import { SqliteCliDatabase } from './sqlite-cli-database';
+import { hasSqliteCli, SqliteCliDatabase } from './sqlite-cli-database';
+
+const describeWithSqlite = hasSqliteCli() ? describe : describe.skip;
 
 const GROUP = 'g_two_devices';
 const MEMBERS = [
@@ -54,9 +56,10 @@ const deviceA = createDeviceIdentity(new Uint8Array(32).fill(31));
 const deviceB = createDeviceIdentity(new Uint8Array(32).fill(32));
 
 let dir: string;
-let relay: RelayHandle;
+let relay: RelayHandle | undefined;
 let servicesA: AppServices;
 let servicesB: AppServices;
+let dbA: SqliteCliDatabase;
 let dbB: SqliteCliDatabase;
 let relayA: RelayClient;
 let relayB: RelayClient;
@@ -164,7 +167,8 @@ function makeEvent(eventId: string, payload: Readonly<Record<string, unknown>>):
 
 beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), 'billlens-two-devices-'));
-  servicesA = await seedDevice(new SqliteCliDatabase(join(dir, 'a.db')), 'local-user');
+  dbA = new SqliteCliDatabase(join(dir, 'a.db'));
+  servicesA = await seedDevice(dbA, 'local-user');
   dbB = new SqliteCliDatabase(join(dir, 'b.db'));
   servicesB = await seedDevice(dbB, 'local-user');
 
@@ -207,11 +211,13 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await relay.close();
+  await relay?.close();
+  dbA?.close();
+  dbB?.close();
   rmSync(dir, { recursive: true, force: true });
 });
 
-describe('two-device encrypted sync', () => {
+describeWithSqlite('two-device encrypted sync', () => {
   it('syncs a ₹1,200 expense to the other device without plaintext on the relay', async () => {
     await servicesA.expenses.createExpenseManually.execute({
       groupId: GROUP,
@@ -294,7 +300,7 @@ describe('two-device encrypted sync', () => {
       [GROUP],
     );
     expect(countA?.count).toBe(2);
-    expect(relay.stats().events).toBe(2);
+    expect(relay?.stats().events).toBe(2);
   });
 
   it('does not deliver A’s events back to A and vice versa', async () => {

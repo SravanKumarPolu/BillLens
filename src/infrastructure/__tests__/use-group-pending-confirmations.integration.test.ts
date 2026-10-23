@@ -116,6 +116,15 @@ describe('useGroupPendingConfirmations (integration)', () => {
     expect(result.current.entries[0]!.currencyCode).toBe('USD');
     expect(result.current.entries[0]!.method).toBe('UPI');
     expect(result.current.entries[0]!.note).toBe('Dinner split');
+    // v2.26.0 regression: the entry must carry the settlement's persisted
+    // version so the confirm/dispute cards use the real optimistic-
+    // concurrency token (the UI previously hardcoded 2).
+    expect(result.current.entries[0]!.version).toBeGreaterThanOrEqual(2);
+    const persisted = await services.repositories.settlements.findById(
+      result.current.entries[0]!.settlementId as never,
+    );
+    expect(persisted).not.toBeNull();
+    expect(result.current.entries[0]!.version).toBe(persisted!.version as number);
   });
 
   it('falls back to "Unknown member" when the nameById map is missing the member id', async () => {

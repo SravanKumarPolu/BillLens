@@ -1,4 +1,4 @@
-# Feature matrix (2026-10-21)
+# Feature matrix (2026-10-23, v2.26.0)
 
 Statuses: **VERIFIED** (tests in this repo), **DEVICE-UNTESTED**,
 **PARTIAL**, **MISSING**, **EXTERNAL** (credentials/hardware/provider).
@@ -19,7 +19,7 @@ Statuses: **VERIFIED** (tests in this repo), **DEVICE-UNTESTED**,
 | Balance calculation | Verified | Verified | balance engine tests + real SQLite flow |
 | Debt simplification | Verified | Verified | suggestions use case/tests |
 | Partial/full settlement | Verified | Verified | settlement state machine tests |
-| Settlement history | Verified | Verified | list/detail/status screens |
+| Settlement history | Verified | Verified | activity timeline (expenses + settlements) + balances-screen pending cards; no dedicated settlement-detail screen |
 | Expense history | Verified | Verified | group home recent + activity feed (virtualised) |
 | Expense editing | Missing | **VERIFIED** | `UpdateExpenseUseCase`, edit route, prefill, version guard, tests |
 | Offline persistence | Verified | Verified | real SQLite reopen test |
@@ -52,7 +52,7 @@ Statuses: **VERIFIED** (tests in this repo), **DEVICE-UNTESTED**,
 | Navigation integrity | Verified (static) | route-link test; dead sign-in control removed |
 | Recurring expenses | Verified | daily/weekly/monthly/yearly; catch-up + idempotency tests |
 | PDF / XLSX export | Implemented, device-untested | lazy `expo-print`/`xlsx` chunks; escaped HTML |
-| Reminders / notifications | Implemented, device-untested | opt-in daily local reminder; no push |
+| Reminders / notifications | Implemented, device-untested | opt-in daily local reminder (Expo Go guarded); per-settlement reminder use cases exist without UI; no push |
 | Encrypted backup / restore | Verified (Node/SQLite) | receipt rows now actually persisted; images included |
 | Receipt history / deletion | Verified (Node/SQLite) | `/receipts`; soft delete + queue image cleanup |
 | Multi-currency display | Verified | per-currency balances |
@@ -74,10 +74,23 @@ PDF/XLSX export and local balance reminders are now implemented. It is still
 behind on item-level manual expense editing, FX conversion, production encrypted
 sync, on-device OCR, and device verification of notification/export/backup paths.
 
+## v2.26.0 repairs (2026-10-23)
+
+- Receipt rows now persist from real scans (capture image resolved on the
+  review screen); discard is durable; itemized "Adjust items & split"
+  closes its source draft; groupless drafts get an in-screen group picker.
+- Settlement method picker matches the local schema CHECK (card/wallet
+  removed — they failed on-device saves).
+- Itemized entry + edit prefill are currency-decimal aware (no float math).
+- Group settings rename/archive/unarchive persist through the real use
+  cases; the no-op Leave control was removed.
+- Real-SQLite integration tests now run on `node:sqlite` (224 suites /
+  4,960 tests, 0 skipped in this environment).
+
 ## Highest-priority next gaps
 
-1. Item-level manual editor (needs `expense_line_items` persistence + assignment UI).
-2. Encrypted sync UI + a deployed relay (external hosting approval).
+1. Encrypted sync UI + a deployed relay (external hosting approval; PRD P2).
+2. Physical-device verification of camera/OCR, notifications, PDF/XLSX share.
 3. FX conversion with a documented rate source.
-4. Physical-device verification of camera, notifications, PDF/XLSX share.
+4. Settlement reversal + dedicated settlement-detail screen (use cases exist, no UI).
 5. Expense categories/statistics beyond the current stored category field.

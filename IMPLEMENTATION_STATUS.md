@@ -1,8 +1,40 @@
 # BillLens — Implementation Status
 
-> **Date**: 2026-10-12
-> **Version**: 2.6.0 (bidirectional cloud sync + explicit financial-conflict resolution + four release-blocking deployment fixes, on top of the v2.5.0 release-candidate pass)
-> **Status**: All ten verification phases executed; 4,671 tests passing across 183 suites. The v2.5.0 headline limitation (PUSH-ONLY SYNC) is RESOLVED. Honest blockers unchanged: live OCR, live cloud verification and device E2E require externally provisioned resources.
+> **Date**: 2026-10-23
+> **Version**: 2.26.0 (repository verification + 14 defect repairs on top of v2.25.0)
+> **Status**: Full gate chain RE-EXECUTED in this environment. 224 suites / 4,960 tests, 0 skipped (the real-SQLite integration layer previously skipped without the `sqlite3` CLI now runs on `node:sqlite`). Honest blockers unchanged in kind: device testing, live cloud/relay, OCR provider, signing, legal.
+
+## Verification Results (2026-10-23, v2.26.0 gate — executed, not inherited)
+
+| Check | Command | Result |
+|-------|---------|--------|
+| Clean install | `npm ci` | ✅ reproducible from lockfile |
+| TypeScript | `npx tsc --noEmit` | ✅ 0 errors |
+| ESLint | `npm run lint` | ✅ 0 errors, 0 warnings |
+| Jest suites | `npx jest --silent` | ✅ 224 passed / 224 total |
+| Jest tests | (same) | ✅ 4,960 passed / 4,960 total, 0 skipped (+10 vs v2.25.0; +68 now actually executing vs the CLI-gated baseline) |
+| SQL validation | `npm run db:validate` | ✅ 6 files valid |
+| SQLite schema execution | `npm run db:verify` | ✅ 14 blocks / 42 tables in a real SQLite engine (node:sqlite) |
+| Secret scan | `npm run secret-scan` | ✅ CLEAN |
+| Expo doctor | `npx expo-doctor` | ✅ 21/21 checks passed |
+| Web export | `npx expo export -p web` | ✅ static export succeeds |
+| Device / Maestro E2E | — | ⛔ NOT EXECUTED — no emulator/device/Android SDK in this environment |
+| Live Supabase / relay / remote OCR | — | ⛔ BLOCKED on provisioned project / hosting / provider credential (unchanged) |
+
+## v2.26.0 repair pass (2026-10-23)
+
+Source-audit-driven fixes, each with regression tests (details:
+`FINAL_IMPLEMENTATION_REPORT.md`, CHANGELOG 2.26.0): receipt rows now
+persist from real scans; draft discard is durable; itemized-from-draft
+closes the source draft; groupless drafts get a group picker;
+settlement method picker matches the local schema CHECK; itemized
+amount parsing is currency-aware (no float math); group settings
+rename/archive/unarchive persist through the real use cases; the no-op
+Leave control was removed; group-creation errors surface; void expense
+uses the real local identity; pending confirmations use persisted
+versions; backup restore copy reflects attachments; camera/gallery
+propagate sourceType and offer Open-settings.
+
 
 ## Verification Results (2026-10-12, v2.6.0 release-candidate gate)
 

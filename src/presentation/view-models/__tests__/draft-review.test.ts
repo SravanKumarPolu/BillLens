@@ -21,6 +21,7 @@ import {
   asDraftChargeId,
   asDraftLineItemId,
   asExpenseDraftId,
+  asGroupId,
   asMemberId,
   asUserId,
   createDraftCharge,
@@ -87,6 +88,10 @@ function makeDraft(overrides: Partial<Parameters<typeof createExpenseDraft>[0]> 
     expenseDate: '2026-07-29',
     payerCandidates: [MEMBER_A],
     participantCandidates: [MEMBER_A, MEMBER_B],
+    // v2.26.0: groupId is part of the base fixture — a draft without a
+    // group now blocks confirmation (`missingGroup`) until the user
+    // links one from the review screen.
+    groupId: asGroupId('g_1'),
     lineItems: [makeLineItem()],
     charges: [makeCharge()],
     overallConfidence: 0.95,

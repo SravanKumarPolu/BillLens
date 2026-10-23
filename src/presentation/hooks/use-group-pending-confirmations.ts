@@ -42,6 +42,8 @@ export interface PendingConfirmationEntry {
   readonly method: string;
   readonly note: string | null;
   readonly createdAt: string;
+  /** The settlement's persisted version (optimistic-concurrency token). */
+  readonly version: number;
 }
 
 export interface UseGroupPendingConfirmationsResult {
@@ -119,6 +121,7 @@ export function useGroupPendingConfirmations(
         method: s.method.toUpperCase(),
         note: s.note ?? null,
         createdAt: s.createdAt as string,
+        version: s.version as number,
       }));
       setState((prev) => ({
         ...prev,
