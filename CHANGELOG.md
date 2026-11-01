@@ -2,6 +2,78 @@
 
 All notable changes to BillLens across Phases 1-10 are documented here.
 
+## [2.26.0] — 2026-10-23
+
+### Real-SQLite test engine for every environment (2026-10-23)
+
+- `src/infrastructure/__tests__/sqlite-cli-database.ts` now runs on
+  Node's built-in `node:sqlite` (`DatabaseSync`) with the `sqlite3` CLI
+  as fallback. The integration suites execute real SQLite with native
+  parameter binding, REAL `BEGIN/COMMIT/ROLLBACK` transactions (the CLI
+  path was a passthrough) and `PRAGMA foreign_keys = ON` — production
+  parity. On machines without the CLI this previously skipped 15 suites
+  (54 tests) silently; `two-device-sync` failed outright.
+- `npm run db:verify` uses the same engine preference and now really
+  executes the schema where `node:sqlite` exists (14 blocks, 42 tables)
+  instead of printing "skipping".
+- `backup-attachments.test.ts`: two tests inserted receipts without
+  seeding the referenced group — a latent FK violation the old engine
+  (FK off, one process per statement) never caught. Seeding fixed.
+- Result: 224 suites / 4,960 tests, 0 skipped — all executing.
+
+### Receipt scan → review → save pipeline repairs (P0)
+
+- **Receipt rows are now persisted from real scans.** The draft review
+  screen resolves the capture image URI from the draft's CaptureSource
+  and passes it to the confirm use case; previously the URI only ever
+  arrived through a test-only prop, so production confirms never created
+  a Receipt row and the review screen never showed the receipt photo.
+- **Discard is durable.** New `DiscardExpenseDraftUseCase`; the review
+  screen's Discard previously only cleared the UI store, leaving the
+  draft `needs_review` in SQLite forever (it reappeared in the inbox).
+- **"Adjust items & split" closes its source draft** after saving, so a
+  confirmed itemized expense cannot be re-confirmed as a duplicate.
+- **Groupless drafts are no longer a dead end.** Drafts captured from
+  the home FAB (no group) now get an in-screen group picker; Confirm is
+  blocked with a clear hint until a group is linked.
+- Camera/gallery: `sourceType` is propagated to the image-quality
+  screen so "Choose another image" returns to the same capture surface
+  (it always opened the gallery). Permission-denied cards now offer
+  "Open settings" via `Linking.openSettings()`.
+
+### Financial correctness and settings repairs
+
+- Settlement method picker offers only the four methods the local
+  schema can persist (cash / UPI / bank transfer / other). `card` and
+  `wallet` were selectable and then failed the `settlements.method`
+  CHECK on a real device.
+- Itemized expense entry uses the shared currency-aware integer parser
+  (`parseAmountToMinor`) instead of float `×100` math hardcoded to two
+  decimals (broken for JPY/KWD-style currencies); edit-prefill
+  formatting uses the domain currency decimals table.
+- Group settings: rename / archive / unarchive now persist through the
+  real use cases (they previously mutated only the UI store and silently
+  diverged from SQLite); the no-op "Leave group" control was removed
+  (leaving needs the identity adapters — the store method remains for
+  the local-copy flow).
+- New Group: creation errors surface via alert + inline text, submit
+  disabled while writing (previously failures were swallowed).
+- Void expense passes the actual local identity instead of the expense
+  creator (the permission check could never fail).
+- Pending-confirmation cards use the settlement's persisted version
+  instead of a hardcoded `2`.
+- Backup restore alert copy reflects whether the selected backup
+  contains receipt images.
+
+### Verification (2026-10-23, this environment: Node 24.21, no devices)
+
+`npm ci` reproducible; `tsc --noEmit` 0 errors; `eslint .` 0/0; Jest
+224 suites / 4,960 tests passing; `db:validate` all SQL valid;
+`db:verify` 14 blocks / 42 tables in real SQLite; `secret-scan` clean;
+`expo-doctor` 21/21; `expo export -p web` succeeds. No device/emulator
+runs — hardware-dependent flows remain unverified (see
+`FINAL_TEST_RESULTS.md`, `KNOWN_LIMITATIONS.md`).
+
 ## [2.25.0] — 2026-10-22
 
 ### Android activity screen crash on Hermes (2026-10-23)

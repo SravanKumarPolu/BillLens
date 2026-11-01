@@ -325,11 +325,10 @@ function PendingConfirmationCard({
   // payment and must confirm). When identity lands, this should be the
   // current user's linked member id.
   const confirmedByMemberId = entry.toMemberId;
-  // `expectedVersion` for a freshly-recorded settlement is 2 (the
-  // recordSettlement transition incremented from 1 → 2). The repository
-  // is the source of truth — pass 2 and rely on the use case's
-  // optimistic-concurrency check to surface a mismatch.
-  const expectedVersion = 2;
+  // v2.26.0: the settlement's persisted version (threaded through the
+  // pending-confirmation view model) — the previous hardcoded `2` broke
+  // confirmation for any settlement whose version had advanced past the
+  // initial record transition (e.g. after a correction).
 
   return (
     <Card elevation="sm" padding="lg" accessibilityRole="text">
@@ -364,7 +363,7 @@ function PendingConfirmationCard({
             label="Confirm"
             variant="primary"
             size="sm"
-            onPress={(): void => onConfirm(entry.settlementId, expectedVersion, confirmedByMemberId)}
+            onPress={(): void => onConfirm(entry.settlementId, entry.version, confirmedByMemberId)}
             disabled={acting}
             loading={acting}
             accessibilityLabel={`Confirm the settlement from ${entry.fromMemberName}`}
@@ -375,7 +374,7 @@ function PendingConfirmationCard({
             label="Dispute"
             variant="secondary"
             size="sm"
-            onPress={(): void => onDispute(entry.settlementId, expectedVersion, 'not_received')}
+            onPress={(): void => onDispute(entry.settlementId, entry.version, 'not_received')}
             disabled={acting}
             accessibilityLabel={`Dispute the settlement from ${entry.fromMemberName}`}
             icon="close-outline"

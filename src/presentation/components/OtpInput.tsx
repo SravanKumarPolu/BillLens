@@ -28,6 +28,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TextInput as RNTextInput, StyleSheet, View } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 
 import { useTheme } from '@presentation/design-system/theme';
 import { borderRadius, spacing, touchTargets } from '@presentation/design-system/tokens';
@@ -72,7 +73,13 @@ export function OtpInput({
   onComplete,
 }: OtpInputProps): JSX.Element {
   const theme = useTheme();
-  const inputsRef = useRef<(RNTextInput | null)[]>([]);
+  const inputsRef = useRef<(TextInputInstance | null)[]>([]);
+  const focusInput = (index: number): void => {
+    const input = inputsRef.current[index];
+    if (input !== null && input !== undefined) {
+      RNTextInput.State.focusTextInput(input.getNativeRef());
+    }
+  };
   const [boxes, setBoxes] = useState<readonly BoxState[]>(
     Array.from({ length: OTP_LENGTH }, () => ({ value: '' })),
   );
@@ -93,7 +100,7 @@ export function OtpInput({
     if (autoFocus && !disabled) {
       // Defer to next tick so refs are populated.
       const id = setTimeout(() => {
-        inputsRef.current[0]?.focus();
+        focusInput(0);
       }, 0);
       return () => clearTimeout(id);
     }
@@ -133,7 +140,7 @@ export function OtpInput({
     // Advance focus to the box after the last filled digit, or the
     // last box if we ran out of room.
     const nextFocusIndex = Math.min(index + digits.length, OTP_LENGTH - 1);
-    inputsRef.current[nextFocusIndex]?.focus();
+    focusInput(nextFocusIndex);
   };
 
   const handleKeyPress = (index: number, key: string): void => {
@@ -152,7 +159,7 @@ export function OtpInput({
         next[index - 1] = { value: '' };
         emitChange(next);
         // Defer focus so React renders the cleared state first.
-        setTimeout(() => inputsRef.current[index - 1]?.focus(), 0);
+        setTimeout(() => focusInput(index - 1), 0);
       }
       return next;
     });

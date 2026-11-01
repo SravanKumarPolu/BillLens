@@ -26,7 +26,7 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
-import { Pressable, TextInput } from 'react-native';
+import { Alert, Pressable, TextInput } from 'react-native';
 
 import { Button } from '@presentation/design-system/components/Button';
 import { Card } from '@presentation/design-system/components/Card';
@@ -110,15 +110,22 @@ export function NewGroupView({
   onPrivacyChange,
 }: NewGroupViewProps): JSX.Element {
   const addGroup = useGroupStore((s) => s.addGroup);
+  // v2.26.0: creation failures are now surfaced (Alert + error text) and
+  // the button is disabled while the write is in flight — previously the
+  // catch block returned silently, leaving the user with no feedback.
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleCreate = async (): Promise<void> => {
-    if (!viewModel.canSubmit) return;
+    if (!viewModel.canSubmit || submitting) return;
     const services = tryGetAppServices();
     if (services === null) {
       // Storage is still starting up — the gate will finish initializing.
-      // Surface the error to the user via the form's submit state.
+      setSubmitError('Local storage is still starting up. Please try again in a moment.');
       return;
     }
+    setSubmitting(true);
+    setSubmitError(null);
     const now = new Date().toISOString();
     const groupId = generateGroupId();
     const ownerMemberId = generateGroupId(); // any UUID works for a member id
@@ -132,13 +139,14 @@ export function NewGroupView({
         createdBy: 'local-user',
         ownerMemberId,
       });
-    } catch {
+    } catch (err) {
       // The repository write failed — the user's group is NOT persisted.
-      // Do not write to the UI store; do not navigate back. The error
-      // is visible to the user via the screen's submit state (a future
-      // iteration surfaces the message in a card; for now the screen
-      // stays put, which is safer than navigating back into a missing
-      // group).
+      // Do not write to the UI store; do not navigate back.
+      const message =
+        err instanceof Error ? err.message : 'Could not create the group. Please try again.';
+      setSubmitError(message);
+      setSubmitting(false);
+      Alert.alert('Could not create group', message, [{ text: 'OK' }]);
       return;
     }
     // 2. Write-through the persisted UI store (the cache the Groups
@@ -190,11 +198,17 @@ export function NewGroupView({
         <PrivacyField value={viewModel.privacyDefault} onChange={onPrivacyChange} />
 
         <Stack gap="sm" align="stretch" style={{ marginTop: spacing.md }}>
+          {submitError !== null ? (
+            <Text variant="caption" color="negative" style={{ textAlign: 'center' }}>
+              {submitError}
+            </Text>
+          ) : null}
           <Button
-            label="Create Group"
+            label={submitting ? 'Creating…' : 'Create Group'}
             variant="primary"
             size="lg"
-            disabled={!viewModel.canSubmit}
+            loading={submitting}
+            disabled={!viewModel.canSubmit || submitting}
             onPress={handleCreate}
             accessibilityLabel="Create the new group"
             icon="checkmark-circle-outline"
@@ -203,6 +217,7 @@ export function NewGroupView({
             label="Cancel"
             variant="ghost"
             size="md"
+            disabled={submitting}
             onPress={handleCancel}
             accessibilityLabel="Cancel and go back"
           />

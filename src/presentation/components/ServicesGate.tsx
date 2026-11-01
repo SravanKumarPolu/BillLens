@@ -21,7 +21,6 @@
 
 import { useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { InteractionManager } from 'react-native';
 
 import { Button } from '@presentation/design-system/components/Button';
 import { Card } from '@presentation/design-system/components/Card';
@@ -54,7 +53,7 @@ async function bootServices(): Promise<void> {
 
   // Everything below is optional for the first screen. It runs after the
   // user can interact, so launch never waits on network, auth or OCR.
-  InteractionManager.runAfterInteractions(() => {
+  requestIdleCallback(() => {
     void startSyncCoordinator().catch((error: unknown) => {
       console.warn('[ServicesGate] sync start failed:', error);
     });

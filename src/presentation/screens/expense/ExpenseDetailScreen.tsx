@@ -140,7 +140,11 @@ export function ExpenseDetailScreen({ expenseId }: ExpenseDetailScreenProps): JS
                   expenseId,
                   groupId: expense.groupId as string,
                   actorMemberId: actor.id,
-                  actorUserId: expense.createdBy as string,
+                  // v2.26.0: pass the actual local identity instead of
+                  // assuming the expense's creator — the previous
+                  // `actorUserId: expense.createdBy` made the creator
+                  // permission check tautological (it could never fail).
+                  actorUserId: 'local-user',
                   expectedVersion: expense.version as number,
                 });
                 router.back();

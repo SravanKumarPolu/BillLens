@@ -230,7 +230,8 @@ describeWithSqlite('receipt attachments in backups', () => {
   }, 30_000);
 
   it('refuses to restore when free storage is insufficient', async () => {
-    const { db } = await open('storage-source.db');
+    const { db, services } = await open('storage-source.db');
+    await seed(services, db);
     const imagePath = join(imageDir, 'storage.jpg');
     writeFileSync(imagePath, Buffer.from(JPEG_BASE64, 'base64'));
     await insertReceipt(db, 'r5', `file://${imagePath}`);
@@ -254,7 +255,8 @@ describeWithSqlite('receipt attachments in backups', () => {
   }, 30_000);
 
   it('removes staged files when the database transaction fails', async () => {
-    const { db } = await open('rollback-source.db');
+    const { db, services } = await open('rollback-source.db');
+    await seed(services, db);
     const imagePath = join(imageDir, 'rollback.jpg');
     writeFileSync(imagePath, Buffer.from(JPEG_BASE64, 'base64'));
     await insertReceipt(db, 'r6', `file://${imagePath}`);

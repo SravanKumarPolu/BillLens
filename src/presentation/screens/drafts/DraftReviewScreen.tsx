@@ -73,6 +73,7 @@ import {
   issueTypeIcon,
 } from '@presentation/view-models/draft-review';
 import { useDraftStore } from '@store/draft-store';
+import { useGroupStore } from '@store/group-store';
 import { useNavigationStore } from '@store/navigation-store';
 import { getOcrProviderMode, tryGetAppServices, useAppServicesReady } from '@store/services-registry';
 
@@ -126,6 +127,18 @@ export function DraftReviewScreen({
   const [splitMethod, setSplitMethod] = useState<string>('Equal');
   const [confirming, setConfirming] = useState(false);
   const confirmAttemptRef = useRef(0);
+  // v2.26.0: the real capture image URI, resolved from the draft's
+  // CaptureSource so the review screen can show the receipt photo AND
+  // pass it to the confirm use case (which persists the Receipt row).
+  // The `sourceImageUri` prop remains a test-only override.
+  const [resolvedImageUri, setResolvedImageUri] = useState<string | null>(null);
+  // v2.26.0: group selection for drafts captured without a group
+  // (e.g. from the home capture FAB).
+  const storeGroups = useGroupStore((s) => s.groups);
+  const selectableGroups = useMemo(
+    () => storeGroups.filter((g) => !g.archived),
+    [storeGroups],
+  );
 
   // Hydrate a persisted draft by id when the store is empty (deep link,
   // app restart, duplicate-scan routing). Idempotent — only loads when the
@@ -158,6 +171,42 @@ export function DraftReviewScreen({
   }, [draftId, draftOverride, storeDraft, servicesReady, setCurrentDraft]);
 
   const draft = draftOverride ?? storeDraft;
+
+  // v2.26.0: resolve the source image URI from the draft's CaptureSource
+  // so the review screen can SHOW the receipt photo and pass the URI to
+  // the confirm use case (which persists the Receipt row atomically).
+  // Before this, the image URI only ever reached the confirm flow through
+  // the test-only `sourceImageUri` prop — production scans never produced
+  // a Receipt row. The prop override still wins for tests.
+  const effectiveImageUri = sourceImageUri ?? resolvedImageUri ?? undefined;
+  useEffect(() => {
+    if (sourceImageUri !== undefined) return; // test override
+    const captureSourceId = draft?.captureSourceId;
+    if (captureSourceId === undefined) {
+      setResolvedImageUri(null);
+      return;
+    }
+    if (!servicesReady) return;
+    const services = tryGetAppServices();
+    if (services === null) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const source = await services.capture.repositories.captureSources.findById(
+          captureSourceId as never,
+        );
+        if (cancelled) return;
+        setResolvedImageUri(source !== null ? source.imageUri : null);
+      } catch {
+        // Non-fatal: the review flow still works without the preview;
+        // the receipt simply will not be linked to the saved expense.
+        if (!cancelled) setResolvedImageUri(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [draft?.captureSourceId, sourceImageUri, servicesReady]);
 
   // v2.5.0: label mock-OCR results as DEMO data. In production builds the
   // mock provider can never be selected (see ocr-provider-selector), so
@@ -199,10 +248,36 @@ export function DraftReviewScreen({
           text: 'Discard',
           style: 'destructive',
           onPress: () => {
-            setCurrentDraft(null);
-            setHasUnsavedChanges(false);
-            setHasUnsavedDraftChanges(false);
-            router.back();
+            const clearAndLeave = (): void => {
+              setCurrentDraft(null);
+              setHasUnsavedChanges(false);
+              setHasUnsavedDraftChanges(false);
+              router.back();
+            };
+            if (draftOverride !== undefined) {
+              // Test harness: no persistence layer.
+              clearAndLeave();
+              return;
+            }
+            const services = tryGetAppServices();
+            if (services === null) {
+              // Services not ready (should not happen post-boot) — fall
+              // back to the historical store-only behaviour.
+              clearAndLeave();
+              return;
+            }
+            // v2.26.0: persist the discard so the draft stops reappearing
+            // in the drafts inbox. The captured image is untouched.
+            void services.capture.discardDraft
+              .execute({ draftId: draft.id, expectedVersion: draft.version })
+              .then(clearAndLeave)
+              .catch((err: unknown) => {
+                Alert.alert(
+                  'Could not discard draft',
+                  err instanceof Error ? err.message : 'Please try again.',
+                  [{ text: 'OK' }],
+                );
+              });
           },
         },
       ],
@@ -252,7 +327,10 @@ export function DraftReviewScreen({
           // transition is what bumps it). The version guard makes a
           // replayed/double confirmation fail loudly instead of duping.
           expectedVersion: draft.version,
-          ...(sourceImageUri !== undefined ? { imageUri: sourceImageUri } : {}),
+          // v2.26.0: the resolved capture image — the use case persists
+          // the Receipt row + items + image link atomically. The prop
+          // override (tests) wins over the resolved URI.
+          imageUri: sourceImageUri ?? resolvedImageUri ?? undefined,
         });
         if (attempt !== confirmAttemptRef.current) return; // stale attempt
         setCurrentDraft(null);
@@ -284,9 +362,11 @@ export function DraftReviewScreen({
   return (
     <DraftReviewView
       viewModel={viewModel}
-      sourceImageUri={sourceImageUri}
+      sourceImageUri={effectiveImageUri}
       mockOcrBanner={showMockOcrBanner}
       confirming={confirming}
+      selectableGroups={selectableGroups.map((g) => ({ id: g.id, name: g.name }))}
+      onSelectGroup={viewModel.missingGroup ? (id) => handleFieldEdit('groupId', id) : undefined}
       onTitleChange={(v) => handleFieldEdit('title', v)}
       onMerchantChange={(v) => handleFieldEdit('merchantName', v)}
       onDateChange={(v) => handleFieldEdit('expenseDate', v)}
@@ -325,6 +405,10 @@ export interface DraftReviewViewProps {
    * are never mistaken for a real scan of the user's receipt. (v2.5.0)
    */
   readonly mockOcrBanner?: boolean;
+  /** Groups the user can link a groupless draft to (v2.26.0). */
+  readonly selectableGroups?: readonly { id: string; name: string }[];
+  /** Called when the user picks a group for a groupless draft. */
+  readonly onSelectGroup?: (groupId: string) => void;
   readonly onTitleChange: (value: string) => void;
   readonly onMerchantChange: (value: string) => void;
   readonly onDateChange: (value: string) => void;
@@ -341,6 +425,8 @@ export function DraftReviewView({
   sourceImageUri,
   confirming = false,
   mockOcrBanner = false,
+  selectableGroups = [],
+  onSelectGroup,
   onTitleChange,
   onMerchantChange,
   onDateChange,
@@ -357,6 +443,10 @@ export function DraftReviewView({
         <Header onDiscard={onDiscard} />
 
         {mockOcrBanner ? <MockOcrBanner /> : null}
+
+        {viewModel.missingGroup ? (
+          <GroupSelectionSection groups={selectableGroups} onSelectGroup={onSelectGroup} />
+        ) : null}
 
         {viewModel.hasImageSource && sourceImageUri ? (
           <SourcePreview uri={sourceImageUri} />
@@ -492,6 +582,72 @@ function MockOcrBanner(): ReactNode {
           </Text>
         </Stack>
       </Row>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Group selection (groupless drafts, v2.26.0)
+// ---------------------------------------------------------------------------
+
+interface GroupSelectionSectionProps {
+  readonly groups: readonly { id: string; name: string }[];
+  readonly onSelectGroup?: (groupId: string) => void;
+}
+
+function GroupSelectionSection({
+  groups,
+  onSelectGroup,
+}: GroupSelectionSectionProps): ReactNode {
+  const theme = useTheme();
+  return (
+    <Card elevation="sm" padding="lg" accessibilityLabel="Link this receipt to a group">
+      <Stack gap="md" align="stretch">
+        <Row gap="sm" align="center">
+          <Icon name="people-outline" size={theme.iconSizes.md} color={theme.colors.info} />
+          <Text variant="bodyStrong" color="primary">
+            Select a group
+          </Text>
+        </Row>
+        <Text variant="caption" color="muted">
+          This receipt was captured outside a group. Choose which group the expense belongs
+          to — the selection is saved with the expense when you confirm.
+        </Text>
+        {groups.length === 0 ? (
+          <Text variant="body" color="muted">
+            You have no active groups yet. Create a group first, then come back to this
+            draft.
+          </Text>
+        ) : (
+          <Stack gap="sm" align="stretch">
+            {groups.map((group) => (
+              <Pressable
+                key={group.id}
+                onPress={onSelectGroup !== undefined ? () => onSelectGroup(group.id) : undefined}
+                accessibilityRole="button"
+                accessibilityLabel={`Link this receipt to group ${group.name}`}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  minHeight: 44,
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.sm,
+                  borderRadius: theme.borderRadius.md,
+                  backgroundColor: pressed ? theme.colors.surfaceMuted : theme.colors.surface,
+                  borderWidth: 1,
+                  borderColor: theme.colors.border,
+                })}
+              >
+                <Text variant="body" color="primary">
+                  {group.name}
+                </Text>
+                <Icon name="chevron-forward-outline" size={theme.iconSizes.sm} color={theme.colors.textMuted} />
+              </Pressable>
+            ))}
+          </Stack>
+        )}
+      </Stack>
     </Card>
   );
 }
@@ -1159,7 +1315,9 @@ function ConfirmSection({
             ? 'Saving…'
             : viewModel.canConfirm
               ? 'Confirm Expense'
-              : `Resolve ${viewModel.blockingIssueCount} blocking issue${viewModel.blockingIssueCount === 1 ? '' : 's'}`
+              : viewModel.missingGroup
+                ? 'Select a group first'
+                : `Resolve ${viewModel.blockingIssueCount} blocking issue${viewModel.blockingIssueCount === 1 ? '' : 's'}`
         }
         variant="primary"
         size="lg"
@@ -1171,13 +1329,17 @@ function ConfirmSection({
             ? 'Saving the expense'
             : viewModel.canConfirm
               ? 'Confirm the draft and create the expense'
-              : `Confirm is disabled — ${viewModel.blockingIssueCount} blocking issue${viewModel.blockingIssueCount === 1 ? '' : 's'} must be resolved first`
+              : viewModel.missingGroup
+                ? 'Confirm is disabled — select a group for this receipt first'
+                : `Confirm is disabled — ${viewModel.blockingIssueCount} blocking issue${viewModel.blockingIssueCount === 1 ? '' : 's'} must be resolved first`
         }
         icon="checkmark-circle-outline"
       />
       {!viewModel.canConfirm ? (
         <Text variant="caption" color="muted" style={{ textAlign: 'center' }}>
-          The Confirm button is disabled until every blocking issue is resolved.
+          {viewModel.missingGroup
+            ? 'Link this receipt to one of your groups to save it as an expense.'
+            : 'The Confirm button is disabled until every blocking issue is resolved.'}
         </Text>
       ) : null}
     </Stack>

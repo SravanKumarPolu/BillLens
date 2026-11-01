@@ -59,6 +59,19 @@ function minorToMajorInput(minor: number, currencyCode: string): string {
   return `${whole}.${fraction.toString().padStart(decimals, '0')}`;
 }
 
+/**
+ * v2.26.0: the local SQLite schema only accepts these four methods
+ * (`settlements.method` CHECK — see schema.ts). The domain also defines
+ * `card` and `wallet`, but selecting either previously produced a
+ * guaranteed CHECK-constraint failure on save. The picker therefore
+ * offers only the locally persistable set; the wider domain list stays
+ * available for future schema/remote expansion.
+ */
+const LOCAL_SETTLEMENT_METHODS: readonly SettlementMethod[] =
+  ALL_SETTLEMENT_METHODS.filter(
+    (method) => method === 'cash' || method === 'upi' || method === 'bank_transfer' || method === 'other',
+  );
+
 // ---------------------------------------------------------------------------
 // View-model types
 // ---------------------------------------------------------------------------
@@ -489,7 +502,7 @@ export function NewSettlementView({
         <Stack gap="xs" align="stretch">
           <Text style={labelStyle}>METHOD</Text>
           <Row gap="sm" align="center" style={{ flexWrap: 'wrap' }}>
-            {ALL_SETTLEMENT_METHODS.map((method) => {
+            {LOCAL_SETTLEMENT_METHODS.map((method) => {
               const selected = viewModel.form.method === method;
               return (
                 <Pressable

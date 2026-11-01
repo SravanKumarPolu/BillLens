@@ -34,7 +34,7 @@ export type TextColor =
   | 'critical'
   | 'info';
 
-export interface TextPropsExtended extends TextProps {
+export interface TextPropsExtended extends Omit<TextProps, 'maxFontSizeMultiplier'> {
   readonly variant?: TextVariant;
   readonly color?: TextColor;
   /**

@@ -42,13 +42,9 @@ export function ThemeProvider({ mode, children }: ThemeProviderProps): ReactNode
   const storeMode = useThemeStore((s) => s.mode);
   const systemScheme = useColorScheme();
 
-  // React Native's `ColorSchemeName` gained `'unspecified'`; treat it as
-  // "no preference" so the resolver's contract stays two-valued.
-  const normalizedScheme = systemScheme === 'unspecified' ? null : systemScheme;
-
   const theme = useMemo(
-    () => resolveTheme(mode ?? storeMode, normalizedScheme),
-    [mode, storeMode, normalizedScheme],
+    () => resolveTheme(mode ?? storeMode, systemScheme),
+    [mode, storeMode, systemScheme],
   );
 
   return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;

@@ -21,6 +21,10 @@ export {
   SaveExpenseDraftReviewUseCase,
   GetExpenseDraftUseCase,
 } from './save-expense-draft-review.usecase';
+export {
+  DiscardExpenseDraftUseCase,
+} from './discard-expense-draft.usecase';
+export type { DiscardExpenseDraftInput } from './discard-expense-draft.usecase';
 export { evaluateImageQuality } from './evaluate-image-quality';
 export type {
   ImageQualityWarning,

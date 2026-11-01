@@ -133,7 +133,7 @@ export function ActivityView({ viewModel }: ActivityViewProps): JSX.Element {
         ListEmptyComponent={
           showTimeline ? (
             <EmptyState />
-          ) : null
+          ) : undefined
         }
         ListFooterComponent={
           showTimeline && viewModel.hasMore ? (
@@ -144,7 +144,7 @@ export function ActivityView({ viewModel }: ActivityViewProps): JSX.Element {
             >
               Showing the most recent entries. Older activity is available per-group.
             </Text>
-          ) : null
+          ) : undefined
         }
         initialNumToRender={12}
         maxToRenderPerBatch={12}

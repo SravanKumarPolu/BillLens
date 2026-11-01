@@ -251,7 +251,7 @@ export default function ExpenseSearchScreen(): ReactNode {
               </Stack>
             }
             ListFooterComponent={
-              loadingMore ? <ActivityIndicator style={{ marginVertical: spacing.md }} /> : null
+              loadingMore ? <ActivityIndicator style={{ marginVertical: spacing.md }} /> : undefined
             }
           />
         )}

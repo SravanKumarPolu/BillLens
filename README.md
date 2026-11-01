@@ -18,17 +18,16 @@ financial-conflict resolution). 4,927 tests passing across 221 suites. See
 
 ## Quick start
 
-> **Expo Go must match the project SDK.** This project is on **SDK 57**
-> (`expo ^57.0.30`), which is what the current Expo Go ships, so the store
-> build works as-is. If your client is older than the project, update Expo Go
-> rather than downgrading the project.
+> **Expo Go must match the project SDK.** This project uses **SDK 58**
+> (`expo ~58.0.22`). Install the SDK 58-compatible Expo Go or use a
+> development build.
 >
-> Node **20.19.4+ / 22.13+ / 24.3+** is required by React Native 0.86.
+> Use Node **22.13+**, **24.3+**, **26+**, or **27+** as required by Expo SDK 58.
 >
-> No custom native modules are in use today — `expo-camera`,
-> `expo-image-picker`, `expo-sqlite`, `expo-secure-store`, `expo-file-system`
-> and `expo-crypto` are all included in Expo Go. A development build is only
-> required once custom native code or a share extension is added:
+> Expo modules such as `expo-camera`, `expo-image-picker`, `expo-sqlite`,
+> `expo-secure-store`, `expo-file-system` and `expo-crypto` are included in
+> Expo Go. The third-party ML Kit OCR module requires a development build
+> for on-device OCR:
 > `npx expo run:ios` / `npx expo run:android`, or
 > `eas build --profile development`.
 

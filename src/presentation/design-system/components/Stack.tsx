@@ -5,7 +5,7 @@
  * via the flexbox `gap` property (supported in React Native 0.71+).
  */
 
-import type { FlexAlignType, ViewProps } from 'react-native';
+import type { ViewProps, ViewStyle } from 'react-native';
 import { View } from 'react-native';
 
 import { spacing, type SpacingKey } from '../tokens';
@@ -14,7 +14,7 @@ export interface StackProps extends ViewProps {
   /** Gap between children. Accepts a token key or a raw pixel number. */
   readonly gap?: SpacingKey | number;
   /** Cross-axis alignment of children. Maps to `alignItems`. */
-  readonly align?: FlexAlignType;
+  readonly align?: NonNullable<ViewStyle['alignItems']>;
 }
 
 function resolveSpace(value: SpacingKey | number | undefined, fallback: number): number {

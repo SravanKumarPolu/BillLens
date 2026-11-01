@@ -26,6 +26,7 @@ import { Text } from '@presentation/design-system/components/Text';
 import { useTheme } from '@presentation/design-system/theme';
 import { spacing } from '@presentation/design-system/tokens';
 import { todayDateOnly } from '@presentation/view-models/expense-form';
+import { currencyDecimals, parseAmountToMinor } from '@presentation/view-models/expense-form';
 import { tryGetAppServices } from '@store/services-registry';
 
 interface Member {
@@ -69,20 +70,28 @@ function inputStyle(theme: ReturnType<typeof useTheme>) {
   } as const;
 }
 
-function minorFrom(value: string): number | null {
+function minorFrom(value: string, currency: string): number | null {
   const trimmed = value.trim();
   if (trimmed.length === 0) return 0;
-  if (!/^\d+(\.\d{0,2})?$/.test(trimmed)) return null;
-  return Math.round(Number(trimmed) * 100);
+  // v2.26.0: currency-aware integer parsing (the shared strict parser
+  // from expense-form) — the previous `Math.round(Number * 100)` float
+  // path hardcoded 2 decimals and broke JPY (0) / KWD (3) currencies.
+  const parsed = parseAmountToMinor(trimmed, currency, { allowZero: true });
+  return parsed.ok ? parsed.minor : null;
 }
 
-function money(minor: number): string {
-  return (minor / 100).toFixed(2);
+function money(minor: number, currency: string): string {
+  const decimals = currencyDecimals(currency);
+  if (decimals === 0) return String(minor);
+  const divisor = 10 ** decimals;
+  const sign = minor < 0 ? '-' : '';
+  const abs = Math.abs(minor);
+  return `${sign}${Math.floor(abs / divisor)}.${String(abs % divisor).padStart(decimals, '0')}`;
 }
 
-function rowTotal(row: ItemRow): number {
+function rowTotal(row: ItemRow, currency: string): number {
   const qty = Number(row.quantity);
-  const unit = minorFrom(row.unitPrice);
+  const unit = minorFrom(row.unitPrice, currency);
   if (!Number.isFinite(qty) || qty <= 0 || unit === null) return 0;
   return Math.round(qty * unit);
 }
@@ -142,7 +151,7 @@ export default function NewItemizedExpenseScreen(): ReactNode {
                     key: item.id as string,
                     name: item.name,
                     quantity: String(item.quantity),
-                    unitPrice: money(item.unitPriceMinor),
+                    unitPrice: money(item.unitPriceMinor, group.currencyCode as string),
                     memberIds:
                       item.assignedMemberIds.length > 0
                         ? item.assignedMemberIds.map((id) => id as string).filter((id) => memberIds.has(id))
@@ -168,14 +177,14 @@ export default function NewItemizedExpenseScreen(): ReactNode {
               else if (charge.type === 'service_charge') nextService += charge.amountMinor;
               else if (charge.type === 'discount') nextDiscount += Math.abs(charge.amountMinor);
             }
-            setTax(money(nextTax));
-            setTip(money(nextTip));
-            setService(money(nextService));
-            setDiscount(money(nextDiscount));
+            setTax(money(nextTax, group.currencyCode as string));
+            setTip(money(nextTip, group.currencyCode as string));
+            setService(money(nextService, group.currencyCode as string));
+            setDiscount(money(nextDiscount, group.currencyCode as string));
             setPayers([
               {
                 memberId: result.members[0]?.id ?? '',
-                amount: money(draft.amountMinor ?? 0),
+                amount: money(draft.amountMinor ?? 0, group.currencyCode as string),
               },
             ]);
           }
@@ -218,13 +227,13 @@ export default function NewItemizedExpenseScreen(): ReactNode {
     return () => clearTimeout(timer);
   }, [draftKey, draftLoaded, title, date, rows, payers, tax, tip, service, discount]);
 
-  const taxMinor = minorFrom(tax) ?? 0;
-  const tipMinor = minorFrom(tip) ?? 0;
-  const serviceMinor = minorFrom(service) ?? 0;
-  const discountMinor = minorFrom(discount) ?? 0;
-  const itemsTotal = rows.reduce((sum, row) => sum + rowTotal(row), 0);
+  const taxMinor = minorFrom(tax, currency) ?? 0;
+  const tipMinor = minorFrom(tip, currency) ?? 0;
+  const serviceMinor = minorFrom(service, currency) ?? 0;
+  const discountMinor = minorFrom(discount, currency) ?? 0;
+  const itemsTotal = rows.reduce((sum, row) => sum + rowTotal(row, currency), 0);
   const grandTotal = itemsTotal + taxMinor + tipMinor + serviceMinor - discountMinor;
-  const payerTotal = payers.reduce((sum, row) => sum + (minorFrom(row.amount) ?? 0), 0);
+  const payerTotal = payers.reduce((sum, row) => sum + (minorFrom(row.amount, currency) ?? 0), 0);
   const difference = grandTotal - payerTotal;
   const participantIds = useMemo(
     () => [...new Set(rows.flatMap((row) => row.memberIds))],
@@ -239,8 +248,8 @@ export default function NewItemizedExpenseScreen(): ReactNode {
         id: row.key,
         name: row.name.trim(),
         quantity: Number(row.quantity),
-        unitPriceMinor: minorFrom(row.unitPrice) ?? 0,
-        totalAmountMinor: rowTotal(row),
+        unitPriceMinor: minorFrom(row.unitPrice, currency) ?? 0,
+        totalAmountMinor: rowTotal(row, currency),
         assignedMemberIds: row.memberIds,
       }));
     const charges: ExpenseItemCharge[] = [
@@ -283,7 +292,7 @@ export default function NewItemizedExpenseScreen(): ReactNode {
       row.memberIds.length === 0 ||
       !Number.isFinite(Number(row.quantity)) ||
       Number(row.quantity) <= 0 ||
-      minorFrom(row.unitPrice) === null,
+      minorFrom(row.unitPrice, currency) === null,
   );
   const canSave =
     !saving &&
@@ -307,8 +316,8 @@ export default function NewItemizedExpenseScreen(): ReactNode {
       id: row.key,
       name: row.name.trim(),
       quantity: Number(row.quantity),
-      unitPriceMinor: minorFrom(row.unitPrice) ?? 0,
-      totalAmountMinor: rowTotal(row),
+      unitPriceMinor: minorFrom(row.unitPrice, currency) ?? 0,
+      totalAmountMinor: rowTotal(row, currency),
       assignedMemberIds: row.memberIds,
     }));
     const charges: ExpenseItemCharge[] = [
@@ -330,10 +339,10 @@ export default function NewItemizedExpenseScreen(): ReactNode {
         currencyCode: currency,
         expenseDate: date,
         payerContributions: payers
-          .filter((payer) => (minorFrom(payer.amount) ?? 0) > 0)
+          .filter((payer) => (minorFrom(payer.amount, currency) ?? 0) > 0)
           .map((payer) => ({
             memberId: payer.memberId,
-            amountMinor: minorFrom(payer.amount) ?? 0,
+            amountMinor: minorFrom(payer.amount, currency) ?? 0,
           })),
         participantIds,
         split: { splitType: 'items', lineItems, charges },
@@ -343,6 +352,18 @@ export default function NewItemizedExpenseScreen(): ReactNode {
         async () => {
           setDraftLoaded(false);
           await AsyncStorage.removeItem(draftKey).catch(() => undefined);
+          // v2.26.0: when this expense was built from a receipt draft
+          // ("Adjust items & split"), close the source draft so it does
+          // not remain confirmable in the drafts inbox (duplicate-
+          // expense path). The captured image is preserved.
+          if (draftId !== undefined && draftId.length > 0) {
+            try {
+              await services.capture.discardDraft.execute({ draftId: draftId as never });
+            } catch {
+              // Non-fatal: the expense is saved; the draft may need a
+              // manual discard from the drafts inbox.
+            }
+          }
           router.replace(`/groups/${encodeURIComponent(groupId)}`);
         },
         (err: unknown) => {
@@ -445,7 +466,7 @@ export default function NewItemizedExpenseScreen(): ReactNode {
                   />
                 </View>
                 <View style={{ justifyContent: 'flex-end', paddingBottom: 12 }}>
-                  <Text variant="caption">{money(rowTotal(row))}</Text>
+                  <Text variant="caption">{money(rowTotal(row, currency), currency)}</Text>
                 </View>
               </Row>
               <Text variant="caption" color="secondary">
@@ -524,7 +545,7 @@ export default function NewItemizedExpenseScreen(): ReactNode {
                 Bill total
               </Text>
               <Text variant="bodyStrong">
-                {money(grandTotal)} {currency}
+                {money(grandTotal, currency)} {currency}
               </Text>
             </Row>
           </Stack>
@@ -627,7 +648,7 @@ export default function NewItemizedExpenseScreen(): ReactNode {
                   setPayers((previous) =>
                     previous.map((entry, index) =>
                       index === previous.length - 1
-                        ? { ...entry, amount: money(difference + (minorFrom(entry.amount) ?? 0)) }
+                        ? { ...entry, amount: money(difference + (minorFrom(entry.amount, currency) ?? 0), currency) }
                         : entry,
                     ),
                   )
@@ -638,7 +659,7 @@ export default function NewItemizedExpenseScreen(): ReactNode {
             <Text variant="caption" color={difference === 0 ? 'positive' : 'negative'}>
               {difference === 0
                 ? 'Payer contributions match the bill total.'
-                : `Payer total is off by ${money(Math.abs(difference))} ${currency}.`}
+                : `Payer total is off by ${money(Math.abs(difference), currency)} ${currency}.`}
             </Text>
           </Stack>
         </Card>
@@ -656,7 +677,7 @@ export default function NewItemizedExpenseScreen(): ReactNode {
                     <Text variant="body" style={{ flex: 1 }}>
                       {name}
                     </Text>
-                    <Text variant="bodyStrong">{money(entry.amountMinor)}</Text>
+                    <Text variant="bodyStrong">{money(entry.amountMinor, currency)}</Text>
                   </Row>
                 );
               })}

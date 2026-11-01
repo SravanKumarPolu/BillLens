@@ -14,10 +14,10 @@ Status values: **Verified** (tests in this repo), **Device-untested**
 | 6. Encryption / key management | Verified (primitives) | Ed25519/X25519, XChaCha20-Poly1305, wrapping, epochs; 25+ tests |
 | 7. Invitations, removal, recovery | Verified (relay) | Invite hash + one-time join + keybox + revoke/rotate + re-wrap; 6 integration tests |
 | 8. Minimal relay | Device-untested / External | Reference server tested in Node; not deployed |
-| 9. Automatic sync | Deferred | Supabase coordinator exists; encrypted path not wired to app lifecycle/UI |
+| 9. Automatic sync | Deferred | Supabase coordinator exists (active only when env configured); encrypted relay path fully built + Node-tested but not wired to app lifecycle/UI, no deployed relay |
 | 10. Financial conflicts | Partial | Detection + `sync_event_conflicts` persistence + status resolution; no review UI/apply |
 | 11. Retention and deletion | Verified | 365-day policy (6/24 configurable), guards, audit; local copy removal; expense voiding + UI |
-| 12. End-to-end tests | Partial | Two-device Node + separate SQLite files (14 scenarios partially); physical devices unverified |
+| 12. End-to-end tests | Partial | Two-device Node + two separate real SQLite files over the reference relay — **executes and passes in this environment since v2.26.0** (`node:sqlite` engine); physical devices unverified |
 | 13. Final security audit | Deferred | No independent review |
 
 ## New in 2.10.0
