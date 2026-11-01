@@ -52,7 +52,7 @@ Statuses: **VERIFIED** (tests in this repo), **DEVICE-UNTESTED**,
 | Navigation integrity | Verified (static) | route-link test; dead sign-in control removed |
 | Recurring expenses | Verified | daily/weekly/monthly/yearly; catch-up + idempotency tests |
 | PDF / XLSX export | Implemented, device-untested | lazy `expo-print`/`xlsx` chunks; escaped HTML |
-| Reminders / notifications | Implemented, device-untested | opt-in daily local reminder (Expo Go guarded); per-settlement reminder use cases exist without UI; no push |
+| Reminders / notifications | Implemented, device-untested | opt-in daily local reminder (Expo Go guarded); per-settlement reminder create/cancel wired on `/settlements/[settlementId]` for pending/requested items (v2.26.2); no dedicated inbox; no push |
 | Encrypted backup / restore | Verified (Node/SQLite) | receipt rows now actually persisted; images included |
 | Receipt history / deletion | Verified (Node/SQLite) | `/receipts`; soft delete + queue image cleanup |
 | Multi-currency display | Verified | per-currency balances |

@@ -15,7 +15,7 @@ v2.26.1.
 | Feature | Evidence |
 |---|---|
 | Guest onboarding + local identity | onboarding screen tests; identity repository tests |
-| SQLite boot + 13-migration registry (14 blocks / 42 tables) | `sqlite-migrations-execution.test.ts` (real SQLite); `npm run db:verify` |
+| SQLite boot + 14-migration registry (15 blocks / 42 tables) | `sqlite-migrations-execution.test.ts` (real SQLite); `npm run db:verify`; `CURRENT_SCHEMA_VERSION` derived from `MIGRATIONS` |
 | Create / edit / archive / restore / safe-delete group; owner protection; two-layer write guards | `group-management.test.ts` (real SQLite), `create-group.integration.test.ts`; v2.26.0: settings rename/archive now persist |
 | Add / rename / remove members (soft delete, history preserved) | group-management + member integration tests |
 | Manual expense create + edit (version guard, prefill) | `create-expense-manually-integration.test.ts`, `update-expense.test.ts`, `manual-expense-screen.test.tsx` |
@@ -55,10 +55,10 @@ v2.26.1.
 
 | Feature | What exists | What is missing |
 |---|---|---|
-| Settlement reversal | `ReverseSettlementUseCase` + tests, wired in composition root; guarded "Reverse" action on `/settlements/[settlementId]` | Implemented and tested (v2.26.2); settlement list screen still absent |
-| Settlement detail/history views | `/settlements/[settlementId]` screen with facts, status, note, reversal explanation; activity timeline + balances pending cards | Implemented and tested (v2.26.2); dedicated settlement list screen still absent |
+| Settlement history list | `/groups/[groupId]/settlements` → `ListSettlementsUseCase` (paged, status filters, virtualised); reachable from balances; rows link to detail | Implemented and tested (v2.26.2, `settlement-history.test.tsx`) |
+| Settlement detail + guarded reversal | `/settlements/[settlementId]` facts/status/note/reversal; `ReverseSettlementUseCase` behind a destructive dialog with the persisted version | Implemented and tested (v2.26.2, `settlement-detail.test.tsx`) |
 | Group invitations (local) | Full invitations module + `JoinGroupUseCase`, tested | Not wired into composition root/screens; join screen is a placeholder |
-| Per-settlement reminders | Use cases + scheduling rules, tested | Not in composition root or any screen |
+| Per-settlement reminders | Create/cancel/list use cases wired in composition root; pending/requested settlements expose "Remind tomorrow" + cancel on the detail screen; OS alarm only when the runtime can present notifications | Implemented and tested (v2.26.2); no dedicated inbox; device delivery unverified (KL-2) |
 | Guest → account upgrade | Identity domain + use cases | Needs provisioned cloud project to verify |
 | Dependency audit automation | Classification engine + tests | No automated `npm audit` runner wired to CI |
 

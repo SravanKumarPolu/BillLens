@@ -7,7 +7,7 @@ import {
   isEligibleForNps,
 } from '@application/feedback/index';
 
-import { runMigrations, getSchemaVersion } from '../sqlite/schema';
+import { runMigrations, getSchemaVersion, CURRENT_SCHEMA_VERSION } from '../sqlite/schema';
 import { SqliteFeedbackRepository } from '../sqlite/sqlite-feedback-repository';
 
 import { InMemoryDatabase } from './in-memory-database';
@@ -46,14 +46,14 @@ beforeEach(async () => {
 
 describe('migration 0004 (feedback store)', () => {
   it('creates both tables in the current schema', async () => {
-    expect(await getSchemaVersion(db)).toBe(13);
+    expect(await getSchemaVersion(db)).toBe(CURRENT_SCHEMA_VERSION);
     expect(db.hasTable('feedback_records')).toBe(true);
     expect(db.hasTable('review_prompt_ledger')).toBe(true);
   });
 
   it('is idempotent when migrations run twice', async () => {
     await expect(runMigrations(db)).resolves.not.toThrow();
-    expect(await getSchemaVersion(db)).toBe(13);
+    expect(await getSchemaVersion(db)).toBe(CURRENT_SCHEMA_VERSION);
   });
 });
 

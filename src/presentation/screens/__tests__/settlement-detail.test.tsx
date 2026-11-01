@@ -211,11 +211,13 @@ describe('SettlementDetailScreen (container)', () => {
   }));
   const cancelSettlementReminder = jest.fn(async (_input: unknown) => undefined);
   const listSettlementReminders = jest.fn(async (_input: unknown) => ({
-    items: [],
-    nextCursor: undefined,
+    items: [] as Array<{ id: string; settlementId?: string; status: string; scheduledAt: string }>,
+    nextCursor: undefined as string | undefined,
     hasMore: false,
   }));
-  const scheduleNotification = jest.fn(async () => 'scheduled');
+  const scheduleNotification = jest.fn(
+    async (_request: { identifier?: string; title?: string; body?: string }) => 'scheduled',
+  );
   const cancelNotification = jest.fn(async () => undefined);
   const localNotifications = {
     availability: () => 'available' as const,
@@ -361,7 +363,8 @@ describe('SettlementDetailScreen (container)', () => {
       }),
     );
     // The lock-screen body never carries the amount (private mode).
-    expect(String(scheduleNotification.mock.calls[0][0].body)).not.toContain('12500');
+    const firstScheduleCall = scheduleNotification.mock.calls[0]?.[0];
+    expect(String(firstScheduleCall?.body ?? '')).not.toContain('12500');
     await flushUntil(() => getByText('Reminder set for tomorrow.') !== null);
   });
 });

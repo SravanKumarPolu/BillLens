@@ -65,16 +65,22 @@ sufficient for verification. **Blocks release: NO** (cloud is optional).
 `/groups/[groupId]/settlements` calls `ListSettlementsUseCase` (paged,
 status filters, virtualised FlatList) and is reachable from the group
 balances screen; rows link to `/settlements/[settlementId]`. Covered by
-`settlement-history.test.tsx`. Remaining: per-settlement reminder
-scheduling still has no UI (KL-9).
+`settlement-history.test.tsx`. Per-settlement reminder scheduling is
+wired on the detail screen (KL-9).
 
 **KL-8 — Dedicated settlement detail screen exists (v2.26.2).**
 `/settlements/[settlementId]` renders facts, status, method, note and
 reversal explanation, and is now reached from the history list (KL-7).
 The former "no UI caller for `ListSettlementsUseCase`" gap is closed.
 
-**KL-9 — Per-settlement reminder scheduling has no UI** (use cases
-exist, tested, unwired). The shipped opt-in daily reminder is wired.
+**KL-9 — Per-settlement reminder UI is wired on the detail screen only**
+(v2.26.2). Pending/requested settlements expose "Remind me to confirm
+tomorrow" + cancel (`CreateSettlementReminderUseCase` /
+`CancelSettlementReminderUseCase`); the OS alarm is scheduled only when
+the runtime can present notifications (Expo Go / web store the row and
+say so). Still open: a dedicated reminders inbox, reminder actions from
+history rows, and device verification of delivery (KL-2). The shipped
+opt-in daily reminder remains wired.
 
 **KL-10 — Manual expense form has no autosave** (the itemized form
 does). Losing input on app kill is possible mid-form.

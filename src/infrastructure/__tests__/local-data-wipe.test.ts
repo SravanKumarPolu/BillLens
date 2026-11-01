@@ -12,7 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import { createGroup } from '@domain/entities/group';
 import { createGroupMember } from '@domain/entities/group-member';
 import { createCompositionRoot, type AppServices } from '@infrastructure/composition-root';
-import { runMigrations } from '@infrastructure/sqlite/schema';
+import { runMigrations, CURRENT_SCHEMA_VERSION } from '@infrastructure/sqlite/schema';
 import { hasSqliteCli, SqliteCliDatabase } from './sqlite-cli-database';
 
 const describeWithSqlite = hasSqliteCli() ? describe : describe.skip;
@@ -95,7 +95,7 @@ describeWithSqlite('full local data wipe', () => {
     const schema = await db.get<{ version: number }>(
       'select max(version) as version from schema_version',
     );
-    expect(schema?.version).toBe(13);
+    expect(schema?.version).toBe(CURRENT_SCHEMA_VERSION);
 
     const queue = await db.get<{ count: number }>(
       "select count(*) as count from file_cleanup_queue where reason = 'local_data_erased'",

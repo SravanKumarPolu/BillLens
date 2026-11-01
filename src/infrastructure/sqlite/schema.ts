@@ -1421,6 +1421,14 @@ export const MIGRATIONS: readonly Migration[] = [
 ];
 
 /**
+ * Highest applied migration version. Tests and backup/restore must read
+ * this instead of a hardcoded integer so adding a migration cannot
+ * silently leave the suite (or restore) on the previous version.
+ */
+export const CURRENT_SCHEMA_VERSION: number =
+  MIGRATIONS[MIGRATIONS.length - 1]?.version ?? 0;
+
+/**
  * Apply all pending migrations to the database.
  *
  * Idempotent: if all migrations are already applied, this is a no-op.

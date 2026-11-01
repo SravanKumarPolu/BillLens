@@ -35,16 +35,33 @@ All notable changes to BillLens across Phases 1-10 are documented here.
   wrap on narrow screens.
 
 **Verification (2026-11-01, this environment: Node 24, no devices).**
-`tsc --noEmit` clean; `eslint .` 0 errors / 0 warnings; Jest **228
-suites / 4,990 tests** passing (including `settlement-history.test.tsx`
+`tsc --noEmit` clean; `eslint .` 0 errors / 0 warnings; Jest **229
+suites / 5,000 tests** passing (including `settlement-history.test.tsx`
 and the extended `settlement-detail.test.tsx`); `db:validate`,
-`db:verify` (14 blocks, 42 tables) and `secret-scan` clean;
+`db:verify` (15 blocks, 42 tables) and `secret-scan` clean;
 `expo export -p web` succeeds (`/groups/[groupId]/settlements` ships a
-title, description and `noindex`); `expo-doctor` 20/21 — the failing
-check is the documented pre-existing "native folders vs prebuild
-config" warning from the `android/` verification build, which this
-change cannot influence. Hardware-dependent gates remain open (see
-`KNOWN_LIMITATIONS.md`).
+title, description and `noindex`); `expo-doctor` **21/21**. Hardware-
+dependent gates remain open (see `KNOWN_LIMITATIONS.md`).
+
+### Repair after the first 2.26.2 packaging pass (2026-11-01)
+
+The first 2.26.2 commit added migration 0014 (`settlement_reminders.version`)
+but left several real-SQLite suites and the backup-restore rollback test
+on hardcoded schema version 13, so `tsc --noEmit` and 9 Jest suites
+failed. Repairs, in place:
+
+- `CURRENT_SCHEMA_VERSION` is now exported from `schema.ts` and derived
+  from `MIGRATIONS`. Tests and the backup rollback mock read it instead
+  of a hardcoded integer, so the next migration cannot silently leave
+  the suite (or restore) on the previous version.
+- `settlement-detail.test.tsx` type errors fixed (reminder-list item
+  type; optional first `scheduleNotification` call argument).
+- Living docs refreshed: KL-7/KL-9 (reminder UI is wired on the detail
+  screen), FEATURE_MATRIX reminders row, REQUIREMENTS_TRACEABILITY
+  CORE-02 / FIN-04 / NOT-01, SQLITE_MIGRATIONS migration 0014.
+- No SQLite data was reset, no financial row rewritten, no core feature
+  removed. Offline path, encrypted-sync deferral and the existing
+  settlement state machine are unchanged.
 
 ## [2.26.1] — 2026-10-24
 
