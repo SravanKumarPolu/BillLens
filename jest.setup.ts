@@ -45,6 +45,11 @@ jest.mock('@react-native-async-storage/async-storage', () => {
   };
 });
 
+jest.mock('expo-font', () => ({
+  ...jest.requireActual('expo-font'),
+  loadAsync: jest.fn().mockResolvedValue(undefined),
+}));
+
 // Reset the in-memory storage between test files so persisted state
 // from one file doesn't leak into another.
 beforeEach(() => {
