@@ -1,15 +1,18 @@
 /**
  * Tests for route guards.
  *
- * The guards are pure synchronous functions that read the navigation
- * store (and validate identifier shapes for the stubbed guards). Tests
- * cover:
- *   - `requireOnboardingComplete` reads the persisted store flag.
+ * The guards read navigation state (and validate identifier shapes for
+ * the stubbed guards). Tests cover:
+ *   - `requireOnboardingComplete` reads the current store flag.
+ *   - `useRequireOnboardingComplete` waits for persisted hydration and
+ *     subscribes to subsequent store changes.
  *   - `requireGroupExists` / `requireDraftExists` validate the
  *     identifier shape only (Phase 2 stub behaviour).
  */
 
-import { beforeEach, describe, expect, it } from '@jest/globals';
+import { act, renderHook } from '@testing-library/react-native';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useNavigationStore } from '@store/navigation-store';
 
@@ -17,11 +20,16 @@ import {
   requireDraftExists,
   requireGroupExists,
   requireOnboardingComplete,
+  useRequireOnboardingComplete,
 } from '../route-guards';
 
 describe('requireOnboardingComplete', () => {
   beforeEach(() => {
     useNavigationStore.setState({ onboardingComplete: false });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('returns false when onboarding is not complete', () => {
@@ -40,6 +48,36 @@ describe('requireOnboardingComplete', () => {
     expect(requireOnboardingComplete()).toBe(true);
     useNavigationStore.getState().setOnboardingComplete(false);
     expect(requireOnboardingComplete()).toBe(false);
+  });
+
+  it('waits for hydration and then uses the persisted onboarding decision', async () => {
+    jest.spyOn(useNavigationStore.persist, 'hasHydrated').mockReturnValue(false);
+    await AsyncStorage.setItem(
+      'billlens.navigation-state',
+      JSON.stringify({ state: { onboardingComplete: true }, version: 0 }),
+    );
+
+    const { result } = renderHook(() => useRequireOnboardingComplete());
+    expect(result.current).toBeNull();
+
+    await act(async () => {
+      await useNavigationStore.persist.rehydrate();
+    });
+
+    expect(result.current).toBe(true);
+  });
+
+  it('subscribes to onboarding updates after hydration', async () => {
+    const { result } = renderHook(() => useRequireOnboardingComplete());
+    await act(async () => {
+      await useNavigationStore.persist.rehydrate();
+    });
+    expect(result.current).toBe(false);
+
+    act(() => {
+      useNavigationStore.getState().setOnboardingComplete(true);
+    });
+    expect(result.current).toBe(true);
   });
 });
 

@@ -20,16 +20,16 @@ import {
 const loadImage = async () => '';
 
 describe('resolveOcrProvider (development — allowMock: true)', () => {
-  it('selects the mock processor when nothing is configured', () => {
+  it('selects on-device ML Kit when nothing is configured — never implicit mock', () => {
     const selection = resolveOcrProvider({
       supabaseUrl: '',
       supabaseAnonKey: '',
       allowMock: true,
       loadImageBase64: loadImage,
     });
-    expect(selection.mode).toBe('mock');
-    expect(selection.reason).toContain('No Supabase project configured');
-    expect(selection.reason).toContain('mock processor');
+    expect(selection.mode).toBe('mlkit');
+    expect(selection.processor).not.toBeInstanceOf(UnavailableCaptureProcessor);
+    expect(selection.reason).toMatch(/on-device/i);
   });
 
   it('selects remote OCR when a Supabase project is configured', () => {

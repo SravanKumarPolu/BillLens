@@ -9,7 +9,7 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { Alert, Share, TextInput, View } from 'react-native';
+import { Alert, Share, Switch, TextInput, View } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import * as DocumentPicker from 'expo-document-picker';
 
@@ -22,6 +22,7 @@ import { Stack } from '@presentation/design-system/components/Stack';
 import { Text } from '@presentation/design-system/components/Text';
 import { useTheme } from '@presentation/design-system/theme';
 import { spacing } from '@presentation/design-system/tokens';
+import { hydrateGroupStore } from '@presentation/hooks/use-group-store-hydration';
 import { tryGetAppServices } from '@store/services-registry';
 
 function PasswordField({
@@ -67,6 +68,7 @@ export default function BackupScreen(): ReactNode {
   const [message, setMessage] = useState<string | null>(null);
   const [pickedFile, setPickedFile] = useState<{ uri: string; name: string } | null>(null);
   const [preview, setPreview] = useState<BackupPreview | null>(null);
+  const [includeImages, setIncludeImages] = useState(true);
 
   const createBackup = async (): Promise<void> => {
     const services = tryGetAppServices();
@@ -82,13 +84,19 @@ export default function BackupScreen(): ReactNode {
     setBusy(true);
     setMessage(null);
     try {
-      const created = await services.backup.create.execute(password);
+      const created = await services.backup.create.execute(password, { includeImages });
       const file = new File(Paths.cache, created.filename);
       file.create({ overwrite: true });
       file.write(created.envelopeJson);
       await Share.share({ url: file.uri, title: created.filename });
+      const sizeMb = (created.preview.attachmentBytes / (1024 * 1024)).toFixed(1);
       setMessage(
-        `Backup created: ${created.preview.counts.groups} groups, ${created.preview.counts.expenses} expenses. Keep the password safe — it cannot be recovered.`,
+        `Backup created: ${created.preview.counts.groups} groups, ${created.preview.counts.expenses} expenses, ` +
+          `${created.preview.attachmentCount} receipt images (${sizeMb} MB). ` +
+          (created.preview.missingImages.length > 0
+            ? `${created.preview.missingImages.length} receipt file(s) were missing and excluded. `
+            : '') +
+          'Keep the password safe — it cannot be recovered.',
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Backup failed.');
@@ -143,7 +151,11 @@ export default function BackupScreen(): ReactNode {
 
     Alert.alert(
       'Replace local data?',
-      `This replaces ${preview.counts.groups} groups, ${preview.counts.expenses} expenses and ${preview.counts.settlements} settlements on this device. It cannot be undone. Receipt images are not included.`,
+      `This replaces ${preview.counts.groups} groups, ${preview.counts.expenses} expenses and ${preview.counts.settlements} settlements on this device. It cannot be undone. ${
+        preview.includesAttachments
+          ? 'Receipt images from the backup will be restored alongside the records.'
+          : 'This backup does not include receipt images.'
+      }`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -155,7 +167,15 @@ export default function BackupScreen(): ReactNode {
               try {
                 const text = await new File(pickedFile.uri).text();
                 await services.backup.restore.execute(text, password);
-                setMessage('Restore complete. Restart BillLens to reload every screen.');
+                // Rebuild the persisted group cache from the restored
+                // SQLite database. Previously this screen told the user
+                // to restart the app — but a restart did NOT reload the
+                // AsyncStorage group cache, so restored groups were
+                // invisible on the Groups/Home tabs until the cache was
+                // rewritten by chance. Hydration makes the restore
+                // visible immediately.
+                await hydrateGroupStore();
+                setMessage('Restore complete. Your groups and balances are up to date.');
                 setPreview(null);
               } catch (error) {
                 setMessage(error instanceof Error ? error.message : 'Restore failed.');
@@ -174,12 +194,28 @@ export default function BackupScreen(): ReactNode {
       <Stack gap="lg" style={{ padding: spacing.xl }}>
         <Text variant="body" color="secondary">
           Backups are encrypted on this device with a password you choose. BillLens cannot recover
-          a lost password. Receipt image files are not included; only their metadata.
+          a lost password. Older v1 backups contain financial data only; this screen shows whether
+          attachments are present before you restore.
         </Text>
 
         <Card>
           <Stack gap="md">
             <Text variant="cardTitle">Create a backup</Text>
+            <Row gap="md" align="center">
+              <Stack gap={2} style={{ flex: 1 }}>
+                <Text variant="body" color="primary">
+                  Include receipt images
+                </Text>
+                <Text variant="caption" color="secondary">
+                  Attachments are encrypted inside the same file (12 MB per image, 60 MB total).
+                </Text>
+              </Stack>
+              <Switch
+                value={includeImages}
+                onValueChange={setIncludeImages}
+                accessibilityLabel="Include receipt images in backup"
+              />
+            </Row>
             <PasswordField label="Backup password" value={password} onChangeText={setPassword} />
             <PasswordField
               label="Confirm password"
@@ -229,7 +265,16 @@ export default function BackupScreen(): ReactNode {
                   {preview.counts.settlements} settlements · {preview.counts.rows} rows
                 </Text>
                 <Text variant="caption" color="muted">
-                  Exported {preview.exportedAt.slice(0, 10)} · database v{preview.schemaVersion}
+                  Format v{preview.formatVersion} · exported {preview.exportedAt.slice(0, 10)} ·
+                  database v{preview.schemaVersion}
+                </Text>
+                <Text variant="caption" color="secondary">
+                  {preview.includesAttachments
+                    ? `${preview.attachmentCount} receipt images · ${(
+                        preview.attachmentBytes /
+                        (1024 * 1024)
+                      ).toFixed(1)} MB`
+                    : 'No receipt images in this backup (financial data only).'}
                 </Text>
                 <Button
                   label="Restore and replace data"

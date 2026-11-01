@@ -63,6 +63,12 @@ export interface SyncStatusScreenProps {
   readonly onFullResync?: () => void;
   /** v2.6.0 — last download error, surfaced honestly (never hidden). */
   readonly downloadError?: string | null;
+  /** Set when the queue/conflicts could not be read at all. */
+  readonly loadError?: string | null;
+  /** Retry the failed load (rendered only with `loadError`). */
+  readonly onReload?: () => void;
+  /** Set when a retry / re-sync / conflict action failed. */
+  readonly actionError?: string | null;
   /** Optional close affordance (route header provides one on native). */
   readonly onClose?: () => void;
 }
@@ -87,6 +93,9 @@ export function SyncStatusScreen({
   onResolveConflict,
   onFullResync,
   downloadError,
+  loadError,
+  onReload,
+  actionError,
   onClose,
 }: SyncStatusScreenProps): JSX.Element {
   void onClose; // reserved: the native route header owns the close affordance
@@ -158,6 +167,42 @@ export function SyncStatusScreen({
             />
           </Stack>
         </Card>
+
+        {loadError !== null && loadError !== undefined && loadError !== '' && (
+          <Card elevation="sm" padding="md" accessibilityRole="alert">
+            <Stack gap="sm" align="stretch">
+              <Row gap="sm" align="center">
+                <Icon
+                  name="cloud-offline-outline"
+                  size={theme.iconSizes.md}
+                  color={theme.colors.negative}
+                />
+                <Text variant="bodyStrong" color="primary">
+                  Could not load sync status
+                </Text>
+              </Row>
+              <Text variant="caption" color="secondary">
+                {loadError}
+              </Text>
+              {onReload !== undefined && (
+                <Button
+                  label="Try again"
+                  variant="secondary"
+                  size="sm"
+                  icon="refresh"
+                  onPress={onReload}
+                  accessibilityLabel="Retry loading sync status"
+                />
+              )}
+            </Stack>
+          </Card>
+        )}
+
+        {actionError !== null && actionError !== undefined && actionError !== '' && (
+          <Text variant="caption" color="negative" accessibilityLiveRegion="polite">
+            {actionError}
+          </Text>
+        )}
 
         {conflictCount > 0 && onResolveConflict !== undefined && (
           <Stack gap="md" align="stretch">

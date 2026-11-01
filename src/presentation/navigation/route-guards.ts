@@ -1,10 +1,9 @@
 /**
  * Route guards.
  *
- * Pure synchronous functions that decide whether a route is accessible
- * given the current app state. Route files call these before rendering
- * sensitive content; if a guard returns false, the route file renders a
- * `<Redirect />` to a safer destination.
+ * Route checks that decide whether a route is accessible given the
+ * current app state. Synchronous guards validate already-available
+ * values; the onboarding hook waits for persisted state hydration.
  *
  * Phase 2 status:
  *   - `requireOnboardingComplete` reads the persisted navigation store.
@@ -13,11 +12,11 @@
  *     land (later prompts), they will consult those stores for actual
  *     existence.
  *
- * These functions are kept synchronous on purpose — expo-router's
- * `<Redirect />` is a synchronous render-time primitive, and guards
- * must not block on async I/O. State that requires async hydration is
- * expected to already be loaded by the time a screen renders.
+ * Expo Router redirects are render-time primitives, so routes should
+ * render a loading state when their decision depends on async hydration.
  */
+
+import { useEffect, useState } from 'react';
 
 import { useNavigationStore } from '@store/navigation-store';
 
@@ -28,6 +27,32 @@ import { useNavigationStore } from '@store/navigation-store';
  */
 export function requireOnboardingComplete(): boolean {
   return useNavigationStore.getState().onboardingComplete;
+}
+
+/**
+ * Returns the persisted onboarding decision once navigation state has
+ * hydrated. While hydration is pending, returns null so the root route
+ * can render a loading state instead of redirecting on the default value.
+ */
+export function useRequireOnboardingComplete(): boolean | null {
+  const onboardingComplete = useNavigationStore((state) => state.onboardingComplete);
+  const [hasHydrated, setHasHydrated] = useState(() =>
+    useNavigationStore.persist.hasHydrated(),
+  );
+
+  useEffect(() => {
+    const unsubscribe = useNavigationStore.persist.onFinishHydration(() => {
+      setHasHydrated(true);
+    });
+
+    if (useNavigationStore.persist.hasHydrated()) {
+      setHasHydrated(true);
+    }
+
+    return unsubscribe;
+  }, []);
+
+  return hasHydrated ? onboardingComplete : null;
 }
 
 /**

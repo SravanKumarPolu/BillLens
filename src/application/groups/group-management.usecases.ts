@@ -20,6 +20,7 @@ import {
 } from '@domain/entities/group-member';
 import type { GroupMemberRepository } from '@domain/repositories/group-member.repository';
 import type { GroupRepository } from '@domain/repositories/group.repository';
+import { assertGroupWritable } from './group-write-guard';
 import type { GroupId, MemberId } from '@shared-types/index';
 
 export interface GroupFinancialCounts {
@@ -31,7 +32,7 @@ export interface GroupManagementStore {
   getFinancialCounts(groupId: string): Promise<GroupFinancialCounts>;
   countMemberReferences(groupId: string, memberId: string): Promise<number>;
   countReceiptFiles(groupId: string): Promise<number>;
-  deleteGroupCascade(groupId: string): Promise<readonly string[]>;
+  deleteGroupCascade(groupId: string, now: string): Promise<{ readonly queued: number }>;
 }
 
 export interface GroupDeletionSummary {
@@ -165,17 +166,16 @@ export class DeleteGroupUseCase {
   constructor(
     private readonly groups: GroupRepository,
     private readonly store: GroupManagementStore,
-    private readonly deleteFile: (uri: string) => Promise<void> = async () => undefined,
   ) {}
 
   async execute(input: {
     readonly groupId: string;
     readonly confirmationName: string;
     readonly secondConfirmation?: boolean;
-  }): Promise<{ deleted: boolean; filesRemoved: number }> {
+  }): Promise<{ deleted: boolean; filesQueued: number }> {
     const group = await this.groups.findById(input.groupId as GroupId);
     if (group === null || group.deletedAt !== undefined) {
-      return { deleted: false, filesRemoved: 0 };
+      return { deleted: false, filesQueued: 0 };
     }
     if (input.confirmationName.trim() !== group.name) {
       throw new Error('Type the exact group name to confirm deletion.');
@@ -185,18 +185,11 @@ export class DeleteGroupUseCase {
       throw new Error('This group has financial records. Confirm permanent deletion again.');
     }
 
-    const receiptUris = await this.store.deleteGroupCascade(input.groupId);
-    // Best-effort file cleanup; a missing file is already effectively deleted.
-    let filesRemoved = 0;
-    for (const uri of receiptUris) {
-      try {
-        await this.deleteFile(uri);
-        filesRemoved += 1;
-      } catch {
-        // Database deletion already committed; a retry can clean orphans.
-      }
-    }
-    return { deleted: true, filesRemoved };
+    const result = await this.store.deleteGroupCascade(
+      input.groupId,
+      new Date().toISOString(),
+    );
+    return { deleted: true, filesQueued: result.queued };
   }
 }
 
@@ -227,7 +220,10 @@ export class AddGroupMemberUseCase {
 }
 
 export class RenameGroupMemberUseCase {
-  constructor(private readonly members: GroupMemberRepository) {}
+  constructor(
+    private readonly members: GroupMemberRepository,
+    private readonly groups?: GroupRepository,
+  ) {}
 
   async execute(input: {
     readonly memberId: string;
@@ -236,6 +232,9 @@ export class RenameGroupMemberUseCase {
   }): Promise<GroupMember> {
     const current = await this.members.findById(input.memberId as MemberId);
     if (current === null || current.leftAt !== undefined) throw new Error('Member not found.');
+    if (this.groups !== undefined) {
+      assertGroupWritable(await this.groups.findById(current.groupId), 'member');
+    }
     const next = renameGroupMember(current, {
       displayName: input.displayName,
       expectedVersion: (input.expectedVersion ?? current.version) as never,
@@ -249,11 +248,15 @@ export class RemoveGroupMemberUseCase {
   constructor(
     private readonly members: GroupMemberRepository,
     private readonly store: GroupManagementStore,
+    private readonly groups?: GroupRepository,
   ) {}
 
   async execute(input: { readonly memberId: string }): Promise<{ mode: 'deactivated' }> {
     const current = await this.members.findById(input.memberId as MemberId);
     if (current === null || current.leftAt !== undefined) throw new Error('Member not found.');
+    if (this.groups !== undefined) {
+      assertGroupWritable(await this.groups.findById(current.groupId), 'member');
+    }
     if (current.role === 'owner') {
       throw new Error('The group owner cannot be removed. Change ownership first.');
     }

@@ -71,6 +71,36 @@ describe('assessRetention', () => {
     expect(result.state).toBe('eligible');
   });
 
+  it('uses the UTC instant so time-zone changes do not shift eligibility', () => {
+    // 365 days after 2025-10-21T23:30Z is 2026-10-21T23:30Z.
+    const before = assessRetention(
+      snapshot({ lastActivityAt: '2025-10-21T23:30:00.000Z' }),
+      new Date('2026-10-21T23:29:59.999Z'),
+    );
+    expect(before.state).toBe('too_recent');
+
+    const atBoundary = assessRetention(
+      snapshot({ lastActivityAt: '2025-10-21T23:30:00.000Z' }),
+      new Date('2026-10-21T23:30:00.000Z'),
+    );
+    expect(atBoundary.state).toBe('eligible');
+  });
+
+  it('counts leap days as real elapsed time', () => {
+    // 29 Feb 2024 + 365 days = 28 Feb 2025 (2024 is a leap year).
+    const result = assessRetention(
+      snapshot({ lastActivityAt: '2024-02-29T00:00:00.000Z' }),
+      new Date('2025-02-27T23:59:59.999Z'),
+    );
+    expect(result.state).toBe('too_recent');
+
+    const boundary = assessRetention(
+      snapshot({ lastActivityAt: '2024-02-29T00:00:00.000Z' }),
+      new Date('2025-02-28T00:00:00.000Z'),
+    );
+    expect(boundary.state).toBe('eligible');
+  });
+
   it('honours a custom retention period', () => {
     const sixtyDays = { retentionDays: 60 };
     const recent = assessRetention(

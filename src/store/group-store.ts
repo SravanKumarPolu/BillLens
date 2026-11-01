@@ -52,6 +52,16 @@ export interface GroupStore {
   /** Insert or replace a group by id (used by sync / refresh flows). */
   upsertGroup: (group: GroupSummary) => void;
 
+  /**
+   * Replace the cached list with the SQLite-derived truth (see
+   * `hydrateGroupStore`). Preserves UI-only fields (`groupType`,
+   * `privacyDefault`) for groups that were already cached — those two
+   * live only in this store (KNOWN_LIMITATIONS KL-12) — and drops
+   * cached rows that no longer exist in SQLite (deleted remotely,
+   * erased, or replaced by a restore).
+   */
+  replaceAllGroups: (groups: readonly GroupSummary[]) => void;
+
   /** Mark a group as archived (hidden from the active list). */
   archiveGroup: (id: string) => void;
 
@@ -91,6 +101,24 @@ export const useGroupStore = create<GroupStore>()(
           const next = [...state.groups];
           next[idx] = group;
           return { groups: next };
+        }),
+
+      replaceAllGroups: (groups) =>
+        set((state) => {
+          const knownById = new Map(state.groups.map((g) => [g.id, g]));
+          return {
+            groups: groups.map((g) => {
+              const known = knownById.get(g.id);
+              return known
+                ? {
+                    ...g,
+                    // UI-only fields (KL-12) survive a SQLite hydration.
+                    groupType: known.groupType,
+                    privacyDefault: known.privacyDefault,
+                  }
+                : g;
+            }),
+          };
         }),
 
       archiveGroup: (id) =>

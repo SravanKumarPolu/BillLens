@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from '@jest/globals';
 
 import { asDateTime } from '@domain/value-objects';
 
-import { runMigrations, getSchemaVersion, MIGRATIONS, SCHEMA_VERSION_TABLE_SQL } from '../sqlite/schema';
+import { runMigrations, getSchemaVersion, MIGRATIONS, SCHEMA_VERSION_TABLE_SQL, CURRENT_SCHEMA_VERSION } from '../sqlite/schema';
 import {
   SqliteSyncRepository,
   computeNextRetryAt,
@@ -33,7 +33,7 @@ describe('SqliteSyncRepository', () => {
     //      sync_conflicts rebuild (category CHECK aligned with the
     //      categories the coordinator actually writes).
     // Bump this assertion when adding new migrations.
-    expect(await getSchemaVersion(db)).toBe(11);
+    expect(await getSchemaVersion(db)).toBe(CURRENT_SCHEMA_VERSION);
   });
 
   it('enqueue inserts a pending operation', async () => {

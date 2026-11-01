@@ -28,6 +28,7 @@ export default function GroupLayout(): ReactNode {
     >
       <Stack.Screen name="index" options={{ title: groupId }} />
       <Stack.Screen name="balances" options={{ title: 'Balances' }} />
+      <Stack.Screen name="settlements" options={{ title: 'Settlement history' }} />
       <Stack.Screen name="settings" options={{ title: 'Group settings' }} />
     </Stack>
   );

@@ -16,6 +16,7 @@ import {
   SCHEMA_VERSION_TABLE_SQL,
   getSchemaVersion,
   runMigrations,
+  CURRENT_SCHEMA_VERSION,
 } from '@infrastructure/sqlite/schema';
 import { splitSqlStatements } from '@infrastructure/sqlite/sql-statements';
 
@@ -48,12 +49,12 @@ describeWithSqlite('migration 0008 upgrade', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it('goes from version 7 to 11 and creates the encrypted-sync + recurring tables', async () => {
+  it('upgrades version 7 to the current schema and creates the encrypted-sync + recurring tables', async () => {
     expect(await getSchemaVersion(db)).toBe(7);
 
     await runMigrations(db);
 
-    expect(await getSchemaVersion(db)).toBe(11);
+    expect(await getSchemaVersion(db)).toBe(CURRENT_SCHEMA_VERSION);
     const tables = await db.all<{ name: string }>(
       "select name from sqlite_master where type = 'table' order by name",
     );

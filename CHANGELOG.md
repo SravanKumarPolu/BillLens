@@ -2,6 +2,319 @@
 
 All notable changes to BillLens across Phases 1-10 are documented here.
 
+## [2.26.2] — 2026-10-25 / 2026-11-01
+
+### Settlement history: list, detail and reversal (KL-7 / KL-8 closed)
+
+- **Per-group settlement history (`/groups/[groupId]/settlements`).**
+  `ListSettlementsUseCase` now has a UI caller: a virtualised,
+  cursor-paginated FlatList backed by the existing `(group_id, status)`
+  index — no new query. Status filter chips (all / awaiting confirmation /
+  completed / disputed), honest empty states, error + retry, and
+  `groupName` from the members use case. Reachable from the group
+  balances screen ("Settlement history" card). Rows deep-link to
+  `/settlements/[settlementId]`.
+- **Settlement detail + guarded reversal (`/settlements/[settlementId]`).**
+  Facts, status, method, note and reversal explanation;
+  `ReverseSettlementUseCase` runs behind a destructive-action dialog
+  with the persisted version (landed 2026-10-25; changelogged here
+  because the 2.26.2 packaging pass had not been written up).
+- **Screen-reader amounts.** Both settlement screens now speak
+  `describeAmount(...)` ("₹125.00 INR"), not raw minor units — restoring
+  the AUDIT_OCT_2026 §3.1 guarantee that the October pass had applied
+  everywhere else. Regression tests assert the storage integer never
+  reaches an accessibility label.
+- **Local-calendar dates.** Date-only settlement dates (`YYYY-MM-DD`)
+  are parsed as local calendar dates, not UTC midnight (the
+  off-by-one-day class of bug from AUDIT_OCT_2026 §2.4), identically on
+  the history list and the detail screen.
+- **After a settlement is saved**, the cached group balance is
+  recomputed from SQLite (`hydrateGroupStore`) instead of keeping the
+  optimistic upsert's stale net.
+- Touch targets on the new screen meet the 44 pt minimum; filter chips
+  wrap on narrow screens.
+
+**Verification (2026-11-01, this environment: Node 24, no devices).**
+`tsc --noEmit` clean; `eslint .` 0 errors / 0 warnings; Jest **229
+suites / 5,000 tests** passing (including `settlement-history.test.tsx`
+and the extended `settlement-detail.test.tsx`); `db:validate`,
+`db:verify` (15 blocks, 42 tables) and `secret-scan` clean;
+`expo export -p web` succeeds (`/groups/[groupId]/settlements` ships a
+title, description and `noindex`); `expo-doctor` **21/21**. Hardware-
+dependent gates remain open (see `KNOWN_LIMITATIONS.md`).
+
+### Repair after the first 2.26.2 packaging pass (2026-11-01)
+
+The first 2.26.2 commit added migration 0014 (`settlement_reminders.version`)
+but left several real-SQLite suites and the backup-restore rollback test
+on hardcoded schema version 13, so `tsc --noEmit` and 9 Jest suites
+failed. Repairs, in place:
+
+- `CURRENT_SCHEMA_VERSION` is now exported from `schema.ts` and derived
+  from `MIGRATIONS`. Tests and the backup rollback mock read it instead
+  of a hardcoded integer, so the next migration cannot silently leave
+  the suite (or restore) on the previous version.
+- `settlement-detail.test.tsx` type errors fixed (reminder-list item
+  type; optional first `scheduleNotification` call argument).
+- Living docs refreshed: KL-7/KL-9 (reminder UI is wired on the detail
+  screen), FEATURE_MATRIX reminders row, REQUIREMENTS_TRACEABILITY
+  CORE-02 / FIN-04 / NOT-01, SQLITE_MIGRATIONS migration 0014.
+- No SQLite data was reset, no financial row rewritten, no core feature
+  removed. Offline path, encrypted-sync deferral and the existing
+  settlement state machine are unchanged.
+
+## [2.26.1] — 2026-10-24
+
+### Permission surface, dev scripts and final packaging (2026-10-24)
+
+- `expo-camera` now uses the documented `cameraPermission` prop. The previous
+  `cameraPermissionText` was ignored, so iOS showed the generic system prompt.
+- Camera and image picker no longer request microphone access
+  (`microphonePermission: false`, `recordAudioAndroid: false`). BillLens only
+  captures still images; resolved Android permissions are `CAMERA` only.
+- `npm run android` / `npm run ios` now launch a development build
+  (`expo run:*`) instead of the Expo Go launcher, matching the native
+  requirements of ML Kit OCR and local notifications.
+- Draft-review container test now flushes React 19 `act()` work explicitly
+  instead of polling with `waitFor`, removing a flaky timeout.
+- Jest `testTimeout` raised to 15 s: the real-SQLite and crypto suites can
+  exceed the 5 s default on a cold CI runner, which produced a one-off
+  timeout in the first run after `npm ci` while three warm runs passed.
+- Project consolidated into `BillLens-Final/` and archived as
+  `BillLens-Final.zip`; the archive was extracted and revalidated in a clean
+  directory (install, typecheck, lint, tests, SQLite schema, secret scan,
+  Expo config, web export).
+
+## [2.26.0] — 2026-10-23
+
+### Real-SQLite test engine for every environment (2026-10-23)
+
+- `src/infrastructure/__tests__/sqlite-cli-database.ts` now runs on
+  Node's built-in `node:sqlite` (`DatabaseSync`) with the `sqlite3` CLI
+  as fallback. The integration suites execute real SQLite with native
+  parameter binding, REAL `BEGIN/COMMIT/ROLLBACK` transactions (the CLI
+  path was a passthrough) and `PRAGMA foreign_keys = ON` — production
+  parity. On machines without the CLI this previously skipped 15 suites
+  (54 tests) silently; `two-device-sync` failed outright.
+- `npm run db:verify` uses the same engine preference and now really
+  executes the schema where `node:sqlite` exists (14 blocks, 42 tables)
+  instead of printing "skipping".
+- `backup-attachments.test.ts`: two tests inserted receipts without
+  seeding the referenced group — a latent FK violation the old engine
+  (FK off, one process per statement) never caught. Seeding fixed.
+- Result: 224 suites / 4,960 tests, 0 skipped — all executing.
+
+### Receipt scan → review → save pipeline repairs (P0)
+
+- **Receipt rows are now persisted from real scans.** The draft review
+  screen resolves the capture image URI from the draft's CaptureSource
+  and passes it to the confirm use case; previously the URI only ever
+  arrived through a test-only prop, so production confirms never created
+  a Receipt row and the review screen never showed the receipt photo.
+- **Discard is durable.** New `DiscardExpenseDraftUseCase`; the review
+  screen's Discard previously only cleared the UI store, leaving the
+  draft `needs_review` in SQLite forever (it reappeared in the inbox).
+- **"Adjust items & split" closes its source draft** after saving, so a
+  confirmed itemized expense cannot be re-confirmed as a duplicate.
+- **Groupless drafts are no longer a dead end.** Drafts captured from
+  the home FAB (no group) now get an in-screen group picker; Confirm is
+  blocked with a clear hint until a group is linked.
+- Camera/gallery: `sourceType` is propagated to the image-quality
+  screen so "Choose another image" returns to the same capture surface
+  (it always opened the gallery). Permission-denied cards now offer
+  "Open settings" via `Linking.openSettings()`.
+
+### Financial correctness and settings repairs
+
+- Settlement method picker offers only the four methods the local
+  schema can persist (cash / UPI / bank transfer / other). `card` and
+  `wallet` were selectable and then failed the `settlements.method`
+  CHECK on a real device.
+- Itemized expense entry uses the shared currency-aware integer parser
+  (`parseAmountToMinor`) instead of float `×100` math hardcoded to two
+  decimals (broken for JPY/KWD-style currencies); edit-prefill
+  formatting uses the domain currency decimals table.
+- Group settings: rename / archive / unarchive now persist through the
+  real use cases (they previously mutated only the UI store and silently
+  diverged from SQLite); the no-op "Leave group" control was removed
+  (leaving needs the identity adapters — the store method remains for
+  the local-copy flow).
+- New Group: creation errors surface via alert + inline text, submit
+  disabled while writing (previously failures were swallowed).
+- Void expense passes the actual local identity instead of the expense
+  creator (the permission check could never fail).
+- Pending-confirmation cards use the settlement's persisted version
+  instead of a hardcoded `2`.
+- Backup restore alert copy reflects whether the selected backup
+  contains receipt images.
+
+### Verification (2026-10-23, this environment: Node 24.21, no devices)
+
+`npm ci` reproducible; `tsc --noEmit` 0 errors; `eslint .` 0/0; Jest
+224 suites / 4,960 tests passing; `db:validate` all SQL valid;
+`db:verify` 14 blocks / 42 tables in real SQLite; `secret-scan` clean;
+`expo-doctor` 21/21; `expo export -p web` succeeds. No device/emulator
+runs — hardware-dependent flows remain unverified (see
+`FINAL_TEST_RESULTS.md`, `KNOWN_LIMITATIONS.md`).
+
+## [2.25.0] — 2026-10-22
+
+### Android activity screen crash on Hermes (2026-10-23)
+
+- The activity tab crashed on Android with `TypeError: undefined cannot be
+  used as a constructor` at `ActivityScreen.tsx:87`. The screen had its own
+  `formatRelativeTime` that called `new Intl.RelativeTimeFormat(...)`
+  unguarded; Hermes does not implement `RelativeTimeFormat`, so the
+  constructor was `undefined`.
+- The duplicate helper was removed. The screen now uses the shared
+  `src/presentation/utils/relative-time.ts`, which feature-detects the
+  constructor, caches it against the constructor reference and falls back to
+  documented English labels when the API is absent or throws.
+- Invalid or empty activity timestamps now render a blank label instead of
+  throwing; the rest of the timeline still renders.
+- Covered: just now, minutes, hours, yesterday, 2–6 days, older calendar
+  dates, future timestamps, invalid timestamps.
+- Repository swept for other optional Intl usage: no `Intl.Segmenter`,
+  `Intl.DisplayNames`, `Intl.ListFormat` or `Intl.PluralRules` calls. The
+  remaining `Intl.NumberFormat` / `Intl.DateTimeFormat` calls are supported by
+  Hermes and were left unchanged.
+- Regression tests simulate a missing and a throwing `RelativeTimeFormat` and
+  render the Activity screen with mixed valid/invalid timestamps.
+- `expo-notifications` bumped `~57.0.23` → `~57.0.24` so `expo-doctor` passes
+  (pre-existing patch mismatch, no app behaviour change).
+
+### Receipt persistence, history and item-level OCR confirmation
+
+- Draft confirmation now persists a Receipt row, receipt items and the linked
+  expense atomically. Previously no production code ever inserted into
+  `receipts`, so receipt history, backup images and receipt retention had no
+  records to operate on.
+- OCR drafts with reconciled line items now confirm using `ItemSplitStrategy`
+  instead of silently falling back to an equal split.
+- Receipt images and metadata are linked to the expense via `receipt_id`;
+  receipt history lists saved receipts and allows guarded deletion, which
+  soft-deletes metadata and queues the image in the existing cleanup outbox.
+- Fixed `expense_drafts` inserts omitting required `client_created_at` /
+  `client_updated_at`, which made real SQLite draft persistence fail.
+- New real-SQLite tests: atomic receipt/items/expense confirmation, item-level
+  split totals, receipt history and deletion cleanup.
+- 221 suites / 4,927 tests pass.
+## [2.24.0] — 2026-10-22
+
+### Android native build verification (2026-10-22)
+
+- Debug APK (`assembleDebug`) and debug AAB (`bundleDebug`) build successfully
+  with JDK 17. APK contains ML Kit OCR pipeline + models for all ABIs.
+- Runtime OCR/camera/device validation remains outstanding.
+
+### UI/navigation audit and dead-control cleanup
+
+- Removed the onboarding “I already have an account” control whose `/auth/sign-in`
+  route does not exist; the Verify screen’s fallback now returns to onboarding.
+- Selected expense-type chip is no longer a no-op button.
+- Removed nonfunctional draft line-item edit icons and the fake payer selector;
+  the real path is “Adjust items & split”.
+- Added explicit parameter redirects for group edit/members/delete, item editor
+  and itemized creation when deep links omit required IDs.
+- Archived groups now show a read-only banner and hide primary mutation actions.
+- Added a route-link test that fails if a literal `router.push/replace` target
+  has no route file.
+- Edit Group now has a screen heading; payer rows wrap on narrow screens.
+- 220 suites / 4,924 tests pass. No device run.
+## [2.23.0] — 2026-10-22
+
+### Retention, temp cleanup and guarded local erasure
+
+- Retention modes: keep manually, review after the configured window, or
+  automatically clean unreferenced temporary receipt files. Financial records
+  are never auto-deleted.
+- Bounded daily cleanup (max 50) finds old files not referenced by receipts or
+  capture sources and enqueues them in the existing durable cleanup queue —
+  no second queue.
+- Guarded “Erase all local data”: preview counts, exact `DELETE` confirmation,
+  native destructive dialog, transactional table wipe, schema and cleanup queue
+  preserved, preferences cleared, local receipt files queued.
+- Privacy copy states SQLite is not encrypted at rest beyond the OS sandbox,
+  exports are unencrypted, optional cloud is not required, and deletion is not
+  a forensic flash wipe.
+- Tests: UTC boundary, leap-year boundary, temp-cleanup cutoff/bounds,
+  referenced-vs-orphan detection, full erase idempotency and queue intent.
+  219 suites / 4,923 tests pass.
+## [2.22.0] — 2026-10-22
+
+### Camera/gallery replacement and native OCR hardening
+
+- Image review now offers “Choose another image”, routing back to the camera or
+  gallery while preserving scan mode and group.
+- ML Kit adapter: bounded one-time retry for transient native failures,
+  cancellation checks, empty-output rejection and actionable manual-entry
+  messages. Native recognition is still unverified on hardware.
+- Native compatibility: added a prebuild plugin that rewrites the ML Kit
+  module's legacy `com.facebook.react:react-native:+` dependency to
+  `react-android` for RN 0.86. Expo autolinking resolves the module.
+- Android SDK is installed but **no Java runtime** is available, so Gradle
+  compile/AAB was not run. Expo Doctor exclusion remains documented.
+- Tests: image replacement UI, OCR retry/failure/empty/cancellation. 216 suites
+  / 4,913 tests pass.
+## [2.21.0] — 2026-10-22
+
+### Item-first expense creation and receipt conversion
+
+- New `/expenses/itemized/new` screen creates an itemized expense directly —
+  no placeholder expense. Entries include items, decimal quantities, unit
+  prices, per-item participants, tax/tip/service/discount and multiple payers.
+- Uses the existing `ItemSplitStrategy` through `createExpenseManually`; a live
+  member preview is computed by the same engine.
+- A deterministic expense id is created at mount, so retries cannot duplicate;
+  saving is disabled during submission and until payer totals reconcile.
+- The New Expense screen now offers Simple / Itemized / Scan receipt modes.
+- Receipt drafts expose “Adjust items & split”, pre-filling the itemized screen
+  from the parsed draft (items, charges) while keeping manual fallback.
+- Unsaved item-first input is autosaved to AsyncStorage and restored on return;
+  the draft is cleared only after successful persistence.
+- Tests: decimal quantities, multiple payers, duplicate id retry and
+  reconciliation rejection over real SQLite. 215 suites / 4,908 tests pass.
+## [2.20.0] — 2026-10-22
+
+### Group lifecycle safety and durable file cleanup
+
+- Archived groups are now guarded at both the application and SQLite write
+  boundaries. Expense create/edit/void, settlement create/transitions, reccurring
+  template mutations/generation and member add/rename/deactivate all fail with a
+  clear read-only error. Read, export, backup and restore remain allowed.
+- Migration 0012 adds `file_cleanup_queue`. Group deletion records cleanup intent
+  in the same transaction that removes receipt rows; files still referenced by
+  another group are never queued.
+- `ProcessFileCleanupQueueUseCase` processes jobs idempotently with bounded
+  batches, 1/5/30/120/720-minute backoff, five attempts, permanent-failure rows
+  retained for diagnostics and 30-day pruning of completed jobs.
+- Startup and post-deletion workers drain the queue; missing files count as
+  success, and app termination cannot lose intent.
+- Deletion UI shows a non-fake progress state, disables repeated submission and
+  disables Cancel while deleting.
+- Tests: 7 group lifecycle tests including the full archived mutation matrix and
+  settlement transition; 4 cleanup tests covering shared files, restart, retry,
+  missing files and the attempt cap. 215 suites / 4,905 tests pass.
+## [2.19.0] — 2026-10-22
+
+### Encrypted receipt-image backups (format v2)
+
+- Backup payload v2 includes receipt image bytes inside the authenticated
+  XChaCha20-Poly1305 envelope, with SHA-256 integrity, MIME/extension checks,
+  original-URI mapping and deduplication by file hash.
+- Optional financial-only mode; v1 payloads (no attachments) still restore.
+- Limits: 12 MB per image, 60 MB total, 200 attachments. Missing files are
+  reported in the preview and excluded; they never fail the financial backup.
+- Restore stages files first, verifies hashes/sizes/storage, rewrites every
+  `image_uri` to the new app-managed path, then replaces tables transactionally.
+  SQL failure removes staged files; SQLite and filesystem atomicity is not
+  claimed.
+- UI: include-images toggle, receipt count/size, format version, attachment
+  presence, missing-image warnings and destructive restore preview.
+- Tests: 8 attachment tests (round-trip, dedup, missing, v1, unsupported
+  version, hash mismatch, insufficient storage, rollback) over real files/SQLite.
+
+No cloud storage or paid service. 214 suites / 4,897 tests pass.
 ## [2.18.0] — 2026-10-22
 
 ### Group editing, members, archive and safe deletion

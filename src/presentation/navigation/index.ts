@@ -6,4 +6,9 @@
  * underlying store implementations evolve.
  */
 
-export { requireDraftExists, requireGroupExists, requireOnboardingComplete } from './route-guards';
+export {
+  requireDraftExists,
+  requireGroupExists,
+  requireOnboardingComplete,
+  useRequireOnboardingComplete,
+} from './route-guards';

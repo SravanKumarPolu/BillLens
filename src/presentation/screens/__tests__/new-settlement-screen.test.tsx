@@ -148,6 +148,22 @@ describe('NewSettlementView', () => {
     expect(handleSelectMethod).toHaveBeenCalledWith('cash');
   });
 
+  it('offers only the four locally persistable methods (v2.26.0 regression)', () => {
+    // The local SQLite schema's `settlements.method` CHECK accepts only
+    // cash / upi / bank_transfer / other. The picker previously offered
+    // `card` and `wallet` too, which made those saves fail with a
+    // CHECK-constraint error on a real device.
+    const vm = makeViewModel();
+    const { getByLabelText, queryByLabelText } = renderView(vm);
+
+    expect(getByLabelText('Select cash as payment method')).toBeTruthy();
+    expect(getByLabelText('Select upi as payment method')).toBeTruthy();
+    expect(getByLabelText('Select bank_transfer as payment method')).toBeTruthy();
+    expect(getByLabelText('Select other as payment method')).toBeTruthy();
+    expect(queryByLabelText('Select card as payment method')).toBeNull();
+    expect(queryByLabelText('Select wallet as payment method')).toBeNull();
+  });
+
   it('disables submit when canSubmit is false', () => {
     const handleSubmit = jest.fn();
     const vm = makeViewModel({ canSubmit: false });

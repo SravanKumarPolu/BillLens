@@ -48,6 +48,7 @@ import {
 } from '@presentation/hooks/use-settlement-form';
 import { moneyDecimals, parseMoneyInput } from '@presentation/utils/parse-money-input';
 import { useGroupStore } from '@store/group-store';
+import { hydrateGroupStore } from '@presentation/hooks/use-group-store-hydration';
 
 /** Integer-only minor → major string (no floats; respects JPY/KWD scale). */
 function minorToMajorInput(minor: number, currencyCode: string): string {
@@ -58,6 +59,19 @@ function minorToMajorInput(minor: number, currencyCode: string): string {
   if (decimals === 0) return String(whole);
   return `${whole}.${fraction.toString().padStart(decimals, '0')}`;
 }
+
+/**
+ * v2.26.0: the local SQLite schema only accepts these four methods
+ * (`settlements.method` CHECK — see schema.ts). The domain also defines
+ * `card` and `wallet`, but selecting either previously produced a
+ * guaranteed CHECK-constraint failure on save. The picker therefore
+ * offers only the locally persistable set; the wider domain list stays
+ * available for future schema/remote expansion.
+ */
+const LOCAL_SETTLEMENT_METHODS: readonly SettlementMethod[] =
+  ALL_SETTLEMENT_METHODS.filter(
+    (method) => method === 'cash' || method === 'upi' || method === 'bank_transfer' || method === 'other',
+  );
 
 // ---------------------------------------------------------------------------
 // View-model types
@@ -228,6 +242,9 @@ export function NewSettlementScreen({ groupId }: NewSettlementScreenProps): JSX.
         createdAt: existingGroup?.createdAt ?? new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+      // Recompute the cached balance from SQLite (the optimistic upsert
+      // above cannot know the new net).
+      void hydrateGroupStore();
       router.back();
     } catch {
       // The hook already stored the error in `form.error` — the view
@@ -489,7 +506,7 @@ export function NewSettlementView({
         <Stack gap="xs" align="stretch">
           <Text style={labelStyle}>METHOD</Text>
           <Row gap="sm" align="center" style={{ flexWrap: 'wrap' }}>
-            {ALL_SETTLEMENT_METHODS.map((method) => {
+            {LOCAL_SETTLEMENT_METHODS.map((method) => {
               const selected = viewModel.form.method === method;
               return (
                 <Pressable

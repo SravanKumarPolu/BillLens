@@ -1,4 +1,4 @@
-# Feature matrix (2026-10-21)
+# Feature matrix (2026-11-01, v2.26.2)
 
 Statuses: **VERIFIED** (tests in this repo), **DEVICE-UNTESTED**,
 **PARTIAL**, **MISSING**, **EXTERNAL** (credentials/hardware/provider).
@@ -7,7 +7,7 @@ Statuses: **VERIFIED** (tests in this repo), **DEVICE-UNTESTED**,
 
 | Feature | Original | Final | Evidence / blocker |
 |---|---|---|---|
-| Create/edit/archive group | Verified | Verified | full edit form, category/icon, archive/restore; real-SQLite tests |
+| Create/edit/archive group | Verified | Verified | archive guard at app + SQLite layers; real-SQLite matrix |
 | Add/remove members | Verified | Verified | add/rename/deactivate UI; owner protected; history preserved |
 | Manual expense entry | Verified | Verified | screen→SQLite test: ₹100 → four ₹25 splits |
 | Equal split | Verified | Verified | domain strategy + use case + form |
@@ -19,7 +19,7 @@ Statuses: **VERIFIED** (tests in this repo), **DEVICE-UNTESTED**,
 | Balance calculation | Verified | Verified | balance engine tests + real SQLite flow |
 | Debt simplification | Verified | Verified | suggestions use case/tests |
 | Partial/full settlement | Verified | Verified | settlement state machine tests |
-| Settlement history | Verified | Verified | list/detail/status screens |
+| Settlement history | Verified | Verified | activity timeline + balances pending cards + dedicated `/settlements/[settlementId]` detail/reversal screen and `/groups/[groupId]/settlements` list (status filters, cursor pagination, virtualised) (v2.26.2, 2026-11-01) |
 | Expense history | Verified | Verified | group home recent + activity feed (virtualised) |
 | Expense editing | Missing | **VERIFIED** | `UpdateExpenseUseCase`, edit route, prefill, version guard, tests |
 | Offline persistence | Verified | Verified | real SQLite reopen test |
@@ -46,13 +46,15 @@ Statuses: **VERIFIED** (tests in this repo), **DEVICE-UNTESTED**,
 | Encrypted event persistence/conflicts | Verified | migration 0008 tests |
 | Encrypted sync in app | **MISSING** | not wired; relay not deployed |
 | Invitations/key delivery/recovery | Verified (service) | no screens |
-| Retention + local deletion | Verified | 365-day policy, guards, audit |
+| Retention + local deletion | Verified | configurable review, temp cleanup, guarded erase-all |
 | Expense voiding | Verified | use case + detail screen |
 | Search / filters | Verified | `/search`: title/note text, group, date, pagination |
+| Navigation integrity | Verified (static) | route-link test; dead sign-in control removed |
 | Recurring expenses | Verified | daily/weekly/monthly/yearly; catch-up + idempotency tests |
 | PDF / XLSX export | Implemented, device-untested | lazy `expo-print`/`xlsx` chunks; escaped HTML |
-| Reminders / notifications | Implemented, device-untested | opt-in daily local reminder; no push |
-| Encrypted backup / restore | Verified (Node/SQLite) | DB tables only; receipt image files not included |
+| Reminders / notifications | Implemented, device-untested | opt-in daily local reminder (Expo Go guarded); per-settlement reminder create/cancel wired on `/settlements/[settlementId]` for pending/requested items (v2.26.2); no dedicated inbox; no push |
+| Encrypted backup / restore | Verified (Node/SQLite) | receipt rows now actually persisted; images included |
+| Receipt history / deletion | Verified (Node/SQLite) | `/receipts`; soft delete + queue image cleanup |
 | Multi-currency display | Verified | per-currency balances |
 | FX conversion | **MISSING** | no rates source; no 1:1 assumption |
 | Guest → account migration | Partial | identity domain; no cloud project to verify |
@@ -72,10 +74,33 @@ PDF/XLSX export and local balance reminders are now implemented. It is still
 behind on item-level manual expense editing, FX conversion, production encrypted
 sync, on-device OCR, and device verification of notification/export/backup paths.
 
+## v2.26.1 / v2.26.0 repairs (2026-10-24)
+
+- Native permission surface fixed: `expo-camera` now receives
+  `cameraPermission` (the old `cameraPermissionText` was ignored), and camera
+  + image picker no longer request microphone access — resolved Android
+  permissions are `CAMERA` only.
+- `npm run android` / `ios` use development builds (`expo run:*`); Jest
+  `testTimeout` is 15 s so cold CI runs do not time out on real-SQLite/crypto
+  suites.
+- `BillLens-Final.zip` extracted, installed and revalidated (224 suites /
+  4,960 tests, typecheck, lint, SQLite schema, secret scan, expo-doctor,
+  web export).
+
+- Receipt rows now persist from real scans (capture image resolved on the
+  review screen); discard is durable; itemized "Adjust items & split"
+  closes its source draft; groupless drafts get an in-screen group picker.
+- Settlement method picker matches the local schema CHECK (card/wallet
+  removed — they failed on-device saves).
+- Itemized entry + edit prefill are currency-decimal aware (no float math).
+- Group settings rename/archive/unarchive persist through the real use
+  cases; the no-op Leave control was removed.
+- Real-SQLite integration tests now run on `node:sqlite` (224 suites /
+  4,960 tests, 0 skipped in this environment).
+
 ## Highest-priority next gaps
 
-1. Item-level manual editor (needs `expense_line_items` persistence + assignment UI).
-2. Encrypted sync UI + a deployed relay (external hosting approval).
+1. Encrypted sync UI + a deployed relay (external hosting approval; PRD P2).
+2. Physical-device verification of camera/OCR, notifications, PDF/XLSX share.
 3. FX conversion with a documented rate source.
-4. Physical-device verification of camera, notifications, PDF/XLSX share.
-5. Expense categories/statistics beyond the current stored category field.
+4. Expense categories/statistics beyond the current stored category field.
