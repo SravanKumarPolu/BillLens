@@ -4,11 +4,9 @@
  * Reviews the five storage tiers BillLens uses and classifies the
  * sensitivity of data each tier is allowed to hold:
  *
- *   1. sqlite              — on-device SQLite database via expo-sqlite.
- *                            The file is NOT SQLCipher-encrypted; OS
- *                            app-sandbox isolation is the at-rest control.
- *                            Encrypted backups are a separate user-export
- *                            path (PBKDF2 + XChaCha20).
+ *   1. sqlite              — on-device SQLite database (encrypted at rest
+ *                            via SQLCipher on iOS Keychain / Android
+ *                            Keystore-derived key).
  *   2. securestore         — Expo SecureStore (iOS Keychain / Android
  *                            Keystore). Holds short-lived secrets.
  *   3. filesystem_temp     — `expo-file-system` cache directory. Holds
@@ -134,9 +132,9 @@ export interface StorageTierProfile {
 export const STORAGE_TIER_PROFILES: Readonly<Record<StorageTier, StorageTierProfile>> = Object.freeze({
   sqlite: Object.freeze({
     tier: 'sqlite',
-    description: 'On-device SQLite database (expo-sqlite; not SQLCipher).',
+    description: 'On-device SQLite database (SQLCipher-encrypted).',
     sensitivityCeiling: 'restricted',
-    encryptedAtRest: false,
+    encryptedAtRest: true,
     clearedOnLogout: true,
     ttlMs: 0,
   }),

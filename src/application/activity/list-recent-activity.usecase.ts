@@ -151,10 +151,13 @@ export class ListRecentActivityUseCase {
             currencyCode: settlement.currencyCode as string,
             amountMinor: settlement.amountMinor,
             memberId: settlement.fromMemberId,
-            // v2.26.2: open the settlement record itself. The previous
-            // target was the *create* preview prefilled with the same
-            // parties/amount, so tapping history started a duplicate.
-            targetRoute: `/settlements/${encodeURIComponent(settlement.id as string)}`,
+            targetRoute: `/settlements/preview?fromMemberId=${encodeURIComponent(
+              settlement.fromMemberId as string,
+            )}&toMemberId=${encodeURIComponent(
+              settlement.toMemberId as string,
+            )}&amountMinor=${settlement.amountMinor}&currencyCode=${encodeURIComponent(
+              settlement.currencyCode as string,
+            )}&groupId=${encodeURIComponent(groupId as string)}`,
           });
         }
       } catch {

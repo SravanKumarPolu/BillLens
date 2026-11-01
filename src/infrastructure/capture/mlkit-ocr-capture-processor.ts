@@ -10,11 +10,7 @@
  * review screen still requires explicit user confirmation.
  */
 
-import type {
-  CaptureProcessOptions,
-  CaptureProcessor,
-  CaptureProcessorInput,
-} from '@domain/ports/capture-processor.port';
+import type { CaptureProcessor, CaptureProcessorInput } from '@domain/ports/capture-processor.port';
 import {
   asExtractionResultId,
   createExtractionResult,
@@ -29,48 +25,16 @@ import {
 
 const OCR_CONFIDENCE = asExtractionConfidence(0.7);
 
-type Recognizer = (uri: string) => Promise<{ readonly text: string }>;
-
-async function loadRecognizer(): Promise<Recognizer> {
-  const module = await import('@react-native-ml-kit/text-recognition');
-  const recognize = module.default.recognize;
-  if (typeof recognize !== 'function') {
-    throw new Error(
-      'On-device OCR is not available in this build. Use a custom development build or enter the expense manually.',
-    );
-  }
-  return recognize;
-}
-
 export class MlKitOcrCaptureProcessor implements CaptureProcessor {
-  constructor(private readonly recognizerLoader: () => Promise<Recognizer> = loadRecognizer) {}
-
-  async process(
-    input: CaptureProcessorInput,
-    options?: CaptureProcessOptions,
-  ): Promise<ExtractionResult> {
-    const isAborted = (): boolean => options?.signal?.aborted === true;
-    if (isAborted()) throw new Error('Receipt scanning was cancelled.');
-
+  async process(input: CaptureProcessorInput): Promise<ExtractionResult> {
     // Lazy native import: keeps ML Kit out of startup and web bundles.
-    const recognize = await this.recognizerLoader();
-
-    let result: Awaited<ReturnType<typeof recognize>>;
-    try {
-      result = await recognize(input.imageUri);
-    } catch {
-      // One bounded retry covers transient native initialisation failures.
-      if (isAborted()) throw new Error('Receipt scanning was cancelled.');
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      try {
-        result = await recognize(input.imageUri);
-      } catch {
-        throw new Error(
-          'On-device OCR could not read this image. Check that the ML Kit native module is included in this build, or enter the expense manually.',
-        );
-      }
+    const module = await import('@react-native-ml-kit/text-recognition');
+    const recognize = module.default.recognize;
+    if (typeof recognize !== 'function') {
+      throw new Error('On-device OCR is not available in this build.');
     }
-    if (isAborted()) throw new Error('Receipt scanning was cancelled.');
+
+    const result = await recognize(input.imageUri);
     const text = typeof result.text === 'string' ? result.text : '';
     const parsed = parseReceiptText(text);
     if (parsed.totalMinor === undefined && parsed.lineItems.length === 0) {

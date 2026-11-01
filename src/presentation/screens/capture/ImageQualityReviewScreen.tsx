@@ -164,18 +164,6 @@ export function ImageQualityReviewScreen({
     router.back();
   };
 
-  const handleReplace = (): void => {
-    const params = new URLSearchParams();
-    if (mode) params.set('mode', mode);
-    if (groupId) params.set('groupId', groupId);
-    const query = params.toString();
-    const target =
-      sourceType === 'camera'
-        ? '/capture/camera'
-        : '/capture/gallery';
-    router.replace(query.length > 0 ? `${target}?${query}` : target);
-  };
-
   const handleContinue = (): void => {
     const params = new URLSearchParams();
     if (imageUri) params.set('imageUri', imageUri);
@@ -192,7 +180,6 @@ export function ImageQualityReviewScreen({
       checked={checked}
       blocked={blocked}
       onRetake={handleRetake}
-      onReplace={handleReplace}
       onContinue={handleContinue}
     />
   );
@@ -209,7 +196,6 @@ export interface ImageQualityReviewViewProps {
   /** True when the image must not be sent to OCR (blocked warnings). */
   readonly blocked: boolean;
   readonly onRetake: () => void;
-  readonly onReplace?: () => void;
   readonly onContinue: () => void;
 }
 
@@ -225,7 +211,6 @@ export function ImageQualityReviewView({
   checked,
   blocked,
   onRetake,
-  onReplace,
   onContinue,
 }: ImageQualityReviewViewProps): JSX.Element {
   const theme = useTheme();
@@ -305,17 +290,6 @@ export function ImageQualityReviewView({
                   <WarningRow key={warning.kind} warning={warning} />
                 ))}
               </Stack>
-            ) : null}
-
-            {onReplace !== undefined ? (
-              <Button
-                label="Choose another image"
-                variant="ghost"
-                size="sm"
-                onPress={onReplace}
-                accessibilityLabel="Replace this image with another from the gallery or camera"
-                icon="swap-horizontal-outline"
-              />
             ) : null}
 
             <Row gap="md" align="stretch">

@@ -22,10 +22,6 @@ export interface ExpenseSearchCriteria {
   /** Inclusive amount bounds in minor units. */
   readonly minAmountMinor?: number;
   readonly maxAmountMinor?: number;
-  /** Exact category match (case-insensitive). */
-  readonly category?: string;
-  /** Group member involved in the expense (payer or split participant). */
-  readonly memberId?: string;
   readonly limit: number;
   readonly offset: number;
 }

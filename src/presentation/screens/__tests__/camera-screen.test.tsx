@@ -52,9 +52,7 @@ function makeViewModel(
 describe('buildImageQualityQuery', () => {
   it('builds the query string for a scan with no group', () => {
     const q = buildImageQualityQuery('file:///tmp/x.jpg', 'scan', undefined);
-    // v2.26.0: sourceType is always propagated so "Choose another image"
-    // returns to the same capture surface.
-    expect(q).toBe('?imageUri=file%3A%2F%2F%2Ftmp%2Fx.jpg&mode=scan&sourceType=camera');
+    expect(q).toBe('?imageUri=file%3A%2F%2F%2Ftmp%2Fx.jpg&mode=scan');
   });
 
   it('includes the groupId when provided', () => {
@@ -66,7 +64,7 @@ describe('buildImageQualityQuery', () => {
 
   it('returns an empty string when imageUri is empty', () => {
     const q = buildImageQualityQuery('', 'scan', undefined);
-    expect(q).toBe('?imageUri=&mode=scan&sourceType=camera');
+    expect(q).toBe('?imageUri=&mode=scan');
   });
 });
 
@@ -83,8 +81,7 @@ describe('CameraScreenView', () => {
     );
     expect(getByText('Camera access required')).toBeTruthy();
     expect(getByText(/grant camera permission in your device settings/i)).toBeTruthy();
-    expect(getByLabelText('Open the device settings to grant camera permission')).toBeTruthy();
-    expect(getByLabelText('Go back without the camera')).toBeTruthy();
+    expect(getByLabelText('Try camera permission again')).toBeTruthy();
   });
 
   it('renders the error message inside the denied card when present', () => {

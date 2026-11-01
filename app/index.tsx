@@ -6,24 +6,16 @@
  *   - false → /onboarding/welcome
  *   - true  → /(tabs)            (the main app)
  *
- * The route renders a loading indicator until the persisted store has
- * hydrated, then returns an expo-router `<Redirect />`.
+ * The route file itself renders no UI — it returns a `<Redirect />`
+ * from expo-router. The redirect is synchronous (the store is hydrated
+ * by zustand/persist on app launch before this route mounts).
  */
 
 import { Redirect } from 'expo-router';
-import { ActivityIndicator, View } from 'react-native';
 
-import { useRequireOnboardingComplete } from '@presentation/navigation/route-guards';
+import { requireOnboardingComplete } from '@presentation/navigation/route-guards';
 
 export default function RootIndexRoute(): JSX.Element {
-  const onboardingComplete = useRequireOnboardingComplete();
-  if (onboardingComplete === null) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator accessibilityLabel="Loading onboarding status" />
-      </View>
-    );
-  }
-
+  const onboardingComplete = requireOnboardingComplete();
   return <Redirect href={onboardingComplete ? '/(tabs)' : '/onboarding/welcome'} />;
 }

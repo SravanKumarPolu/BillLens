@@ -44,7 +44,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: appNames[appEnv],
   slug: 'billlens',
-  version: '2.26.2',
+  version: '2.18.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
   // Deep link scheme. All expo-router routes are addressable as
@@ -80,7 +80,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: bundleIdentifiers[appEnv].ios,
     // TestFlight build number — bumped per upload (EAS autoIncrement also
     // manages it; this is the floor).
-    buildNumber: '2.26.2',
+    buildNumber: '2.18.0',
     infoPlist: {
       NSCameraUsageDescription: 'BillLens uses the camera to scan receipts and payment screenshots for expense tracking.',
       NSPhotoLibraryUsageDescription: 'BillLens needs access to your photo library to import receipt images and payment screenshots.',
@@ -101,7 +101,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     package: bundleIdentifiers[appEnv].android,
     // Play internal-testing version code (2.6.0 → 20600). EAS
     // autoIncrement raises it per build; this is the floor.
-    versionCode: 22602,
+    versionCode: 21800,
     // v2.5.0: only CAMERA is declared explicitly — the expo-image-picker
     // config plugin injects the CORRECT media permission per target SDK
     // (READ_MEDIA_IMAGES on API 33+, READ_EXTERNAL_STORAGE below), which
@@ -113,22 +113,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // Android share intent — allows users to share images directly into BillLens
     // from other apps (Gallery, WhatsApp, UPI apps). The `mimeType` property is
     // valid in Expo's intent filter schema but not in the TypeScript type.
-    // Expo prefixes `android.intent.action.` / `android.intent.category.` —
-    // pass the short names or the generated manifest double-prefixes them
-    // (e.g. android.intent.action.android.intent.action.SEND) and share
-    // targets never match.
-    intentFilters: [
+    intentFilters: ([
       {
-        action: 'SEND',
-        category: ['DEFAULT'],
-        data: [{ mimeType: 'image/*' }],
+        action: 'android.intent.action.SEND',
+        mimeType: 'image/*',
+        data: { scheme: 'content' },
       },
       {
-        action: 'SEND_MULTIPLE',
-        category: ['DEFAULT'],
-        data: [{ mimeType: 'image/*' }],
+        action: 'android.intent.action.SEND_MULTIPLE',
+        mimeType: 'image/*',
+        data: { scheme: 'content' },
       },
-    ],
+    ] as never) as never,
   },
   web: {
     bundler: 'metro',
@@ -137,19 +133,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-router',
-    // Local reminder notifications only. The channel id matches
-    // REMINDER_CHANNEL_ID in the notification adapter;
-    // `defaultChannel` is the Android fallback for the rare payload that
-    // arrives without one. Remote push stays disabled until an EAS project
-    // is configured (see docs/notification-architecture.md).
-    [
-      'expo-notifications',
-      {
-        defaultChannel: 'billlens-reminders',
-        color: '#2B3A8C',
-      },
-    ],
-    './plugins/with-mlkit-android-compat',
+    'expo-notifications',
     // SDK 57 removed the top-level `splash` field; the splash screen is
     // configured through its plugin now.
     [
@@ -163,24 +147,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-camera',
       {
-        // `cameraPermission` is the documented plugin prop (the previous
-        // `cameraPermissionText` was ignored, so the OS prompt showed the
-        // generic default). BillLens never records video or audio, so the
-        // microphone key and the Android RECORD_AUDIO permission are
-        // removed — a smaller permission surface for Play review and the
-        // Data Safety form.
-        cameraPermission: 'BillLens uses the camera to scan receipts and payment screenshots.',
-        microphonePermission: false,
-        recordAudioAndroid: false,
+        cameraPermissionText: 'BillLens uses the camera to scan receipts and payment screenshots.',
       },
     ],
     [
       'expo-image-picker',
       {
         photosPermission: 'BillLens needs access to your photo library to import receipt images.',
-        // Receipts are still images only — the picker never records video
-        // or audio, so the plugin must not request the microphone.
-        microphonePermission: false,
       },
     ],
   ],

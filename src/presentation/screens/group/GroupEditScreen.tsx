@@ -121,9 +121,6 @@ export default function GroupEditScreen(): ReactNode {
   return (
     <Screen safeArea scrollable avoidKeyboard>
       <Stack gap="lg" style={{ padding: spacing.xl }}>
-        <Text variant="screenTitle" accessibilityRole="header">
-          Edit group
-        </Text>
         <Text variant="caption" color="muted">
           Group name
         </Text>

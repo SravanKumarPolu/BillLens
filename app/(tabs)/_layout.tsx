@@ -14,9 +14,6 @@ import type { ReactNode } from 'react';
 import type { ColorValue } from 'react-native';
 
 import { CaptureFab } from '@presentation/components/CaptureFab';
-import { useFileCleanup } from '@presentation/hooks/use-file-cleanup';
-import { useGroupStoreHydration } from '@presentation/hooks/use-group-store-hydration';
-import { useRetentionCleanup } from '@presentation/hooks/use-retention-cleanup';
 import { useOutstandingReminders } from '@presentation/notifications/use-outstanding-reminders';
 import { Icon, Stack, useTheme } from '@presentation/design-system';
 
@@ -105,13 +102,6 @@ function ThemedTabs(): ReactNode {
 
 export default function TabsLayout(): ReactNode {
   useOutstandingReminders();
-  useFileCleanup();
-  useRetentionCleanup();
-  // Keep the persisted group cache truthful: real balances, real member
-  // counts, real sync state, and groups that arrived outside the create
-  // form (backup restore, remote download). Runs when services are ready
-  // and whenever the tabs regain focus. See use-group-store-hydration.ts.
-  useGroupStoreHydration();
   return (
     <Stack gap={0} style={{ flex: 1 }}>
       <ThemedTabs />

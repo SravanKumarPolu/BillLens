@@ -9,17 +9,17 @@ import { beforeEach, describe, expect, it } from '@jest/globals';
 import { createGuestIdentity, asGuestIdentityId } from '@domain/entities/guest-identity';
 import { asDateTime } from '@domain/value-objects';
 
-import { runMigrations, getSchemaVersion, CURRENT_SCHEMA_VERSION } from '../sqlite/schema';
+import { runMigrations, getSchemaVersion } from '../sqlite/schema';
 import { SqliteAccountDeletionRepository } from '../sqlite/sqlite-account-deletion-repository';
 import { SqliteGuestIdentityRepository } from '../sqlite/sqlite-guest-identity-repository';
 
 import { InMemoryDatabase } from './in-memory-database';
 
 describe('migration 0005 (identity_support)', () => {
-  it('applies and reports the current schema version', async () => {
+  it('applies and reports schema version 6 (v2.5.0 migration applied after)', async () => {
     const db = new InMemoryDatabase();
     await runMigrations(db);
-    expect(await getSchemaVersion(db)).toBe(CURRENT_SCHEMA_VERSION);
+    expect(await getSchemaVersion(db)).toBe(11);
   });
 });
 

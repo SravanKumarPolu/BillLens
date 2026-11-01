@@ -39,9 +39,7 @@ function makeViewModel(
 describe('buildImageQualityQuery', () => {
   it('builds the query string for a scan with no group', () => {
     const q = buildImageQualityQuery('file:///tmp/x.jpg', 'scan', undefined);
-    // v2.26.0: sourceType is always propagated so "Choose another image"
-    // returns to the same capture surface.
-    expect(q).toBe('?imageUri=file%3A%2F%2F%2Ftmp%2Fx.jpg&mode=scan&sourceType=gallery');
+    expect(q).toBe('?imageUri=file%3A%2F%2F%2Ftmp%2Fx.jpg&mode=scan');
   });
 
   it('includes the groupId when provided', () => {

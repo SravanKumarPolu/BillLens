@@ -35,12 +35,6 @@
  */
 
 import { ListRecentActivityUseCase } from '@application/activity/index';
-import type {
-  LocalNotificationPort,
-  OutstandingReminderStore,
-  RemotePushPort,
-} from '@application/notifications/notification-capability.port';
-import { RefreshOutstandingReminderUseCase } from '@application/notifications/refresh-outstanding-reminder.usecase';
 import {
   GetBalanceBreakdownUseCase,
   GetGroupBalancesUseCase,
@@ -51,7 +45,6 @@ import {
   ValidateBalanceInvariantsUseCase,
 } from '@application/balances/index';
 import {
-  DiscardExpenseDraftUseCase,
   GetExpenseDraftUseCase,
   ProcessCaptureUseCase,
   SaveExpenseDraftReviewUseCase,
@@ -125,12 +118,6 @@ import {
   ResolveDisputeUseCase,
   ReverseSettlementUseCase,
 } from '@application/settlements/index';
-import {
-  CancelSettlementReminderUseCase,
-  CreateSettlementReminderUseCase,
-  ListSettlementRemindersUseCase,
-  ReconcileReminderStateUseCase,
-} from '@application/reminders/index';
 import { DownloadCoordinator } from '@application/sync/download-coordinator';
 import type { RemoteChangeApplier } from '@application/sync/remote-change-applier.port';
 import { SyncCoordinator } from '@application/sync/sync-coordinator';
@@ -146,21 +133,17 @@ import type { ExpenseRepository } from '@domain/repositories/expense.repository'
 import type { ExtractionResultRepository } from '@domain/repositories/extraction-result.repository';
 import type { GroupMemberRepository } from '@domain/repositories/group-member.repository';
 import type { GroupRepository } from '@domain/repositories/group.repository';
-import type { GroupSummaryQuery } from '@domain/repositories/queries';
 import type { GuestIdentityRepository } from '@domain/repositories/guest-identity.repository';
 import type { SettlementRepository } from '@domain/repositories/settlement.repository';
-import type { SettlementReminderRepository } from '@domain/repositories/settlement-reminder.repository';
 import type { SyncCursorRepository } from '@domain/repositories/sync-cursor.repository';
 import type { SyncRepository } from '@domain/repositories/sync.repository';
 import type { IncrementalDownloadPort } from '@domain/services/sync/incremental-download';
 
 import { UnavailableCaptureProcessor } from './capture/unavailable-capture-processor';
 import { ExpoConnectivityPort } from './connectivity/expo-connectivity-port';
-import { UnavailableLocalNotificationPort } from './notifications/unavailable-local-notification-port';
-import { SqliteOutstandingReminderStore } from './sqlite/sqlite-outstanding-reminder-store';
 import { GuestAuthenticationProvider } from './remote/guest-authentication-provider';
-import { UnavailableIncrementalDownloadPort } from './remote/unavailable-incremental-download-port';
-import { UnavailableRemoteSyncPort } from './remote/unavailable-remote-sync-port';
+import { SupabaseIncrementalDownloadPort } from './remote/supabase-incremental-download-port';
+import { SupabaseRemoteSyncPort } from './remote/supabase-remote-sync-port';
 import { SessionStorage } from './security/session-storage';
 import type { DatabaseConnection } from './sqlite/database-connection';
 import { SqliteAccountDeletionRepository } from './sqlite/sqlite-account-deletion-repository';
@@ -171,16 +154,13 @@ import { SqliteExpenseDraftRepository } from './sqlite/sqlite-expense-draft-repo
 import { SqliteExpenseRepository } from './sqlite/sqlite-expense-repository';
 import { SqliteExpenseSearchRepository } from './sqlite/sqlite-expense-search-repository';
 import { SqliteRecurringExpenseRepository } from './sqlite/sqlite-recurring-expense-repository';
-import { SqliteReceiptRepository } from './sqlite/sqlite-receipt-repository';
 import {
   CreateBackupUseCase,
   InspectBackupUseCase,
   RestoreBackupUseCase,
 } from '@application/backup/backup.usecases';
 import { SqliteBackupStore } from './sqlite/sqlite-backup-store';
-import { ExpoBackupAttachmentStore } from './backup/expo-backup-attachment-store';
 import { SqliteGroupManagementStore } from './sqlite/sqlite-group-management-store';
-import { SqliteGroupSummaryQuery } from './sqlite/sqlite-group-summary-query';
 import {
   AddGroupMemberUseCase,
   ArchiveGroupUseCase,
@@ -192,16 +172,6 @@ import {
   RestoreGroupUseCase,
   UpdateGroupUseCase,
 } from '@application/groups/group-management.usecases';
-import { ProcessFileCleanupQueueUseCase } from '@application/backup/file-cleanup.usecases';
-import { RetentionCleanupUseCase } from '@application/retention/retention-cleanup.usecase';
-import { WipeAllLocalDataUseCase } from '@application/retention/wipe-local-data.usecase';
-import {
-  DeleteReceiptUseCase,
-  ListReceiptHistoryUseCase,
-} from '@application/receipts/receipt-history.usecases';
-import { SqliteLocalDataWipe } from './sqlite/sqlite-local-data-wipe';
-import { ExpoRetentionCleanupStore } from './retention/expo-retention-cleanup-store';
-import { SqliteFileCleanupStore } from './sqlite/sqlite-file-cleanup-store';
 import { removeLocalImage } from '@utils/local-image';
 import { SqliteExtractionResultRepository } from './sqlite/sqlite-extraction-result-repository';
 import { SqliteFeedbackRepository } from './sqlite/sqlite-feedback-repository';
@@ -210,7 +180,6 @@ import { SqliteGroupRepository } from './sqlite/sqlite-group-repository';
 import { SqliteGuestIdentityRepository } from './sqlite/sqlite-guest-identity-repository';
 import { SqliteMetricRepository } from './sqlite/sqlite-metric-repository';
 import { SqliteSettlementRepository } from './sqlite/sqlite-settlement-repository';
-import { SqliteSettlementReminderRepository } from './sqlite/sqlite-settlement-reminder-repository';
 import { SqliteUnitOfWork } from './sqlite/sqlite-unit-of-work';
 import { SqliteRemoteChangeApplier } from './sync/sqlite-remote-change-applier';
 import { SqliteSyncConflictRepository } from './sync/sqlite-sync-conflict-repository';
@@ -297,8 +266,6 @@ export interface CaptureServices {
   readonly saveDraftReview: SaveExpenseDraftReviewUseCase;
   /** Loads a persisted draft for review (deep-link / focus hydration). */
   readonly getDraft: GetExpenseDraftUseCase;
-  /** Persists a draft discard (v2.26.0: durable, not store-only). */
-  readonly discardDraft: DiscardExpenseDraftUseCase;
   /** Atomic draft → Expense confirmation (version-guarded + idempotent). */
   readonly createExpenseFromDraft: CreateExpenseFromDraftUseCase;
   /** Technical pre-flight image quality checks (size/format). */
@@ -363,11 +330,8 @@ export interface RepositoryServices {
   readonly members: GroupMemberRepository;
   readonly expenses: ExpenseRepository;
   readonly drafts: ExpenseDraftRepository;
-  readonly receipts: SqliteReceiptRepository;
   /** Settlement write-side adapter (state machine + reversal + history). */
   readonly settlements: SettlementRepository;
-  /** Per-settlement payment follow-ups (Prompt 59). Local-only — not synced. */
-  readonly settlementReminders: SettlementReminderRepository;
   /** Append-only audit trail (backs every financial use case). */
   readonly audit: AuditRepository;
 }
@@ -389,19 +353,6 @@ export interface BackupServices {
   readonly create: CreateBackupUseCase;
   readonly inspect: InspectBackupUseCase;
   readonly restore: RestoreBackupUseCase;
-}
-
-/**
- * Read-model query services (domain `queries.ts` contracts).
- *
- * `groupSummaries` is the authoritative list of the local user's groups
- * with real per-group balances, member/expense counts, last-activity
- * timestamps and sync-queue counters. The Groups tab and the Home
- * dashboard's recent-groups list are hydrated from it; the persisted
- * zustand store remains only a UI cache.
- */
-export interface QueryServices {
-  readonly groupSummaries: GroupSummaryQuery;
 }
 
 export interface ExpenseServices {
@@ -426,7 +377,6 @@ export interface GroupServices {
   readonly addMember: AddGroupMemberUseCase;
   readonly renameMember: RenameGroupMemberUseCase;
   readonly removeMember: RemoveGroupMemberUseCase;
-  readonly cleanup: ProcessFileCleanupQueueUseCase;
 }
 
 /**
@@ -447,18 +397,6 @@ export interface SettlementServices {
   readonly listSettlements: ListSettlementsUseCase;
   readonly listPendingConfirmations: ListPendingConfirmationsUseCase;
   readonly listDisputedSettlements: ListDisputedSettlementsUseCase;
-}
-
-/**
- * Per-settlement reminder use cases (Prompt 59 / KL-9). Local device
- * reminders only — the OS notification is scheduled when the runtime
- * can present it, and the row is always persisted.
- */
-export interface ReminderServices {
-  readonly createSettlementReminder: CreateSettlementReminderUseCase;
-  readonly cancelSettlementReminder: CancelSettlementReminderUseCase;
-  readonly listSettlementReminders: ListSettlementRemindersUseCase;
-  readonly reconcileReminderState: ReconcileReminderStateUseCase;
 }
 
 /**
@@ -502,17 +440,10 @@ export interface ActivityServices {
  * directly (the presentation → infrastructure boundary stays closed).
  */
 /** Local data portability and retention. */
-export interface ReceiptServices {
-  readonly listHistory: ListReceiptHistoryUseCase;
-  readonly deleteReceipt: DeleteReceiptUseCase;
-}
-
 export interface DataServices {
   readonly exportLocalData: ExportLocalDataUseCase;
   readonly assessRetention: AssessRetentionUseCase;
   readonly deleteLocalGroupCopy: DeleteLocalGroupCopyUseCase;
-  readonly retentionCleanup: RetentionCleanupUseCase;
-  readonly wipeAll: WipeAllLocalDataUseCase;
 }
 
 export interface AppServices {
@@ -522,13 +453,6 @@ export interface AppServices {
   readonly sync: SyncServices;
   readonly capture: CaptureServices;
   readonly session: SessionServices | null;
-  /**
-   * Cross-entity read models (the domain `queries.ts` contracts) —
-   * joined/aggregated views that back list screens. SQLite is the
-   * single source of truth; the persisted UI store is only a cache
-   * hydrated from these.
-   */
-  readonly queries: QueryServices;
   /**
    * Identity services — null when the caller did not provide secure
    * storage (pure test harnesses). Like `session`, nothing else breaks;
@@ -541,25 +465,10 @@ export interface AppServices {
   readonly backup: BackupServices;
   readonly groups: GroupServices;
   readonly settlements: SettlementServices;
-  readonly reminders: ReminderServices;
   readonly monitoring: MonitoringServices;
   readonly feedback: FeedbackServices;
   readonly activity: ActivityServices;
-  readonly notifications: NotificationServices;
   readonly data: DataServices;
-  readonly receipts: ReceiptServices;
-}
-
-/**
- * Notification services. Local reminders are always available (the
- * decision + persistence path is runtime-independent); `push` is null
- * unless the bootstrap explicitly wires it, because remote push is
- * optional and must never block local use.
- */
-export interface NotificationServices {
-  readonly outstandingReminder: RefreshOutstandingReminderUseCase;
-  readonly localNotifications: LocalNotificationPort;
-  readonly push: RemotePushPort | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -575,15 +484,12 @@ export interface CompositionRootInput {
   readonly database: DatabaseConnection;
   /** Override the connectivity port (default: ExpoConnectivityPort). */
   readonly connectivity?: ConnectivityPort;
-  /** Override the remote sync port (default: UnavailableRemoteSyncPort —
-   *  the real Supabase adapter is injected by the bootstrap when a
-   *  project is configured, keeping supabase-js out of the entry chunk). */
+  /** Override the remote sync port (default: SupabaseRemoteSyncPort). */
   readonly remoteSync?: RemoteSyncPort;
   /**
    * Override the remote download feed (v2.6.0, bidirectional sync;
-   * default: UnavailableIncrementalDownloadPort — the Supabase adapter is
-   * injected by the bootstrap when a project is configured). Tests inject
-   * an in-memory feed here.
+   * default: SupabaseIncrementalDownloadPort). Tests inject an
+   * in-memory feed here.
    */
   readonly remoteDownload?: IncrementalDownloadPort;
   /**
@@ -645,17 +551,6 @@ export interface CompositionRootInput {
   readonly supabaseUrl?: string;
   /** Supabase anon key (default: read from SUPABASE_ANON_KEY env). */
   readonly supabaseAnonKey?: string;
-  /**
-   * Notification adapters. The composition root never imports Expo
-   * native modules (see the header rules), so the defaults are a
-   * hermetic "unsupported" capability plus the SQLite reminder store;
-   * the production bootstrap injects `ExpoLocalNotificationPort`.
-   */
-  readonly notifications?: {
-    readonly capability?: LocalNotificationPort;
-    readonly store?: OutstandingReminderStore;
-    readonly push?: RemotePushPort | null;
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -681,26 +576,19 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
 
   // --- Infrastructure adapters (one per port) -------------------------------
   const balanceQuery = new SqliteBalanceQueryPort(database);
-  const groupSummaries = new SqliteGroupSummaryQuery(database);
   const syncRepository = new SqliteSyncRepository(database);
   const connectivity = input.connectivity ?? new ExpoConnectivityPort();
-  // Defaults are the UNAVAILABLE adapters: the real Supabase ports are
-  // constructed by the bootstrap (services-registry) ONLY when a project
-  // is configured, via dynamic import, so supabase-js stays out of the
-  // web entry chunk (performance standard: optional services lazy).
-  // The unavailable adapters mirror the Supabase adapters' own
-  // not-configured behaviour (NOT_CONFIGURED) — the sync loop is not
-  // started without configuration, so they are never exercised in that
-  // mode; they exist so a misconfigured start fails honestly.
-  const remoteSync = input.remoteSync ?? new UnavailableRemoteSyncPort();
+  const remoteSync =
+    input.remoteSync ?? new SupabaseRemoteSyncPort(input.supabaseUrl, input.supabaseAnonKey);
   // v2.6.0 — bidirectional sync: the download feed (Supabase), the
   // cursor store (SQLite, migration 0007) and the remote change
   // applier (reconcileChange-driven writes that never echo back to
-  // the upload queue). When a Supabase project is configured the
-  // bootstrap injects the download port alongside the sync port;
-  // tests can inject both through the same overrides.
+  // the upload queue). When no remote sync port override was given,
+  // the download port shares the Supabase env configuration; tests
+  // can inject both through the same overrides.
   const conflictRepository = new SqliteSyncConflictRepository(database);
-  const remoteDownload = input.remoteDownload ?? new UnavailableIncrementalDownloadPort();
+  const remoteDownload =
+    input.remoteDownload ?? new SupabaseIncrementalDownloadPort(input.supabaseUrl, input.supabaseAnonKey);
   const cursorRepository = input.syncCursors ?? new SqliteSyncCursorRepository(database);
   const remoteChangeApplier =
     input.remoteChangeApplier ?? new SqliteRemoteChangeApplier(database, conflictRepository);
@@ -761,26 +649,8 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
     members: new SqliteGroupMemberRepository(database),
     expenses: new SqliteExpenseRepository(database),
     drafts: new SqliteExpenseDraftRepository(database),
-    receipts: new SqliteReceiptRepository(database),
     settlements: new SqliteSettlementRepository(database),
-    settlementReminders: new SqliteSettlementReminderRepository(database),
     audit: new SqliteAuditRepository(database),
-  };
-
-  // --- Notifications -------------------------------------------------------
-  // The reminder decision is persisted in SQLite regardless of whether this
-  // runtime can present it (migration 0013). The capability is injected:
-  // the production bootstrap passes the Expo adapter, unit harnesses keep
-  // the hermetic default and never import expo-notifications.
-  const localNotifications =
-    input.notifications?.capability ?? new UnavailableLocalNotificationPort();
-  const notifications: NotificationServices = {
-    outstandingReminder: new RefreshOutstandingReminderUseCase({
-      capability: localNotifications,
-      store: input.notifications?.store ?? new SqliteOutstandingReminderStore(database),
-    }),
-    localNotifications,
-    push: input.notifications?.push ?? null,
   };
 
   // --- Capture pipeline (v2.4.0) -------------------------------------------
@@ -805,7 +675,6 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
           ),
           saveDraftReview: new SaveExpenseDraftReviewUseCase(repositories.drafts),
           getDraft: new GetExpenseDraftUseCase(repositories.drafts),
-          discardDraft: new DiscardExpenseDraftUseCase(repositories.drafts),
           createExpenseFromDraft: new CreateExpenseFromDraftUseCase(unitOfWork),
           repositories: {
             captureSources: captureSourcesRepo,
@@ -817,7 +686,6 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
           processCapture: unavailablePipeline(),
           saveDraftReview: new SaveExpenseDraftReviewUseCase(repositories.drafts),
           getDraft: new GetExpenseDraftUseCase(repositories.drafts),
-          discardDraft: new DiscardExpenseDraftUseCase(repositories.drafts),
           createExpenseFromDraft: new CreateExpenseFromDraftUseCase(unitOfWork),
           repositories: {
             captureSources: captureSourcesRepo,
@@ -879,24 +747,6 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
     ),
   };
 
-  const reminders: ReminderServices = {
-    createSettlementReminder: new CreateSettlementReminderUseCase(
-      repositories.settlementReminders,
-      repositories.audit,
-    ),
-    cancelSettlementReminder: new CancelSettlementReminderUseCase(
-      repositories.settlementReminders,
-      repositories.audit,
-    ),
-    listSettlementReminders: new ListSettlementRemindersUseCase(
-      repositories.settlementReminders,
-    ),
-    reconcileReminderState: new ReconcileReminderStateUseCase(
-      repositories.settlementReminders,
-      repositories.audit,
-    ),
-  };
-
   // Manual expense form + group home reads + expense detail.
   const expenseSearchRepository = new SqliteExpenseSearchRepository(database);
 
@@ -950,11 +800,10 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
   };
 
   const backupStore = new SqliteBackupStore(database);
-  const backupAttachments = new ExpoBackupAttachmentStore();
   const backup: BackupServices = {
-    create: new CreateBackupUseCase(backupStore, backupAttachments, input.appVersion ?? '0.0.0'),
+    create: new CreateBackupUseCase(backupStore, input.appVersion ?? '0.0.0'),
     inspect: new InspectBackupUseCase(backupStore),
-    restore: new RestoreBackupUseCase(backupStore, backupAttachments),
+    restore: new RestoreBackupUseCase(backupStore),
   };
 
   const groupManagementStore = new SqliteGroupManagementStore(database);
@@ -968,18 +817,14 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
       repositories.members,
       groupManagementStore,
     ),
-    deleteGroup: new DeleteGroupUseCase(repositories.groups, groupManagementStore),
-    addMember: new AddGroupMemberUseCase(repositories.groups, repositories.members, generateId),
-    renameMember: new RenameGroupMemberUseCase(repositories.members, repositories.groups),
-    removeMember: new RemoveGroupMemberUseCase(
-      repositories.members,
-      groupManagementStore,
+    deleteGroup: new DeleteGroupUseCase(
       repositories.groups,
-    ),
-    cleanup: new ProcessFileCleanupQueueUseCase(
-      new SqliteFileCleanupStore(database),
+      groupManagementStore,
       removeLocalImage,
     ),
+    addMember: new AddGroupMemberUseCase(repositories.groups, repositories.members, generateId),
+    renameMember: new RenameGroupMemberUseCase(repositories.members),
+    removeMember: new RemoveGroupMemberUseCase(repositories.members, groupManagementStore),
     listGroupMembers: new ListGroupMembersUseCase(
       repositories.groups,
       repositories.members,
@@ -1099,29 +944,14 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
     session,
     identity,
     repositories,
-    queries: {
-      groupSummaries,
-    },
     expenses,
     recurring,
     backup,
     groups,
     settlements,
-    reminders,
     monitoring,
     feedback,
     activity,
-    notifications,
-    receipts: {
-      listHistory: new ListReceiptHistoryUseCase(
-        repositories.receipts,
-        repositories.groups,
-      ),
-      deleteReceipt: new DeleteReceiptUseCase(
-        repositories.receipts,
-        new ExpoRetentionCleanupStore(database),
-      ),
-    },
     data: {
       exportLocalData: new ExportLocalDataUseCase(
         repositories.groups,
@@ -1146,10 +976,6 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
         repositories.audit,
         generateId,
       ),
-      retentionCleanup: new RetentionCleanupUseCase(
-        new ExpoRetentionCleanupStore(database),
-      ),
-      wipeAll: new WipeAllLocalDataUseCase(new SqliteLocalDataWipe(database)),
     },
   };
 }

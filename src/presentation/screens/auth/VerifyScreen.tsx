@@ -163,7 +163,7 @@ export function VerifyScreen({
       router.back();
       return;
     }
-    router.replace('/onboarding/welcome');
+    router.replace('/auth/sign-in');
   }, [onChangeEmail]);
 
   const errorMessage = useMemo(() => {

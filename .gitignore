@@ -91,9 +91,3 @@ pnpm-lock.yaml
 
 # Android bug reports
 android/bugreport-*.zip
-
-# CNG / Prebuild: native projects are generated, never committed.
-# Regenerate with `npx expo prebuild` before a device build.
-# (expo-doctor: app-config fields are the source of truth.)
-/ios/
-/android/

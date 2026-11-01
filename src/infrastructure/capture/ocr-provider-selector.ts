@@ -24,14 +24,13 @@
  *   silent fallback to sample data presented as a real scan.
  *
  * Selection order (first match wins):
- *   1. Explicit `EXPO_PUBLIC_OCR_MODE` (mock | remote | mlkit) — overrides.
+ *   1. Explicit `EXPO_PUBLIC_OCR_MODE` (mock | remote) — overrides.
  *      `remote` without configuration → `unavailable`.
  *      `mock` in production → `unavailable` (refused).
  *   2. `remote` when a Supabase project is configured (offline
  *      development can still force `EXPO_PUBLIC_OCR_MODE=mock`).
- *   3. On-device ML Kit otherwise (free, offline). Mock is never the
- *      implicit default — it is sample data and would hide native OCR
- *      failures on development/debug Android builds.
+ *   3. `mock` when `allowMock` is true (non-production environments).
+ *   4. `unavailable` otherwise.
  *
  * The choice is logged ONCE at boot via the injected logger (no PII —
  * endpoint host only, never the key).
@@ -134,12 +133,34 @@ export function resolveOcrProvider(config: OcrProviderConfig): OcrProviderSelect
     return buildRemote(config);
   }
 
-  return {
-    mode: 'mlkit',
-    processor: new MlKitOcrCaptureProcessor(),
-    reason:
-      'On-device ML Kit OCR (offline, no account). Requires a custom development or release build.',
-  };
+  if (config.allowMock) {
+    return {
+      mode: 'mock',
+      processor: new MockCaptureProcessor(),
+      reason:
+        'No Supabase project configured — using the on-device mock processor (sample data, ' +
+        'labelled as demo in the review UI). Configure EXPO_PUBLIC_SUPABASE_URL and ' +
+        'EXPO_PUBLIC_SUPABASE_ANON_KEY (and deploy the ocr-receipt Edge Function, see ' +
+        'supabase/functions/ocr-receipt/) to enable live OCR.',
+    };
+  }
+
+  // Production (mock refused, no cloud configured): use the free on-device
+  // engine. It fails clearly at process time if the native module was not
+  // included in the build.
+  if (!config.allowMock) {
+    return {
+      mode: 'mlkit',
+      processor: new MlKitOcrCaptureProcessor(),
+      reason:
+        'On-device ML Kit OCR (offline, no account). Requires a custom development or release build.',
+    };
+  }
+
+  return unavailable(
+    'No OCR provider is configured — receipt scanning is unavailable. Build a custom dev client ' +
+      'for on-device ML Kit, or configure the optional Supabase OCR function.',
+  );
 }
 
 function buildRemote(config: OcrProviderConfig): OcrProviderSelection {

@@ -48,9 +48,6 @@ interface DeviceHarness {
   readonly relay: RelayClient;
 }
 
-// Native SQLite + relay setup can exceed the 60s default under full-suite load.
-jest.setTimeout(120_000);
-
 describeWithSqlite('secure group invitations and key recovery', () => {
   let dir: string;
   let relay: RelayHandle;

@@ -1,16 +1,15 @@
 /**
  * JoinGroupScreen — join an existing group via invite token (Prompt 16).
  *
- * Accepts an invite token or URL pasted by the user and validates its
- * shape (hex, ≥ 32 chars) through the view-model layer.
+ * Accepts an invite token or URL pasted by the user. Validates the
+ * token format (hex, ≥ 32 chars) using the view-model layer. On
+ * success, navigates back; on failure, shows an inline error.
  *
- * IMPORTANT (v2.26.2): this build cannot actually join a remote group.
- * `JoinGroupUseCase` resolves invites through a LOCAL invite repository,
- * and no invite adapter is wired into the composition root; a remote
- * invite also only reaches this device through the encrypted relay, which
- * is not deployed. The screen therefore reports that joining is
- * unavailable instead of navigating back as if the join had succeeded.
- * The previous behaviour silently implied success.
+ * Phase 2: there is no real join-group use case yet, so the screen
+ * validates the token shape only — it does not actually create a
+ * group membership. The success path is wired so a later prompt can
+ * replace `router.back()` with a navigation to the joined group's
+ * home route.
  *
  * Architecture:
  *   - The thin container `JoinGroupScreen` holds the input string in
@@ -42,13 +41,9 @@ import {
 // Container
 // ---------------------------------------------------------------------------
 
-const JOIN_UNAVAILABLE_NOTICE =
-  'Joining another device\'s group needs the encrypted relay, which is not deployed in this build. The token format was checked on this device, but no group was joined. You can create a group here and add members locally.';
-
 export function JoinGroupScreen(): JSX.Element {
   const [token, setToken] = useState('');
   const [hasInteracted, setHasInteracted] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const validation = useMemo(() => validateInviteToken(token), [token]);
   const showError = hasInteracted && !validation.isValid;
@@ -58,17 +53,17 @@ export function JoinGroupScreen(): JSX.Element {
       token={token}
       validation={validation}
       showError={showError}
-      notice={notice}
       onTokenChange={(next) => {
         setToken(next);
-        setNotice(null);
         if (!hasInteracted) setHasInteracted(true);
       }}
       onJoin={() => {
         setHasInteracted(true);
-        if (!validation.isValid) return;
-        // Do not navigate: no membership was created.
-        setNotice(JOIN_UNAVAILABLE_NOTICE);
+        if (validation.isValid) {
+          // Phase 2: no real join use case yet — go back to the list.
+          // A later prompt will navigate to the joined group's home.
+          router.back();
+        }
       }}
       onCancel={() => router.back()}
     />
@@ -83,8 +78,6 @@ export interface JoinGroupViewProps {
   readonly token: string;
   readonly validation: InviteTokenValidation;
   readonly showError: boolean;
-  /** Honest outcome message when joining is unavailable on this build. */
-  readonly notice?: string | null;
   readonly onTokenChange: (value: string) => void;
   readonly onJoin: () => void;
   readonly onCancel: () => void;
@@ -94,7 +87,6 @@ export function JoinGroupView({
   token,
   validation,
   showError,
-  notice,
   onTokenChange,
   onJoin,
   onCancel,
@@ -149,11 +141,6 @@ export function JoinGroupView({
                 {validation.error}
               </Text>
             ) : null}
-            {notice !== null && notice !== undefined && notice !== '' ? (
-              <Text variant="caption" color="negative" accessibilityRole="alert">
-                {notice}
-              </Text>
-            ) : null}
             <Text variant="caption" color="muted">
               Tokens are at least {MIN_INVITE_TOKEN_LENGTH} hex characters.
             </Text>
@@ -169,9 +156,7 @@ export function JoinGroupView({
             />
             <Stack gap={0} style={{ flex: 1 }}>
               <Text variant="caption" color="secondary">
-                Ask the group creator for an invite link. Joining another device&apos;s group
-                requires the encrypted relay; until it is deployed you can create a group and
-                add members on this device.
+                Ask the group creator for an invite link.
               </Text>
             </Stack>
           </Row>

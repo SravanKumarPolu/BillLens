@@ -30,7 +30,6 @@ import type { DatabaseConnection, TransactionContext } from './database-connecti
 import { DatabaseError } from './database-connection';
 import { SqliteAuditRepository } from './sqlite-audit-repository';
 import { SqliteExpenseDraftRepository } from './sqlite-expense-draft-repository';
-import { SqliteReceiptRepository } from './sqlite-receipt-repository';
 import { SqliteExpenseRepository } from './sqlite-expense-repository';
 import { SqliteGroupMemberRepository } from './sqlite-group-member-repository';
 import { SqliteGroupRepository } from './sqlite-group-repository';
@@ -105,7 +104,9 @@ export class SqliteUnitOfWork implements UnitOfWork {
         },
         expenses,
         drafts,
-        receipts: new SqliteReceiptRepository(conn),
+        get receipts(): never {
+          return unsupportedRepository('receipts');
+        },
         settlements,
         audit,
         sync,

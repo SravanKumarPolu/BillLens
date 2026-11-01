@@ -24,7 +24,6 @@ import { asDateTime, asVersionNumber } from '@domain/value-objects';
 import type { GroupId, MemberId, UserId } from '@shared-types/index';
 
 import type { DatabaseConnection, SqlRow } from './database-connection';
-import { assertGroupWritableDb } from './group-write-guard';
 import { DatabaseError } from './database-connection';
 import {
   mapGroupMemberRow,
@@ -131,7 +130,6 @@ export class SqliteGroupMemberRepository implements GroupMemberRepository {
   }
 
   async save(member: GroupMember): Promise<void> {
-    await assertGroupWritableDb(this.db, member.groupId as string);
     await this.db.transaction(async (tx) => {
       const existing = await tx.get<SqlRow>(
         `select id from group_members where id = ?`,
@@ -209,11 +207,6 @@ export class SqliteGroupMemberRepository implements GroupMemberRepository {
   }
 
   async softDelete(id: MemberId, metadata: DeleteMetadata): Promise<SoftDeleteResult> {
-    const existing = await this.db.get<{ group_id: string }>(
-      'select group_id from group_members where id = ?',
-      [id],
-    );
-    if (existing !== null) await assertGroupWritableDb(this.db, existing.group_id);
     return this.db.transaction(async (tx) => {
       const row = await tx.get<SqlRow>(
         `select ${MEMBER_COLUMNS} from group_members where id = ?`,

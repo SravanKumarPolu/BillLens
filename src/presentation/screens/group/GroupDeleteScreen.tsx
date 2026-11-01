@@ -70,13 +70,10 @@ export default function GroupDeleteScreen(): ReactNode {
         secondConfirmation: true,
       })
       .then(
-        async () => {
+        () => {
           useGroupStore.setState((state) => ({
             groups: state.groups.filter((group) => group.id !== groupId),
           }));
-          // Durable queue already holds cleanup intent; process it now and
-          // leave retries to the startup worker if this fails.
-          await services.groups.cleanup.execute().catch(() => undefined);
           router.replace('/(tabs)/groups');
         },
         (err: unknown) => {
@@ -154,13 +151,6 @@ export default function GroupDeleteScreen(): ReactNode {
           </Pressable>
         ) : null}
 
-        {busy ? (
-          <Text variant="caption" color="secondary" accessibilityRole="alert">
-            Deleting records and queueing receipt-file cleanup. Keep the app open until this
-            finishes.
-          </Text>
-        ) : null}
-
         {error !== null ? (
           <Text variant="caption" color="negative" accessibilityRole="alert">
             {error}
@@ -177,7 +167,6 @@ export default function GroupDeleteScreen(): ReactNode {
           label="Cancel"
           variant="ghost"
           onPress={() => router.back()}
-          disabled={busy}
           accessibilityLabel="Cancel group deletion"
         />
       </Stack>

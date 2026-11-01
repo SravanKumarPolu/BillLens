@@ -27,7 +27,6 @@ app/
 │       ├── _layout.tsx      # Group stack
 │       ├── index.tsx        # Group home
 │       ├── balances.tsx     # Balances + explanations
-│       ├── settlements.tsx  # Per-group settlement history (v2.26.2)
 │       └── settings.tsx     # Group settings
 ├── capture/
 │   ├── _layout.tsx          # Capture modal stack
@@ -47,15 +46,14 @@ app/
 │   └── [draftId].tsx        # Draft review (Trust UI)
 ├── settlements/
 │   ├── new.tsx              # New settlement
-│   ├── preview.tsx          # Settlement preview
-│   └── [settlementId].tsx   # Settlement detail + guarded reversal (v2.26.2)
+│   └── preview.tsx          # Settlement preview
 └── modal/
     └── explanation.tsx      # Balance explanation modal
 ```
 
 ## 2. Navigation rules
 
-- Root route waits for navigation-store hydration, then subscribes to `onboardingComplete` to decide between onboarding and the main app
+- Root route decides between onboarding and main app via `requireOnboardingComplete()`
 - Guest users access all core routes — authentication is never mandatory
 - Deep links: `billlens://group/join/{token}`, `billlens://group/{id}`, `billlens://draft/{id}`, `billlens://expenses/new?groupId={id}`, `billlens://settings/metrics`, `billlens://settings/feedback`
 - `/expenses/new` requires a `groupId` param (the group's members + default currency drive the form); without one it redirects to the groups list
@@ -68,6 +66,6 @@ app/
 
 | Guard | Purpose |
 |-------|---------|
-| `useRequireOnboardingComplete()` | Returns no decision until persistence hydrates, then redirects to `/onboarding/welcome` if incomplete |
+| `requireOnboardingComplete()` | Redirects to `/onboarding/welcome` if not complete |
 | `requireGroupExists(groupId)` | Shows error if group not found |
 | `requireDraftExists(draftId)` | Shows error if draft not found |

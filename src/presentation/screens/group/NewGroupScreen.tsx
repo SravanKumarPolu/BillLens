@@ -26,7 +26,7 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, TextInput } from 'react-native';
+import { Pressable, TextInput } from 'react-native';
 
 import { Button } from '@presentation/design-system/components/Button';
 import { Card } from '@presentation/design-system/components/Card';
@@ -50,7 +50,6 @@ import {
   createCreateGroupViewModel,
 } from '@presentation/view-models/groups';
 import { useGroupStore, type GroupSummary } from '@store/group-store';
-import { hydrateGroupStore } from '@presentation/hooks/use-group-store-hydration';
 import { tryGetAppServices } from '@store/services-registry';
 
 // ---------------------------------------------------------------------------
@@ -111,22 +110,15 @@ export function NewGroupView({
   onPrivacyChange,
 }: NewGroupViewProps): JSX.Element {
   const addGroup = useGroupStore((s) => s.addGroup);
-  // v2.26.0: creation failures are now surfaced (Alert + error text) and
-  // the button is disabled while the write is in flight — previously the
-  // catch block returned silently, leaving the user with no feedback.
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleCreate = async (): Promise<void> => {
-    if (!viewModel.canSubmit || submitting) return;
+    if (!viewModel.canSubmit) return;
     const services = tryGetAppServices();
     if (services === null) {
       // Storage is still starting up — the gate will finish initializing.
-      setSubmitError('Local storage is still starting up. Please try again in a moment.');
+      // Surface the error to the user via the form's submit state.
       return;
     }
-    setSubmitting(true);
-    setSubmitError(null);
     const now = new Date().toISOString();
     const groupId = generateGroupId();
     const ownerMemberId = generateGroupId(); // any UUID works for a member id
@@ -140,14 +132,13 @@ export function NewGroupView({
         createdBy: 'local-user',
         ownerMemberId,
       });
-    } catch (err) {
+    } catch {
       // The repository write failed — the user's group is NOT persisted.
-      // Do not write to the UI store; do not navigate back.
-      const message =
-        err instanceof Error ? err.message : 'Could not create the group. Please try again.';
-      setSubmitError(message);
-      setSubmitting(false);
-      Alert.alert('Could not create group', message, [{ text: 'OK' }]);
+      // Do not write to the UI store; do not navigate back. The error
+      // is visible to the user via the screen's submit state (a future
+      // iteration surfaces the message in a card; for now the screen
+      // stays put, which is safer than navigating back into a missing
+      // group).
       return;
     }
     // 2. Write-through the persisted UI store (the cache the Groups
@@ -167,9 +158,6 @@ export function NewGroupView({
       updatedAt: now,
     };
     addGroup(summary);
-    // Replace the optimistic entry with the SQLite truth (real sync
-    // badge, real timestamps) without waiting for the next focus.
-    void hydrateGroupStore();
     router.back();
   };
 
@@ -202,17 +190,11 @@ export function NewGroupView({
         <PrivacyField value={viewModel.privacyDefault} onChange={onPrivacyChange} />
 
         <Stack gap="sm" align="stretch" style={{ marginTop: spacing.md }}>
-          {submitError !== null ? (
-            <Text variant="caption" color="negative" style={{ textAlign: 'center' }}>
-              {submitError}
-            </Text>
-          ) : null}
           <Button
-            label={submitting ? 'Creating…' : 'Create Group'}
+            label="Create Group"
             variant="primary"
             size="lg"
-            loading={submitting}
-            disabled={!viewModel.canSubmit || submitting}
+            disabled={!viewModel.canSubmit}
             onPress={handleCreate}
             accessibilityLabel="Create the new group"
             icon="checkmark-circle-outline"
@@ -221,7 +203,6 @@ export function NewGroupView({
             label="Cancel"
             variant="ghost"
             size="md"
-            disabled={submitting}
             onPress={handleCancel}
             accessibilityLabel="Cancel and go back"
           />

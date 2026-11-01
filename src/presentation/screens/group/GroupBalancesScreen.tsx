@@ -142,7 +142,6 @@ export function GroupBalancesView({
   onConfirm,
   onDispute,
 }: GroupBalancesViewProps): JSX.Element {
-  const theme = useTheme();
   return (
     <Screen scrollable safeArea>
       <Stack gap="xl" align="stretch" style={{ padding: spacing.xl }}>
@@ -169,35 +168,6 @@ export function GroupBalancesView({
           onConfirm={onConfirm}
           onDispute={onDispute}
         />
-
-        <Pressable
-          onPress={() => router.push(`/groups/${viewModel.id}/settlements`)}
-          accessibilityRole="button"
-          accessibilityLabel="Open settlement history"
-        >
-          <Card elevation="sm" padding="md">
-            <Row gap="md" align="center">
-              <Icon
-                name="swap-horizontal-outline"
-                size={theme.iconSizes.md}
-                color={theme.colors.brandPrimary}
-              />
-              <Stack gap={0} style={{ flex: 1 }}>
-                <Text variant="bodyStrong" color="primary">
-                  Settlement history
-                </Text>
-                <Text variant="caption" color="muted">
-                  Every transfer, status and reversal
-                </Text>
-              </Stack>
-              <Icon
-                name="chevron-forward"
-                size={theme.iconSizes.md}
-                color={theme.colors.textMuted}
-              />
-            </Row>
-          </Card>
-        </Pressable>
 
         <MembersBalancesSection viewModel={viewModel} />
 
@@ -355,10 +325,11 @@ function PendingConfirmationCard({
   // payment and must confirm). When identity lands, this should be the
   // current user's linked member id.
   const confirmedByMemberId = entry.toMemberId;
-  // v2.26.0: the settlement's persisted version (threaded through the
-  // pending-confirmation view model) — the previous hardcoded `2` broke
-  // confirmation for any settlement whose version had advanced past the
-  // initial record transition (e.g. after a correction).
+  // `expectedVersion` for a freshly-recorded settlement is 2 (the
+  // recordSettlement transition incremented from 1 → 2). The repository
+  // is the source of truth — pass 2 and rely on the use case's
+  // optimistic-concurrency check to surface a mismatch.
+  const expectedVersion = 2;
 
   return (
     <Card elevation="sm" padding="lg" accessibilityRole="text">
@@ -393,7 +364,7 @@ function PendingConfirmationCard({
             label="Confirm"
             variant="primary"
             size="sm"
-            onPress={(): void => onConfirm(entry.settlementId, entry.version, confirmedByMemberId)}
+            onPress={(): void => onConfirm(entry.settlementId, expectedVersion, confirmedByMemberId)}
             disabled={acting}
             loading={acting}
             accessibilityLabel={`Confirm the settlement from ${entry.fromMemberName}`}
@@ -404,7 +375,7 @@ function PendingConfirmationCard({
             label="Dispute"
             variant="secondary"
             size="sm"
-            onPress={(): void => onDispute(entry.settlementId, entry.version, 'not_received')}
+            onPress={(): void => onDispute(entry.settlementId, expectedVersion, 'not_received')}
             disabled={acting}
             accessibilityLabel={`Dispute the settlement from ${entry.fromMemberName}`}
             icon="close-outline"

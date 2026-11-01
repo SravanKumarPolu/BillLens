@@ -451,7 +451,7 @@ describe('JoinGroupView', () => {
       />,
     );
 
-    expect(getByText(/Ask the group creator for an invite link/)).toBeTruthy();
+    expect(getByText('Ask the group creator for an invite link.')).toBeTruthy();
   });
 });
 
@@ -795,7 +795,6 @@ describe('GroupBalancesView', () => {
       method: 'UPI',
       note: 'Dinner',
       createdAt: '2026-10-11T10:00:00.000Z',
-      version: 2,
     };
     const onConfirm = jest.fn();
     const onDispute = jest.fn();
@@ -889,7 +888,6 @@ describe('GroupBalancesView', () => {
       method: 'UPI',
       note: null,
       createdAt: '2026-10-11T10:00:00.000Z',
-      version: 2,
     };
     const { getByText } = renderWithProviders(
       <GroupBalancesView
@@ -942,7 +940,8 @@ describe('GroupSettingsView', () => {
       onSaveName: () => {},
       onArchive: () => {},
       onUnarchive: () => {},
-            onBack: () => {},
+      onLeave: () => {},
+      onBack: () => {},
       members: [],
       membersLoading: false,
       membersLoadError: null,
@@ -960,15 +959,13 @@ describe('GroupSettingsView', () => {
     expect(getByDisplayValue('Weekend Trip')).toBeTruthy();
   });
 
-  it('renders the danger zone with Archive only (v2.26.0: the store-only Leave control was removed)', () => {
-    const { getByLabelText, queryByLabelText } = renderWithProviders(
+  it('renders the danger zone with Archive and Leave', () => {
+    const { getByLabelText } = renderWithProviders(
       <GroupSettingsView {...makeSettingsProps()} />,
     );
 
     expect(getByLabelText('Archive this group')).toBeTruthy();
-    // Leaving a group is not a supported local action yet — the previous
-    // control only filtered the UI list while claiming data loss.
-    expect(queryByLabelText('Leave this group permanently')).toBeNull();
+    expect(getByLabelText('Leave this group permanently')).toBeTruthy();
   });
 
   it('shows Unarchive instead of Archive when the group is archived', () => {
@@ -992,13 +989,14 @@ describe('GroupSettingsView', () => {
     expect(onSaveName).not.toHaveBeenCalled();
   });
 
-  it('does not render a Leave control (removed in v2.26.0)', () => {
-    const { queryByLabelText, queryByText } = renderWithProviders(
-      <GroupSettingsView {...makeSettingsProps()} />,
+  it('invokes onLeave when the Leave action is pressed', () => {
+    const onLeave = jest.fn();
+    const { getByLabelText } = renderWithProviders(
+      <GroupSettingsView {...makeSettingsProps({ onLeave })} />,
     );
 
-    expect(queryByLabelText('Leave this group permanently')).toBeNull();
-    expect(queryByText('Leave group')).toBeNull();
+    fireEvent.press(getByLabelText('Leave this group permanently'));
+    expect(onLeave).toHaveBeenCalled();
   });
 
   it('renders the real members list when members are supplied', () => {

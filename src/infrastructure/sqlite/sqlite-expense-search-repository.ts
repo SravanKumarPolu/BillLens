@@ -61,16 +61,6 @@ export class SqliteExpenseSearchRepository implements ExpenseSearchRepository {
       conditions.push('e.amount_minor <= ?');
       params.push(criteria.maxAmountMinor);
     }
-    if (criteria.category !== undefined) {
-      conditions.push('lower(ifnull(e.category, \'\')) = lower(?)');
-      params.push(criteria.category);
-    }
-    if (criteria.memberId !== undefined) {
-      conditions.push(
-        '(exists (select 1 from expense_payers ep where ep.expense_id = e.id and ep.member_id = ? and ep.deleted_at is null) or exists (select 1 from expense_splits es where es.expense_id = e.id and es.member_id = ? and es.deleted_at is null))',
-      );
-      params.push(criteria.memberId, criteria.memberId);
-    }
 
     const rows = await this.db.all<SqlRow>(
       `select ${COLUMNS}, g.name as group_name

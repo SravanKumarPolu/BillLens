@@ -51,6 +51,6 @@ the Android build includes `com.google.mlkit:text-recognition`.
 ## Known blockers
 
 - No signed AAB or device E2E yet.
-- Backup image restore is only verified over Node/SQLite, not a physical device.
+- Receipt image files are not in backups.
 - Sync UI/relay not deployed; no real-time multi-device sync is claimed.
 - Live FX conversion not implemented.
