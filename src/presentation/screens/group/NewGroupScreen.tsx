@@ -50,6 +50,7 @@ import {
   createCreateGroupViewModel,
 } from '@presentation/view-models/groups';
 import { useGroupStore, type GroupSummary } from '@store/group-store';
+import { hydrateGroupStore } from '@presentation/hooks/use-group-store-hydration';
 import { tryGetAppServices } from '@store/services-registry';
 
 // ---------------------------------------------------------------------------
@@ -166,6 +167,9 @@ export function NewGroupView({
       updatedAt: now,
     };
     addGroup(summary);
+    // Replace the optimistic entry with the SQLite truth (real sync
+    // badge, real timestamps) without waiting for the next focus.
+    void hydrateGroupStore();
     router.back();
   };
 

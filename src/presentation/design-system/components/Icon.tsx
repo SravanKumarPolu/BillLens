@@ -18,7 +18,7 @@ export interface IconProps {
   /** Pixel size. Defaults to the theme `iconSizes.md` (20). */
   readonly size?: number;
   /** Icon colour. Accepts the same strings as RN `color`. */
-  readonly color?: Exclude<ColorValue, null | number>;
+  readonly color?: ColorValue;
 }
 
 export function Icon({ name, size = 20, color }: IconProps): ReactElement {

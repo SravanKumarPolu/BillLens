@@ -42,8 +42,8 @@ function, so the first launch failed at prepare time. It is now `length()`.
 |---|---|
 | `sql-statements.test.ts` | 7 cases: comments, block comments, strings, escaped quotes, comment-only input |
 | `sqlite-schema-portability.test.ts` | rejects PostgreSQL-only constructs in every registered migration |
-| `sqlite-migrations-execution.test.ts` | runs the real `runMigrations` on a real SQLite file; asserts 41 tables, version 12, idempotent second boot |
-| `npm run db:verify` | extracts the schema blocks and executes them in `sqlite3` (13 blocks, 41 tables); fails on the original errors |
+| `sqlite-migrations-execution.test.ts` | runs the real `runMigrations` on a real SQLite file; asserts `CURRENT_SCHEMA_VERSION`, idempotent second boot |
+| `npm run db:verify` | extracts the schema blocks and executes them in `sqlite3` / `node:sqlite` (15 blocks, 42 tables as of migration 0014); fails on the original errors |
 
 Both migration guards reproduce the device error when the old code is
 restored (`near "tracks": syntax error`, `unknown function: char_length`).
@@ -53,6 +53,15 @@ restored (`near "tracks": syntax error`, `unknown function: char_length`).
 Adds: `sync_processed_events` (durable apply/ack markers, including
 `conflict`), `sync_event_conflicts`, `sync_device_memberships`,
 `sync_key_epochs`, `sync_event_cursors`. No key material is stored.
+
+## Migration 0014 — settlement_reminders.version
+
+`alter table settlement_reminders add column version integer not null
+default 1;` — cancel / auto-cancel / mark-sent bump the entity version;
+without the column a reloaded reminder reset to v1. Additive only; no
+data is rewritten. Tests must read `CURRENT_SCHEMA_VERSION` instead of
+a hardcoded integer so the next migration cannot silently leave the
+suite (or backup restore) on the previous version.
 
 ## Rules for new migrations
 

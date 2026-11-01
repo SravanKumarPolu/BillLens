@@ -2,6 +2,89 @@
 
 All notable changes to BillLens across Phases 1-10 are documented here.
 
+## [2.26.2] — 2026-10-25 / 2026-11-01
+
+### Settlement history: list, detail and reversal (KL-7 / KL-8 closed)
+
+- **Per-group settlement history (`/groups/[groupId]/settlements`).**
+  `ListSettlementsUseCase` now has a UI caller: a virtualised,
+  cursor-paginated FlatList backed by the existing `(group_id, status)`
+  index — no new query. Status filter chips (all / awaiting confirmation /
+  completed / disputed), honest empty states, error + retry, and
+  `groupName` from the members use case. Reachable from the group
+  balances screen ("Settlement history" card). Rows deep-link to
+  `/settlements/[settlementId]`.
+- **Settlement detail + guarded reversal (`/settlements/[settlementId]`).**
+  Facts, status, method, note and reversal explanation;
+  `ReverseSettlementUseCase` runs behind a destructive-action dialog
+  with the persisted version (landed 2026-10-25; changelogged here
+  because the 2.26.2 packaging pass had not been written up).
+- **Screen-reader amounts.** Both settlement screens now speak
+  `describeAmount(...)` ("₹125.00 INR"), not raw minor units — restoring
+  the AUDIT_OCT_2026 §3.1 guarantee that the October pass had applied
+  everywhere else. Regression tests assert the storage integer never
+  reaches an accessibility label.
+- **Local-calendar dates.** Date-only settlement dates (`YYYY-MM-DD`)
+  are parsed as local calendar dates, not UTC midnight (the
+  off-by-one-day class of bug from AUDIT_OCT_2026 §2.4), identically on
+  the history list and the detail screen.
+- **After a settlement is saved**, the cached group balance is
+  recomputed from SQLite (`hydrateGroupStore`) instead of keeping the
+  optimistic upsert's stale net.
+- Touch targets on the new screen meet the 44 pt minimum; filter chips
+  wrap on narrow screens.
+
+**Verification (2026-11-01, this environment: Node 24, no devices).**
+`tsc --noEmit` clean; `eslint .` 0 errors / 0 warnings; Jest **229
+suites / 5,000 tests** passing (including `settlement-history.test.tsx`
+and the extended `settlement-detail.test.tsx`); `db:validate`,
+`db:verify` (15 blocks, 42 tables) and `secret-scan` clean;
+`expo export -p web` succeeds (`/groups/[groupId]/settlements` ships a
+title, description and `noindex`); `expo-doctor` **21/21**. Hardware-
+dependent gates remain open (see `KNOWN_LIMITATIONS.md`).
+
+### Repair after the first 2.26.2 packaging pass (2026-11-01)
+
+The first 2.26.2 commit added migration 0014 (`settlement_reminders.version`)
+but left several real-SQLite suites and the backup-restore rollback test
+on hardcoded schema version 13, so `tsc --noEmit` and 9 Jest suites
+failed. Repairs, in place:
+
+- `CURRENT_SCHEMA_VERSION` is now exported from `schema.ts` and derived
+  from `MIGRATIONS`. Tests and the backup rollback mock read it instead
+  of a hardcoded integer, so the next migration cannot silently leave
+  the suite (or restore) on the previous version.
+- `settlement-detail.test.tsx` type errors fixed (reminder-list item
+  type; optional first `scheduleNotification` call argument).
+- Living docs refreshed: KL-7/KL-9 (reminder UI is wired on the detail
+  screen), FEATURE_MATRIX reminders row, REQUIREMENTS_TRACEABILITY
+  CORE-02 / FIN-04 / NOT-01, SQLITE_MIGRATIONS migration 0014.
+- No SQLite data was reset, no financial row rewritten, no core feature
+  removed. Offline path, encrypted-sync deferral and the existing
+  settlement state machine are unchanged.
+
+## [2.26.1] — 2026-10-24
+
+### Permission surface, dev scripts and final packaging (2026-10-24)
+
+- `expo-camera` now uses the documented `cameraPermission` prop. The previous
+  `cameraPermissionText` was ignored, so iOS showed the generic system prompt.
+- Camera and image picker no longer request microphone access
+  (`microphonePermission: false`, `recordAudioAndroid: false`). BillLens only
+  captures still images; resolved Android permissions are `CAMERA` only.
+- `npm run android` / `npm run ios` now launch a development build
+  (`expo run:*`) instead of the Expo Go launcher, matching the native
+  requirements of ML Kit OCR and local notifications.
+- Draft-review container test now flushes React 19 `act()` work explicitly
+  instead of polling with `waitFor`, removing a flaky timeout.
+- Jest `testTimeout` raised to 15 s: the real-SQLite and crypto suites can
+  exceed the 5 s default on a cold CI runner, which produced a one-off
+  timeout in the first run after `npm ci` while three warm runs passed.
+- Project consolidated into `BillLens-Final/` and archived as
+  `BillLens-Final.zip`; the archive was extracted and revalidated in a clean
+  directory (install, typecheck, lint, tests, SQLite schema, secret scan,
+  Expo config, web export).
+
 ## [2.26.0] — 2026-10-23
 
 ### Real-SQLite test engine for every environment (2026-10-23)

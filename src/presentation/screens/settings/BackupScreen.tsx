@@ -22,6 +22,7 @@ import { Stack } from '@presentation/design-system/components/Stack';
 import { Text } from '@presentation/design-system/components/Text';
 import { useTheme } from '@presentation/design-system/theme';
 import { spacing } from '@presentation/design-system/tokens';
+import { hydrateGroupStore } from '@presentation/hooks/use-group-store-hydration';
 import { tryGetAppServices } from '@store/services-registry';
 
 function PasswordField({
@@ -166,7 +167,15 @@ export default function BackupScreen(): ReactNode {
               try {
                 const text = await new File(pickedFile.uri).text();
                 await services.backup.restore.execute(text, password);
-                setMessage('Restore complete. Restart BillLens to reload every screen.');
+                // Rebuild the persisted group cache from the restored
+                // SQLite database. Previously this screen told the user
+                // to restart the app — but a restart did NOT reload the
+                // AsyncStorage group cache, so restored groups were
+                // invisible on the Groups/Home tabs until the cache was
+                // rewritten by chance. Hydration makes the restore
+                // visible immediately.
+                await hydrateGroupStore();
+                setMessage('Restore complete. Your groups and balances are up to date.');
                 setPreview(null);
               } catch (error) {
                 setMessage(error instanceof Error ? error.message : 'Restore failed.');

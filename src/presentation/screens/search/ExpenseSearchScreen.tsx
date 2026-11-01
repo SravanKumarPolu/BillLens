@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 
 import type { Expense } from '@domain/entities/expense';
+import type { GroupMemberView } from '@application/groups/list-group-members.usecase';
 import { AmountText } from '@presentation/design-system/components/AmountText';
 import { Card } from '@presentation/design-system/components/Card';
 import { Icon } from '@presentation/design-system/components/Icon';
@@ -63,6 +64,9 @@ export default function ExpenseSearchScreen(): ReactNode {
   const [text, setText] = useState('');
   const [groupId, setGroupId] = useState<string>('all');
   const [preset, setPreset] = useState<DatePreset>('any');
+  const [category, setCategory] = useState('');
+  const [memberId, setMemberId] = useState<string>('all');
+  const [members, setMembers] = useState<readonly GroupMemberView[]>([]);
   const [hits, setHits] = useState<readonly Hit[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -97,6 +101,8 @@ export default function ExpenseSearchScreen(): ReactNode {
           groupIds: ids,
           ...(text.trim().length > 0 ? { text: text.trim() } : {}),
           ...dateWindow(preset),
+          ...(category.trim().length > 0 ? { category: category.trim() } : {}),
+          ...(memberId !== 'all' ? { memberId } : {}),
           limit: 20,
           offset,
         });
@@ -113,7 +119,7 @@ export default function ExpenseSearchScreen(): ReactNode {
         }
       }
     },
-    [groups, groupId, preset, text],
+    [groups, groupId, preset, text, category, memberId],
   );
 
   useEffect(() => {
@@ -122,6 +128,30 @@ export default function ExpenseSearchScreen(): ReactNode {
     }, 250);
     return () => clearTimeout(timer);
   }, [runSearch]);
+
+  useEffect(() => {
+    if (groupId === 'all') {
+      setMembers([]);
+      setMemberId('all');
+      return;
+    }
+    const services = tryGetAppServices();
+    if (services === null) return;
+    let cancelled = false;
+    void services.groups.listGroupMembers
+      .execute(groupId)
+      .then((result) => {
+        if (cancelled) return;
+        setMembers(result.members);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setMembers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [groupId]);
 
   const renderItem = useCallback(
     ({ item }: { item: Hit }) => (
@@ -213,6 +243,53 @@ export default function ExpenseSearchScreen(): ReactNode {
           ))}
         </ScrollView>
 
+        {groupId !== 'all' && members.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.sm }}
+          >
+            <FilterChip
+              label="All members"
+              selected={memberId === 'all'}
+              onPress={() => setMemberId('all')}
+            />
+            {members.map((member) => (
+              <FilterChip
+                key={member.id}
+                label={member.displayName}
+                selected={memberId === member.id}
+                onPress={() => setMemberId(member.id)}
+              />
+            ))}
+          </ScrollView>
+        ) : null}
+
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            borderRadius: theme.borderRadius.md,
+            backgroundColor: theme.colors.surface,
+            paddingHorizontal: spacing.md,
+            minHeight: 40,
+            marginBottom: spacing.sm,
+          }}
+        >
+          <TextInput
+            value={category}
+            onChangeText={setCategory}
+            placeholder="Category (optional)"
+            placeholderTextColor={theme.colors.textMuted}
+            accessibilityLabel="Filter by category"
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={{ flex: 1, color: theme.colors.textPrimary, minHeight: 36 }}
+          />
+        </View>
+
         <Row gap="sm" style={{ paddingBottom: spacing.md }}>
           {DATE_PRESETS.map((option) => (
             <FilterChip
@@ -251,7 +328,7 @@ export default function ExpenseSearchScreen(): ReactNode {
               </Stack>
             }
             ListFooterComponent={
-              loadingMore ? <ActivityIndicator style={{ marginVertical: spacing.md }} /> : undefined
+              loadingMore ? <ActivityIndicator style={{ marginVertical: spacing.md }} /> : null
             }
           />
         )}

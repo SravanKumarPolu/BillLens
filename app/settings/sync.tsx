@@ -53,6 +53,19 @@ function conflictSummary(entityType: string, localVersion: number, cloudVersion:
   return `Your ${label} (v${localVersion}) differs from the cloud version (v${cloudVersion}).`;
 }
 
+/**
+ * Turn a thrown value into a short, user-facing sentence.
+ *
+ * Sync failures are usually repository/transport errors; their messages name a
+ * table or a status code, never a token or payload, so a capped message is
+ * safe and far more useful than a silent failure.
+ */
+function describeError(error: unknown, fallback: string): string {
+  const raw = error instanceof Error ? error.message.trim() : '';
+  if (raw === '') return fallback;
+  return raw.length > 200 ? `${raw.slice(0, 197)}…` : raw;
+}
+
 export default function SyncStatusRoute(): ReactNode {
   const servicesReady = useAppServicesReady();
   const refreshSyncStatus = useAppState((s) => s.refreshSyncStatus);
@@ -61,6 +74,8 @@ export default function SyncStatusRoute(): ReactNode {
   >([]);
   const [remoteConflicts, setRemoteConflicts] = useState<readonly RemoteConflictViewModel[]>([]);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   const loadFailed = useCallback(async (): Promise<void> => {
@@ -95,10 +110,14 @@ export default function SyncStatusRoute(): ReactNode {
           })),
       );
       setDownloadError(services.sync.coordinator.getDownloadError()?.errorMessage ?? null);
+      setLoadError(null);
 
       await refreshSyncStatus();
-    } catch {
-      // Counters stay as-is; the screen still renders.
+    } catch (error) {
+      // Surface the failure instead of leaving stale counters on screen.
+      setLoadError(
+        describeError(error, 'Could not read the sync queue. Try again in a moment.'),
+      );
     }
   }, [refreshSyncStatus]);
 
@@ -113,8 +132,11 @@ export default function SyncStatusRoute(): ReactNode {
       if (services === null) return;
       void (async () => {
         setSyncing(true);
+        setActionError(null);
         try {
           await services.sync.coordinator.retryOperation(operationId);
+        } catch (error) {
+          setActionError(describeError(error, 'Could not retry that change.'));
         } finally {
           setSyncing(false);
           await loadFailed();
@@ -129,11 +151,14 @@ export default function SyncStatusRoute(): ReactNode {
     if (services === null) return;
     void (async () => {
       setSyncing(true);
+      setActionError(null);
       try {
         for (const op of failedOperations) {
           await services.sync.repository.resetForRetry(op.id);
         }
         await services.sync.coordinator.requestSync('user_retry');
+      } catch (error) {
+        setActionError(describeError(error, 'Could not retry the failed changes.'));
       } finally {
         setSyncing(false);
         await loadFailed();
@@ -146,8 +171,11 @@ export default function SyncStatusRoute(): ReactNode {
     if (services === null) return;
     void (async () => {
       setSyncing(true);
+      setActionError(null);
       try {
         await services.sync.coordinator.requestSync('manual');
+      } catch (error) {
+        setActionError(describeError(error, 'Could not start a sync.'));
       } finally {
         setSyncing(false);
         await loadFailed();
@@ -162,6 +190,7 @@ export default function SyncStatusRoute(): ReactNode {
       if (services === null) return;
       void (async () => {
         setSyncing(true);
+        setActionError(null);
         try {
           // Resolve on the SAME applier instance the engine uses.
           const useCase = new ResolveRemoteConflictUseCase(
@@ -173,6 +202,8 @@ export default function SyncStatusRoute(): ReactNode {
             // The re-based upload should go out promptly.
             await services.sync.coordinator.requestSync('user_retry');
           }
+        } catch (error) {
+          setActionError(describeError(error, 'Could not resolve that conflict.'));
         } finally {
           setSyncing(false);
           await loadFailed();
@@ -189,9 +220,12 @@ export default function SyncStatusRoute(): ReactNode {
     if (services === null) return;
     void (async () => {
       setSyncing(true);
+      setActionError(null);
       try {
         await services.sync.coordinator.resetFullSync();
         await services.sync.coordinator.requestSync('manual');
+      } catch (error) {
+        setActionError(describeError(error, 'Could not restart the sync.'));
       } finally {
         setSyncing(false);
         await loadFailed();
@@ -210,6 +244,11 @@ export default function SyncStatusRoute(): ReactNode {
       onResolveConflict={handleResolveConflict}
       onFullResync={handleFullResync}
       downloadError={downloadError}
+      loadError={loadError}
+      onReload={() => {
+        void loadFailed();
+      }}
+      actionError={actionError}
       onClose={() => router.back()}
     />
   );

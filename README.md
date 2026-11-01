@@ -2,8 +2,10 @@
 
 > Offline-first, receipt-aware shared expense app.
 
-**Status:** v2.25.0 — release candidate (Phases 1–10 complete, three
-production-hardening passes; v2.25.0 adds receipt persistence/history; v2.24.0 completed the UI/navigation audit; v2.23.0 added retention controls and guarded local erasure; v2.22.0 hardened camera/gallery replacement and native OCR compatibility; v2.21.0 added item-first expense creation; v2.20.0 added durable file-cleanup recovery and full archive guards; v2.19.0 encrypted receipt images inside backups; v2.18.0 added full group management; v2.17.0 added item-level splits and on-device ML Kit OCR; v2.16.0 added encrypted local backup/restore and yearly recurrence; v2.15.0 added recurring expenses, cross-group search, PDF/XLSX reports and
+**Status:** v2.26.2 — release candidate (Phases 1–10 complete, four
+production-hardening passes; v2.26.1 hardens the native permission surface
+and revalidates the final archive; v2.26.0 fixed the receipt scan→review→save
+pipeline and runs every real-SQLite suite on `node:sqlite`; v2.25.0 adds receipt persistence/history; v2.24.0 completed the UI/navigation audit; v2.23.0 added retention controls and guarded local erasure; v2.22.0 hardened camera/gallery replacement and native OCR compatibility; v2.21.0 added item-first expense creation; v2.20.0 added durable file-cleanup recovery and full archive guards; v2.19.0 encrypted receipt images inside backups; v2.18.0 added full group management; v2.17.0 added item-level splits and on-device ML Kit OCR; v2.16.0 added encrypted local backup/restore and yearly recurrence; v2.15.0 added recurring expenses, cross-group search, PDF/XLSX reports and
 local balance reminders; v2.14.0 fixed camera/gallery capture, Android content-URI image handling and
 manual-expense save verification; v2.13.0 added expense editing and multiple payers; v2.12.0 added exact,
 percentage and shares splits (previously only equal); v2.11.0 added lazy OCR loading, deferred startup work, a virtualised
@@ -12,22 +14,23 @@ financial conflict records, secure invitations/key delivery and expense voiding;
 **encrypted-sync core** (envelopes, device keys, reference relay — not deployed); v2.8.0 added **local data export,
 retention rules and safe local deletion**; v2.7.0 migrated to **Expo SDK 57 / React Native 0.86 /
 React 19.2**; v2.6.0 added **bidirectional cloud sync** and explicit
-financial-conflict resolution). 4,927 tests passing across 221 suites. See
+financial-conflict resolution). 4,960 tests passing across 224 suites. See
 [`CHANGELOG.md`](CHANGELOG.md) and
 [`docs/consistency-model.md`](docs/consistency-model.md).
 
 ## Quick start
 
-> **Expo Go must match the project SDK.** This project uses **SDK 58**
-> (`expo ~58.0.22`). Install the SDK 58-compatible Expo Go or use a
-> development build.
+> **Expo Go must match the project SDK.** This project is on **SDK 57**
+> (`expo ^57.0.30`), which is what the current Expo Go ships, so the store
+> build works as-is. If your client is older than the project, update Expo Go
+> rather than downgrading the project.
 >
-> Use Node **22.13+**, **24.3+**, **26+**, or **27+** as required by Expo SDK 58.
+> Node **20.19.4+ / 22.13+ / 24.3+** is required by React Native 0.86.
 >
-> Expo modules such as `expo-camera`, `expo-image-picker`, `expo-sqlite`,
-> `expo-secure-store`, `expo-file-system` and `expo-crypto` are included in
-> Expo Go. The third-party ML Kit OCR module requires a development build
-> for on-device OCR:
+> No custom native modules are in use today — `expo-camera`,
+> `expo-image-picker`, `expo-sqlite`, `expo-secure-store`, `expo-file-system`
+> and `expo-crypto` are all included in Expo Go. A development build is only
+> required once custom native code or a share extension is added:
 > `npx expo run:ios` / `npx expo run:android`, or
 > `eas build --profile development`.
 

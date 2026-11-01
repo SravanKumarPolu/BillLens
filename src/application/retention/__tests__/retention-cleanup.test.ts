@@ -7,8 +7,8 @@ import {
 
 describe('RetentionCleanupUseCase', () => {
   it('uses the correct cutoff and delegates bounded candidates', async () => {
-    const enqueue = jest.fn<RetentionCleanupStore['enqueueCleanup']>(async () => 1);
-    const find = jest.fn<RetentionCleanupStore['findOrphanFiles']>(async () => ['file:///tmp/a.jpg']);
+    const enqueue = jest.fn(async () => 1);
+    const find = jest.fn(async () => ['file:///tmp/a.jpg']);
     const store: RetentionCleanupStore = { findOrphanFiles: find, enqueueCleanup: enqueue };
 
     const result = await new RetentionCleanupUseCase(store).execute({
@@ -23,7 +23,7 @@ describe('RetentionCleanupUseCase', () => {
   });
 
   it('does nothing when no orphans exist', async () => {
-    const enqueue = jest.fn<RetentionCleanupStore['enqueueCleanup']>(async () => 0);
+    const enqueue = jest.fn(async () => 0);
     const store: RetentionCleanupStore = {
       findOrphanFiles: async () => [],
       enqueueCleanup: enqueue,

@@ -1,4 +1,4 @@
-# Final release checklist — BillLens v2.26.0 (2026-10-23)
+# Final release checklist — BillLens v2.26.1 (2026-10-24)
 
 ## Verdict
 
@@ -7,20 +7,23 @@ on development builds**, subject to the device gates below. The offline
 core (groups, expenses, splits, balances, settlements, receipts, search,
 recurring, export, backup, retention) is fully implemented and covered
 by 224 automated suites / 4,960 passing tests executed in this
-environment. Remote encrypted sync remains intentionally BLOCKED (PRD
-P2) and is honestly surfaced in-app.
+environment — on the source tree and again from the extracted
+`BillLens-Final.zip`. Remote encrypted sync remains intentionally BLOCKED
+(PRD P2) and is honestly surfaced in-app.
 
-## Automated gates — ALL PASSED (2026-10-23)
+## Automated gates — ALL PASSED (2026-10-24, final archive)
 
-- [x] `npm ci` — reproducible from lockfile
+- [x] `npm ci` — reproducible from lockfile in a clean extracted copy
 - [x] `npx tsc --noEmit` — 0 errors
 - [x] `npm run lint` — 0 errors, 0 warnings
 - [x] `npx jest --silent` — 224 suites / 4,960 tests, 0 skipped
 - [x] `npm run db:validate` — all SQL files valid
 - [x] `npm run db:verify` — schema executes in a real SQLite engine (14 blocks / 42 tables)
 - [x] `npm run secret-scan` — CLEAN
-- [x] `npx expo-doctor` — 21/21 checks
+- [x] `npx expo-doctor` — 21/21 checks (clean folder, no `android/`)
 - [x] `npx expo export -p web` — static export succeeds
+- [x] `BillLens-Final.zip` — `unzip -t` clean, 1,386 entries (1,155 files), no
+      `node_modules`/`.git`/`android`/`dist`/`.expo`/secrets
 
 ## Device gates — ALL OPEN (block closed testing)
 
@@ -59,7 +62,7 @@ Backups created in-app are the user-level rollback mechanism.
 
 | Role | Status |
 |---|---|
-| Engineering (automated gates) | ✅ passed 2026-10-23, environment noted in `FINAL_TEST_RESULTS.md` |
+| Engineering (automated gates) | ✅ passed 2026-10-24, environment noted in `FINAL_TEST_RESULTS.md` |
 | QA (device matrix) | ⛔ not executed — no hardware in this environment |
 | Security review | ⛔ internal only (KL-18) |
 | Legal | ⛔ drafts unsigned (KL-19) |

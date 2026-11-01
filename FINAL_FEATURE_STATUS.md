@@ -1,16 +1,21 @@
-# Final feature status — BillLens v2.26.0 (2026-10-23)
+# Final feature status — BillLens v2.26.2 (2026-10-25)
 
 Statuses use the five agreed categories. Evidence column references the
-automated suite executed 2026-10-23 in this environment (Node 24.21.0,
-224 suites / 4,960 tests, 0 skipped) unless explicitly marked otherwise.
+automated suite executed on 2026-10-25 in this environment (macOS 26.7.1,
+Node 24.20.0, `node:sqlite` 3.53.4): 227 suites / 4,976 tests, 0 skipped —
+run once on the final tree and again from the extracted `BillLens-Final.zip`.
 **No physical-device or deployed-backend test was executed in this pass.**
+The v2.26.2 changes add the settlement detail + guarded reversal UI
+(`/settlements/[settlementId]`, `settlement-detail.test.tsx`) and the
+join-group availability notice; no other feature status below changed from
+v2.26.1.
 
 ## IMPLEMENTED_AND_TESTED (automated evidence, executed in this environment)
 
 | Feature | Evidence |
 |---|---|
 | Guest onboarding + local identity | onboarding screen tests; identity repository tests |
-| SQLite boot + 13-migration registry (14 blocks / 42 tables) | `sqlite-migrations-execution.test.ts` (real SQLite); `npm run db:verify` |
+| SQLite boot + 14-migration registry (15 blocks / 42 tables) | `sqlite-migrations-execution.test.ts` (real SQLite); `npm run db:verify`; `CURRENT_SCHEMA_VERSION` derived from `MIGRATIONS` |
 | Create / edit / archive / restore / safe-delete group; owner protection; two-layer write guards | `group-management.test.ts` (real SQLite), `create-group.integration.test.ts`; v2.26.0: settings rename/archive now persist |
 | Add / rename / remove members (soft delete, history preserved) | group-management + member integration tests |
 | Manual expense create + edit (version guard, prefill) | `create-expense-manually-integration.test.ts`, `update-expense.test.ts`, `manual-expense-screen.test.tsx` |
@@ -19,6 +24,7 @@ automated suite executed 2026-10-23 in this environment (Node 24.21.0,
 | Multiple payers (contributions must total; edit prefill) | form + use-case tests |
 | Multi-currency balances, zero-sum invariant, debt simplification | `balance-engine.test.ts` (+ multi-currency), suggestions tests |
 | Settlements: create (idempotent two-step), partial, receiver confirmation, dispute, state machine, history persistence | settlement lifecycle + confirmation/dispute + write-repository tests |
+| Settlement detail + guarded reversal UI | `settlement-detail.test.tsx` (view + container), `/settlements/[settlementId]` route |
 | Offline durable queue, idempotency, retry/backoff, boot recovery, stuck-row recovery | `sqlite-sync-repository.test.ts`, coordinator tests, `local-first-flow.test.ts` (real SQLite) |
 | Conflict detection + keep-mine/use-cloud review (Supabase path) | `conflict-resolution`, `sqlite-remote-change-applier`, port tests |
 | Encrypted envelopes, keys, invite tokens, keybox (crypto core) | 25+ `sync-crypto` tests |
@@ -49,10 +55,10 @@ automated suite executed 2026-10-23 in this environment (Node 24.21.0,
 
 | Feature | What exists | What is missing |
 |---|---|---|
-| Settlement reversal | `ReverseSettlementUseCase` + tests, wired in composition root | No UI entry point (no settlement-detail screen) |
-| Settlement detail/history views | Activity timeline (expenses + settlements), balances-screen pending cards, `ListSettlementsUseCase` | No dedicated settlement list/detail screens; `SettlementConfirmationScreen` exists but is unrouted |
+| Settlement history list | `/groups/[groupId]/settlements` → `ListSettlementsUseCase` (paged, status filters, virtualised); reachable from balances; rows link to detail | Implemented and tested (v2.26.2, `settlement-history.test.tsx`) |
+| Settlement detail + guarded reversal | `/settlements/[settlementId]` facts/status/note/reversal; `ReverseSettlementUseCase` behind a destructive dialog with the persisted version | Implemented and tested (v2.26.2, `settlement-detail.test.tsx`) |
 | Group invitations (local) | Full invitations module + `JoinGroupUseCase`, tested | Not wired into composition root/screens; join screen is a placeholder |
-| Per-settlement reminders | Use cases + scheduling rules, tested | Not in composition root or any screen |
+| Per-settlement reminders | Create/cancel/list use cases wired in composition root; pending/requested settlements expose "Remind tomorrow" + cancel on the detail screen; OS alarm only when the runtime can present notifications | Implemented and tested (v2.26.2); no dedicated inbox; device delivery unverified (KL-2) |
 | Guest → account upgrade | Identity domain + use cases | Needs provisioned cloud project to verify |
 | Dependency audit automation | Classification engine + tests | No automated `npm audit` runner wired to CI |
 

@@ -27,6 +27,7 @@ app/
 │       ├── _layout.tsx      # Group stack
 │       ├── index.tsx        # Group home
 │       ├── balances.tsx     # Balances + explanations
+│       ├── settlements.tsx  # Per-group settlement history (v2.26.2)
 │       └── settings.tsx     # Group settings
 ├── capture/
 │   ├── _layout.tsx          # Capture modal stack
@@ -46,7 +47,8 @@ app/
 │   └── [draftId].tsx        # Draft review (Trust UI)
 ├── settlements/
 │   ├── new.tsx              # New settlement
-│   └── preview.tsx          # Settlement preview
+│   ├── preview.tsx          # Settlement preview
+│   └── [settlementId].tsx   # Settlement detail + guarded reversal (v2.26.2)
 └── modal/
     └── explanation.tsx      # Balance explanation modal
 ```

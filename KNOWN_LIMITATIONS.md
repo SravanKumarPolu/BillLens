@@ -1,4 +1,4 @@
-# Known limitations — BillLens v2.26.0 (2026-10-23)
+# Known limitations — BillLens v2.26.2 (updated 2026-11-01)
 
 Each item states: what it is, the current status, the evidence, why it
 remains incomplete, the exact remaining action, and whether it blocks a
@@ -61,17 +61,26 @@ sufficient for verification. **Blocks release: NO** (cloud is optional).
 
 ## Functional gaps (do not block release)
 
-**KL-7 — Settlement reversal has no UI.** Use case + tests + composition
-wiring exist; no screen calls it. Exact action: route the existing
-`SettlementConfirmationScreen` (currently unrouted) or add a reversal
-action to a settlement-detail screen.
+**KL-7 — Settlement history list screen shipped (2026-11-01).** Closed:
+`/groups/[groupId]/settlements` calls `ListSettlementsUseCase` (paged,
+status filters, virtualised FlatList) and is reachable from the group
+balances screen; rows link to `/settlements/[settlementId]`. Covered by
+`settlement-history.test.tsx`. Per-settlement reminder scheduling is
+wired on the detail screen (KL-9).
 
-**KL-8 — No dedicated settlement list/detail screens.** Settlement
-history is visible via the activity timeline and the balances screen's
-pending cards; `ListSettlementsUseCase` has no UI caller.
+**KL-8 — Dedicated settlement detail screen exists (v2.26.2).**
+`/settlements/[settlementId]` renders facts, status, method, note and
+reversal explanation, and is now reached from the history list (KL-7).
+The former "no UI caller for `ListSettlementsUseCase`" gap is closed.
 
-**KL-9 — Per-settlement reminder scheduling has no UI** (use cases
-exist, tested, unwired). The shipped opt-in daily reminder is wired.
+**KL-9 — Per-settlement reminder UI is wired on the detail screen only**
+(v2.26.2). Pending/requested settlements expose "Remind me to confirm
+tomorrow" + cancel (`CreateSettlementReminderUseCase` /
+`CancelSettlementReminderUseCase`); the OS alarm is scheduled only when
+the runtime can present notifications (Expo Go / web store the row and
+say so). Still open: a dedicated reminders inbox, reminder actions from
+history rows, and device verification of delivery (KL-2). The shipped
+opt-in daily reminder remains wired.
 
 **KL-10 — Manual expense form has no autosave** (the itemized form
 does). Losing input on app kill is possible mid-form.

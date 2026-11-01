@@ -2,10 +2,10 @@
 
 # Technical requirements (TRD)
 
-## Installed stack (package.json, 2026-11-02)
-- Expo `~58.0.22`; React Native `0.88.1`; React `19.3.0`; Expo Router `~58.0.29`; TypeScript `~6.0.3`.
-- SQLite `~58.0.15`; Zustand `^4.5.4`; Zod `^3.23.8`; optional Supabase `^2.45.0`.
-- Camera `~58.0.14`, picker `~58.0.10`, native OCR `^2.0.0`, notifications `~58.1.7`.
+## Installed stack (package.json)
+- Expo `~57.0.31`; React Native `0.86.3`; React `19.2.3`; Expo Router `~57.0.29`; TypeScript `~6.0.3`.
+- SQLite `~57.0.4`; Zustand `^4.5.4`; Zod `^3.23.8`; optional Supabase `^2.45.0`.
+- Camera `~57.0.6`, picker `~57.0.20`, native OCR `^2.0.0`, notifications `~57.0.24`.
 - Noble curves/ciphers/hashes; optional relay reference in `src/infrastructure/relay-reference`.
 
 ## Architecture and lifecycle
