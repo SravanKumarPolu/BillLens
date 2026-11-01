@@ -55,7 +55,7 @@ app/
 
 ## 2. Navigation rules
 
-- Root route decides between onboarding and main app via `requireOnboardingComplete()`
+- Root route waits for navigation-store hydration, then subscribes to `onboardingComplete` to decide between onboarding and the main app
 - Guest users access all core routes — authentication is never mandatory
 - Deep links: `billlens://group/join/{token}`, `billlens://group/{id}`, `billlens://draft/{id}`, `billlens://expenses/new?groupId={id}`, `billlens://settings/metrics`, `billlens://settings/feedback`
 - `/expenses/new` requires a `groupId` param (the group's members + default currency drive the form); without one it redirects to the groups list
@@ -68,6 +68,6 @@ app/
 
 | Guard | Purpose |
 |-------|---------|
-| `requireOnboardingComplete()` | Redirects to `/onboarding/welcome` if not complete |
+| `useRequireOnboardingComplete()` | Returns no decision until persistence hydrates, then redirects to `/onboarding/welcome` if incomplete |
 | `requireGroupExists(groupId)` | Shows error if group not found |
 | `requireDraftExists(draftId)` | Shows error if draft not found |

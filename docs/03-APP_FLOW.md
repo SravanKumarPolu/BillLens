@@ -10,6 +10,9 @@
 5. Data/settings → export/backup/retention review → explicit deletion; verify permissions and destructive guards.
 6. Remote collaboration is **not yet a verified complete app journey**; invitation/relay/key recovery/conflict review must remain marked partial.
 
+## Startup routing
+The root route waits for the persisted navigation store to finish AsyncStorage hydration before redirecting to onboarding or the main tabs. While the decision is pending, it renders a loading indicator; changes to `onboardingComplete` remain subscribed after hydration. This prevents the initial default value from being mistaken for the persisted choice. It does not by itself establish the cause of any reported black screen.
+
 ## Screen-state contract
 Every route must show loading, empty, success, validation, permission-denied, offline and recoverable-error states where applicable. Disable duplicate submissions, preserve unsaved form state, avoid navigation until durable save confirmed, and provide visible retry. Never show “synced” merely because a local operation was queued.
 

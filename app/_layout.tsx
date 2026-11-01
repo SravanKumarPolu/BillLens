@@ -27,7 +27,6 @@
 import { Stack as RouterStack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import type { ReactNode } from 'react';
-import { Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { QueryProvider } from '@application/providers/query-provider';
@@ -144,11 +143,7 @@ export default function RootLayout(): ReactNode {
               <Stack gap={0} style={{ flex: 1 }}>
                 <ThemedStatusBar />
                 <OfflineBanner />
-                <View style={{ flex: 1, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center' }}>
-                  <Text style={{ color: 'black', fontSize: 24 }}>
-                    BillLens Render Test
-                  </Text>
-                </View>
+                <ThemedRootStack />
               </Stack>
             </ServicesGate>
           </ErrorBoundary>
