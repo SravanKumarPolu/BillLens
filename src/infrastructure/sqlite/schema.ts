@@ -1393,6 +1393,16 @@ create table if not exists outstanding_reminder_state (
 );
 `;
 
+/**
+ * Migration 0014 — the `settlement_reminders` table (Prompt 59) never
+ * stored the entity `version`. Cancel / auto-cancel / mark-sent all bump
+ * the version; without the column a reloaded reminder reset to v1 and
+ * the optimistic-update contract was unobservable.
+ */
+export const MIGRATION_0014_SETTLEMENT_REMINDER_VERSION = `
+alter table settlement_reminders add column version integer not null default 1;
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'initial_schema', sql: MIGRATION_0001_INITIAL_SCHEMA },
   { version: 2, name: 'phase6_track1_settlement_state_machine', sql: MIGRATION_0002_PHASE6_TRACK1 },
@@ -1407,6 +1417,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 11, name: 'group_management', sql: MIGRATION_0011_GROUP_MANAGEMENT },
   { version: 12, name: 'file_cleanup_queue', sql: MIGRATION_0012_FILE_CLEANUP_QUEUE },
   { version: 13, name: 'outstanding_reminder_state', sql: MIGRATION_0013_OUTSTANDING_REMINDER_STATE },
+  { version: 14, name: 'settlement_reminder_version', sql: MIGRATION_0014_SETTLEMENT_REMINDER_VERSION },
 ];
 
 /**

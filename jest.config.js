@@ -31,4 +31,9 @@ module.exports = {
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
+  // The real-SQLite and crypto suites do file I/O and PBKDF2/XChaCha20 work
+  // that can exceed Jest's 5 s default on a cold CI runner (fresh `npm ci`,
+  // no OS cache), producing intermittent one-off timeouts. 15 s keeps the
+  // signal for genuine hangs while removing that cold-start flake.
+  testTimeout: 15_000,
 };

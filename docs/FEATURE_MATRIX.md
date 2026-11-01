@@ -1,4 +1,4 @@
-# Feature matrix (2026-10-23, v2.26.0)
+# Feature matrix (2026-11-01, v2.26.2)
 
 Statuses: **VERIFIED** (tests in this repo), **DEVICE-UNTESTED**,
 **PARTIAL**, **MISSING**, **EXTERNAL** (credentials/hardware/provider).
@@ -19,7 +19,7 @@ Statuses: **VERIFIED** (tests in this repo), **DEVICE-UNTESTED**,
 | Balance calculation | Verified | Verified | balance engine tests + real SQLite flow |
 | Debt simplification | Verified | Verified | suggestions use case/tests |
 | Partial/full settlement | Verified | Verified | settlement state machine tests |
-| Settlement history | Verified | Verified | activity timeline (expenses + settlements) + balances-screen pending cards; no dedicated settlement-detail screen |
+| Settlement history | Verified | Verified | activity timeline + balances pending cards + dedicated `/settlements/[settlementId]` detail/reversal screen and `/groups/[groupId]/settlements` list (status filters, cursor pagination, virtualised) (v2.26.2, 2026-11-01) |
 | Expense history | Verified | Verified | group home recent + activity feed (virtualised) |
 | Expense editing | Missing | **VERIFIED** | `UpdateExpenseUseCase`, edit route, prefill, version guard, tests |
 | Offline persistence | Verified | Verified | real SQLite reopen test |
@@ -74,7 +74,18 @@ PDF/XLSX export and local balance reminders are now implemented. It is still
 behind on item-level manual expense editing, FX conversion, production encrypted
 sync, on-device OCR, and device verification of notification/export/backup paths.
 
-## v2.26.0 repairs (2026-10-23)
+## v2.26.1 / v2.26.0 repairs (2026-10-24)
+
+- Native permission surface fixed: `expo-camera` now receives
+  `cameraPermission` (the old `cameraPermissionText` was ignored), and camera
+  + image picker no longer request microphone access — resolved Android
+  permissions are `CAMERA` only.
+- `npm run android` / `ios` use development builds (`expo run:*`); Jest
+  `testTimeout` is 15 s so cold CI runs do not time out on real-SQLite/crypto
+  suites.
+- `BillLens-Final.zip` extracted, installed and revalidated (224 suites /
+  4,960 tests, typecheck, lint, SQLite schema, secret scan, expo-doctor,
+  web export).
 
 - Receipt rows now persist from real scans (capture image resolved on the
   review screen); discard is durable; itemized "Adjust items & split"
@@ -92,5 +103,4 @@ sync, on-device OCR, and device verification of notification/export/backup paths
 1. Encrypted sync UI + a deployed relay (external hosting approval; PRD P2).
 2. Physical-device verification of camera/OCR, notifications, PDF/XLSX share.
 3. FX conversion with a documented rate source.
-4. Settlement reversal + dedicated settlement-detail screen (use cases exist, no UI).
-5. Expense categories/statistics beyond the current stored category field.
+4. Expense categories/statistics beyond the current stored category field.

@@ -1,4 +1,37 @@
-# Final implementation report — BillLens v2.26.0 (2026-10-23)
+# Final implementation report — BillLens v2.26.1 (2026-10-24)
+
+## 0. v2.26.1 final packaging pass (2026-10-24)
+
+This pass verified the v2.26.0 work, repaired the last configuration and
+test-infrastructure defects, and produced the consolidated deliverable.
+No product logic, schema, financial calculation or navigation was changed.
+
+1. **Camera permission text was ignored on iOS.** `app.config.ts` used
+   `cameraPermissionText`, but the `expo-camera` plugin only reads
+   `cameraPermission`, so the OS prompt showed the generic system string.
+   Fixed to the documented prop.
+2. **Microphone permission removed.** BillLens only captures still images,
+   yet the camera and image-picker plugins requested audio access. Both now
+   set `microphonePermission: false` (and `recordAudioAndroid: false` for
+   the camera). Resolved Android permissions are now `CAMERA` only, and the
+   iOS `NSMicrophoneUsageDescription` key is deleted by the plugin. This
+   shrinks the Play Data Safety surface without changing capture behaviour.
+3. **Development-build scripts.** `npm run android` / `npm run ios` now use
+   `expo run:*` instead of the Expo Go launcher, matching the native
+   requirements of ML Kit OCR and local notifications.
+4. **Draft-review container test flake removed.** The test now flushes
+   React 19 `act()` work explicitly instead of polling with `waitFor`, which
+   left the tree frozen on the empty state.
+5. **Version 2.26.1** in `package.json`, `package-lock.json`,
+   `app.config.ts` (`version`, `buildNumber`, `versionCode` 22601), CHANGELOG.
+6. **Consolidated deliverable.** `BillLens-Final/` contains the complete
+   source tree (1,386 entries / 1,155 files, 50 Expo routes, 842 `src/` files, 224 test
+   suites, 138 docs) with no `node_modules`, `.git`, `android/`, `dist/`,
+   `.expo/`, `.zwork/`, caches, archives or secrets. `BillLens-Final.zip`
+   contains that folder; it was extracted to a clean directory, installed
+   with `npm ci`, and re-validated (results in `FINAL_TEST_RESULTS.md`).
+
+The previous pass's scope and evidence follow, unchanged.
 
 ## 1. Scope and method
 

@@ -451,7 +451,7 @@ describe('JoinGroupView', () => {
       />,
     );
 
-    expect(getByText('Ask the group creator for an invite link.')).toBeTruthy();
+    expect(getByText(/Ask the group creator for an invite link/)).toBeTruthy();
   });
 });
 

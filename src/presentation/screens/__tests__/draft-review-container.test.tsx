@@ -19,7 +19,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { createGroup } from '@domain/entities/group';
 import { createGroupMember } from '@domain/entities/group-member';
@@ -143,6 +143,31 @@ function makeReviewableDraft(groupId?: string) {
 describe('DraftReviewScreen (container, in-memory services)', () => {
   let services: AppServices;
 
+  /**
+   * Flush pending React work and asynchronous repository calls.
+   *
+   * `waitFor` is not usable for these assertions: the container hydrates
+   * from an async effect, and with React 19's act environment those store
+   * updates are only flushed inside `act(...)`. Polling outside act left
+   * the tree frozen on the empty state and failed by timeout even though
+   * the data had loaded.
+   */
+  async function flushUntil(
+    predicate: () => boolean | Promise<boolean>,
+    timeoutMs = 4_000,
+  ): Promise<void> {
+    const startedAt = Date.now();
+    for (;;) {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      if (await predicate()) return;
+      if (Date.now() - startedAt > timeoutMs) {
+        throw new Error('Timed out waiting for the screen to reach the expected state');
+      }
+    }
+  }
+
   beforeEach(async () => {
     services = await makeInMemoryServices();
     await seedGroup(services, GROUP);
@@ -186,25 +211,26 @@ describe('DraftReviewScreen (container, in-memory services)', () => {
     await services.repositories.drafts.save({ ...draft, captureSourceId: 'cs_review_1' as never });
     setAppServicesForTesting(services);
 
-    const { getByLabelText } = render(<DraftReviewScreen draftId="d_review_1" />);
+    const { getByLabelText, queryByLabelText } = render(<DraftReviewScreen draftId="d_review_1" />);
 
     // 1. The source image preview is resolved from the CaptureSource
     //    (previously production never showed it — test-only prop).
-    await waitFor(() => {
-      expect(getByLabelText('Receipt source image preview')).toBeTruthy();
-    });
+    await flushUntil(() => queryByLabelText('Receipt source image preview') !== null);
+    expect(getByLabelText('Receipt source image preview')).toBeTruthy();
 
     // 2. Confirm creates the expense AND the linked receipt row. The
     //    receipt id is deterministic (`receipt-<draftId>`), so assert on
     //    it directly, plus the draft's terminal status.
     fireEvent.press(getByLabelText('Confirm the draft and create the expense'));
-    await waitFor(async () => {
+    await flushUntil(async () => {
       const receipt = await services.repositories.receipts.findById('receipt-d_review_1' as never);
-      expect(receipt).not.toBeNull();
-      expect(receipt!.imageUri).toBe(IMAGE_URI);
-      const draftAfter = await services.repositories.drafts.findById('d_review_1' as never);
-      expect(draftAfter?.status).toBe('confirmed');
+      return receipt !== null;
     });
+    const receipt = await services.repositories.receipts.findById('receipt-d_review_1' as never);
+    expect(receipt).not.toBeNull();
+    expect(receipt!.imageUri).toBe(IMAGE_URI);
+    const draftAfter = await services.repositories.drafts.findById('d_review_1' as never);
+    expect(draftAfter?.status).toBe('confirmed');
   });
 
   it('offers an in-screen group picker for a groupless draft and blocks confirm until a group is selected', async () => {
@@ -216,8 +242,13 @@ describe('DraftReviewScreen (container, in-memory services)', () => {
       <DraftReviewScreen draftId="d_review_1" />,
     );
 
-    await waitFor(() => {
-      expect(getByText('Select a group')).toBeTruthy();
+    await flushUntil(() => {
+      try {
+        getByText('Select a group');
+        return true;
+      } catch {
+        return false;
+      }
     });
 
     // Confirm is disabled with the groupless hint, not the generic one.
@@ -227,9 +258,11 @@ describe('DraftReviewScreen (container, in-memory services)', () => {
 
     // Selecting a group enables the flow.
     fireEvent.press(getByLabelText(`Link this receipt to group Group ${GROUP}`));
-    await waitFor(() => {
-      expect(queryByLabelText(/Confirm is disabled/)).toBeNull();
-      expect(getByLabelText('Confirm the draft and create the expense')).toBeTruthy();
-    });
+    await flushUntil(
+      () =>
+        queryByLabelText(/Confirm is disabled/) === null &&
+        queryByLabelText('Confirm the draft and create the expense') !== null,
+    );
+    expect(getByLabelText('Confirm the draft and create the expense')).toBeTruthy();
   });
 });

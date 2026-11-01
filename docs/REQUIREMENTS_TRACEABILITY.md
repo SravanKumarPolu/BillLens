@@ -1,11 +1,14 @@
-> **BillLens v2.26.0 | Repository-grounded documentation audit | 2026-10-23**
-> Source snapshot: working tree after the v2.26.0 repair pass. Unlike the
-> 2026-10-23 source-only audit, **the full automated gate chain was
-> re-executed in this environment** (Node 24.21: `npm ci`, `tsc --noEmit`,
-> `eslint .`, Jest 224 suites / 4,960 tests — 0 skipped, `db:validate`,
-> `db:verify` on a real SQLite engine, `secret-scan`, `expo-doctor` 21/21,
-> `expo export -p web`). **No native device tests were executed** —
-> hardware-dependent statuses below remain DEVICE-UNTESTED.
+> **BillLens v2.26.1 | Repository-grounded documentation audit | 2026-10-24**
+> Source snapshot: final `BillLens-Final/` working tree. The v2.26.0 evidence
+> below was re-executed in this environment; the v2.26.1 packaging pass adds
+> only permission-surface, dev-script and test-flakiness changes, and the
+> archive was revalidated after extraction. **No native device tests were
+> executed** — hardware-dependent statuses below remain DEVICE-UNTESTED.
+>
+> 2026-11-01 update: FIN-04 evidence refreshed — the settlement history
+> list (`/groups/[groupId]/settlements`) and the detail/reversal entry
+> point are wired and tested; see the FIN-04 row. Other rows were not
+> re-executed on this date.
 
 # Requirements traceability matrix
 
@@ -21,7 +24,7 @@ evidence), **PARTIAL**, **BLOCKED** (external dependency), **DEFERRED**.
 | FIN-01 | Manual expense create/edit | `01-PRD.md` | `app/expenses/new.tsx`, edit route | `create-expense-manually-integration.test.ts`, `update-expense.test.ts`, `manual-expense-screen.test.tsx`; creation errors surfaced (v2.26.0) | **VERIFIED_IN_TESTS** | On-device smoke tests pending |
 | FIN-02 | Equal/exact/percentage/shares splits | `01-PRD.md` | `src/domain/services/splits/**` | strategy + engine + form tests (integer minor units, largest-remainder); itemized entry now currency-aware (v2.26.0) | **VERIFIED_IN_TESTS** | On-device smoke tests pending |
 | FIN-03 | Multiple payers and balances | `01-PRD.md` | `src/application/expenses/**`, balance engine | `balance-engine.test.ts` (+multi-currency), multi-payer form tests, property tests | **VERIFIED_IN_TESTS** | Payer signs verified in Node only |
-| FIN-04 | Settlement and reversal | `01-PRD.md` | `app/settlements/**`, state machine | settlement lifecycle, confirmation/dispute, partial-settlement tests; method picker now matches the local schema CHECK (v2.26.0); pending-confirmation cards use the persisted version (v2.26.0) | **VERIFIED_IN_TESTS** | Receiver-confirmation device flow pending; **reversal has no UI entry point** (use case + tests exist) |
+| FIN-04 | Settlement and reversal | `01-PRD.md` | `app/settlements/**`, `app/groups/[groupId]/settlements.tsx`, state machine | settlement lifecycle, confirmation/dispute, partial-settlement tests; method picker now matches the local schema CHECK (v2.26.0); pending-confirmation cards use the persisted version (v2.26.0); history list + detail/reversal UI (`settlement-history.test.tsx`, `settlement-detail.test.tsx`, 2026-11-01) | **VERIFIED_IN_TESTS** | Receiver-confirmation device flow pending |
 | CAP-01 | Camera and gallery capture | `01-PRD.md` | `app/capture/camera.tsx`, `gallery.tsx` | camera/gallery screen tests (permissions, tri-state, cancel, errors); sourceType round-trip + open-settings actions (v2.26.0) | **IMPLEMENTED_UNVERIFIED** (device) | Camera/gallery on a development build |
 | CAP-02 | Local OCR (ML Kit) | `01-PRD.md` | `mlkit-ocr-capture-processor.ts` (wired, lazy) | `mlkit-ocr-processor.test.ts` (retry/cancel/empty-output); mock refused in production (selector test) | **IMPLEMENTED_UNVERIFIED** (device) | Native ML Kit recognition on hardware |
 | CAP-03 | Draft review and manual correction | `01-PRD.md` | `app/drafts/**` | `draft-review` vm+screen tests + **container test over real use cases** (v2.26.0): receipt image resolved from CaptureSource, Receipt row persisted on confirm, durable discard, groupless-draft picker | **VERIFIED_IN_TESTS** (Node) | End-to-end image→expense on a device pending |
