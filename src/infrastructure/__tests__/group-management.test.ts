@@ -178,6 +178,129 @@ describeWithSqlite('group management', () => {
     ).rejects.toThrow(/owner/);
   });
 
+  it('blocks every financial mutation while archived, then re-enables them', async () => {
+    const groupId = 'g_guard';
+    const owner = 'm_guard_owner';
+    const friend = 'm_guard_friend';
+    await seedGroup(groupId, 'Guarded', owner);
+    await services.repositories.members.save(
+      createGroupMember({
+        id: friend as never,
+        groupId: groupId as never,
+        displayName: 'Friend',
+        role: 'member',
+        now: '2026-10-01T00:00:00.000Z' as never,
+      }),
+    );
+    const expense = await services.expenses.createExpenseManually.execute({
+      groupId,
+      title: 'Dinner',
+      amountMinor: 10_000,
+      currencyCode: 'INR',
+      expenseDate: '2026-10-01',
+      payerContributions: [{ memberId: owner, amountMinor: 10_000 }],
+      participantIds: [owner, friend],
+      createdBy: USER,
+    });
+    const settlementDraft = await services.settlements.createSettlementDraft.execute({
+      groupId,
+      fromMemberId: friend,
+      toMemberId: owner,
+      amountMinor: 1_000,
+      currencyCode: 'INR',
+      method: 'cash',
+      settlementDate: '2026-10-20T00:00:00.000Z' as never,
+      createdBy: USER as never,
+      operationId: 'op_guard_settlement',
+    });
+    await services.settlements.requestSettlement.execute({
+      settlementId: settlementDraft.settlementId as never,
+      expectedVersion: 1,
+      now: '2026-10-20T00:00:00.000Z' as never,
+    });
+
+    const template = await services.recurring.createFromExpense.execute({
+      expenseId: expense.expenseId,
+      frequency: 'daily',
+      startDate: '2026-10-01',
+      now: '2026-10-01T00:00:00.000Z',
+    });
+
+    const current = await services.repositories.groups.findById(groupId as never);
+    await services.groups.archive.execute(groupId, current?.version as never);
+    const archived = await services.repositories.groups.findById(groupId as never);
+
+    await expect(
+      services.expenses.updateExpense.execute({
+        expenseId: expense.expenseId,
+        title: 'Blocked edit',
+        amountMinor: 10_000,
+        currencyCode: 'INR',
+        payerContributions: [{ memberId: owner, amountMinor: 10_000 }],
+        participantIds: [owner, friend],
+        expectedVersion: archived?.version as never,
+        actorUserId: USER,
+      }),
+    ).rejects.toThrow(/archived/i);
+
+    await expect(
+      services.expenses.voidExpense.execute({
+        expenseId: expense.expenseId,
+        groupId,
+        expectedVersion: 1,
+        actorUserId: USER,
+        actorMemberId: owner,
+      }),
+    ).rejects.toThrow(/archived/i);
+
+    await expect(
+      services.settlements.createSettlementDraft.execute({
+        groupId,
+        fromMemberId: friend,
+        toMemberId: owner,
+        amountMinor: 1_000,
+        currencyCode: 'INR',
+        method: 'cash',
+        settlementDate: '2026-10-22T00:00:00.000Z' as never,
+        createdBy: USER as never,
+        operationId: 'op_archive_guard',
+      }),
+    ).rejects.toThrow(/archived/i);
+
+    await expect(
+      services.groups.addMember.execute({
+        groupId,
+        displayName: 'Nope',
+        actorUserId: USER,
+      }),
+    ).rejects.toThrow(/archived/i);
+
+    await expect(
+      services.settlements.cancelSettlement.execute({
+        settlementId: settlementDraft.settlementId as never,
+        expectedVersion: 2,
+        now: '2026-10-22T00:00:00.000Z' as never,
+      }),
+    ).rejects.toThrow(/archived/i);
+
+    await expect(
+      services.recurring.setPaused.execute(template.id, true),
+    ).rejects.toThrow(/archived/i);
+
+    await expect(
+      services.recurring.materializeDue.execute({ groupIds: [groupId], today: '2026-10-25' }),
+    ).rejects.toThrow(/archived/i);
+
+    await services.groups.restore.execute(groupId, archived?.version as never);
+    const restored = await services.repositories.groups.findById(groupId as never);
+    await services.groups.addMember.execute({
+      groupId,
+      displayName: 'Works again',
+      actorUserId: USER,
+    });
+    expect(restored?.archivedAt).toBeUndefined();
+  });
+
   it('summarises and permanently deletes a populated group exactly once', async () => {
     const before = await services.groups.deletionSummary.execute(GROUP);
     expect(before.expenses).toBeGreaterThan(0);
@@ -196,6 +319,7 @@ describeWithSqlite('group management', () => {
       secondConfirmation: true,
     });
     expect(result.deleted).toBe(true);
+    expect(result.filesQueued).toBe(0);
 
     expect(await services.repositories.groups.findById(GROUP as never)).toBeNull();
     const expenses = await db.get<{ count: number }>(

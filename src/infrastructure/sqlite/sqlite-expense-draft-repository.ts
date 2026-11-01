@@ -135,7 +135,7 @@ export class SqliteExpenseDraftRepository implements ExpenseDraftRepository {
              overall_confidence_bp = ?, unresolved_issues = ?,
              confirmed_expense_id = ?, confirmed_receipt_id = ?,
              created_by = ?, created_at = ?, updated_at = ?, deleted_at = null,
-             version = ?
+             version = ?, client_updated_at = ?
            where id = ?`,
           [
             draft.groupId ?? null,
@@ -152,6 +152,7 @@ export class SqliteExpenseDraftRepository implements ExpenseDraftRepository {
             draft.createdAt as string,
             draft.updatedAt as string,
             draft.version,
+            draft.updatedAt as string,
             draft.id,
           ],
         );
@@ -161,8 +162,9 @@ export class SqliteExpenseDraftRepository implements ExpenseDraftRepository {
              id, group_id, source, capture_source_id, extraction_result_id,
              draft_data, status, overall_confidence_bp, unresolved_issues,
              confirmed_expense_id, confirmed_receipt_id, created_by,
-             created_at, updated_at, deleted_at, version
-           ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             created_at, updated_at, deleted_at, version,
+             client_created_at, client_updated_at
+           ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             draft.id,
             draft.groupId ?? null,
@@ -182,6 +184,8 @@ export class SqliteExpenseDraftRepository implements ExpenseDraftRepository {
             // softDelete() only, so a fresh insert is always active.
             null,
             draft.version,
+            draft.createdAt as string,
+            draft.updatedAt as string,
           ],
         );
       }

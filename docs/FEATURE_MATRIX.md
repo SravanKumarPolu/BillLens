@@ -7,7 +7,7 @@ Statuses: **VERIFIED** (tests in this repo), **DEVICE-UNTESTED**,
 
 | Feature | Original | Final | Evidence / blocker |
 |---|---|---|---|
-| Create/edit/archive group | Verified | Verified | full edit form, category/icon, archive/restore; real-SQLite tests |
+| Create/edit/archive group | Verified | Verified | archive guard at app + SQLite layers; real-SQLite matrix |
 | Add/remove members | Verified | Verified | add/rename/deactivate UI; owner protected; history preserved |
 | Manual expense entry | Verified | Verified | screen→SQLite test: ₹100 → four ₹25 splits |
 | Equal split | Verified | Verified | domain strategy + use case + form |
@@ -46,13 +46,15 @@ Statuses: **VERIFIED** (tests in this repo), **DEVICE-UNTESTED**,
 | Encrypted event persistence/conflicts | Verified | migration 0008 tests |
 | Encrypted sync in app | **MISSING** | not wired; relay not deployed |
 | Invitations/key delivery/recovery | Verified (service) | no screens |
-| Retention + local deletion | Verified | 365-day policy, guards, audit |
+| Retention + local deletion | Verified | configurable review, temp cleanup, guarded erase-all |
 | Expense voiding | Verified | use case + detail screen |
 | Search / filters | Verified | `/search`: title/note text, group, date, pagination |
+| Navigation integrity | Verified (static) | route-link test; dead sign-in control removed |
 | Recurring expenses | Verified | daily/weekly/monthly/yearly; catch-up + idempotency tests |
 | PDF / XLSX export | Implemented, device-untested | lazy `expo-print`/`xlsx` chunks; escaped HTML |
 | Reminders / notifications | Implemented, device-untested | opt-in daily local reminder; no push |
-| Encrypted backup / restore | Verified (Node/SQLite) | DB tables only; receipt image files not included |
+| Encrypted backup / restore | Verified (Node/SQLite) | receipt rows now actually persisted; images included |
+| Receipt history / deletion | Verified (Node/SQLite) | `/receipts`; soft delete + queue image cleanup |
 | Multi-currency display | Verified | per-currency balances |
 | FX conversion | **MISSING** | no rates source; no 1:1 assumption |
 | Guest → account migration | Partial | identity domain; no cloud project to verify |

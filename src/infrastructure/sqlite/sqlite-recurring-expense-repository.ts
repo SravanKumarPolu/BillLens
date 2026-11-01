@@ -9,6 +9,7 @@ import type {
 import type { RecurrenceFrequency } from '@domain/recurring/schedule';
 
 import type { DatabaseConnection, SqlRow } from './database-connection';
+import { assertGroupWritableDb } from './group-write-guard';
 
 function encode(allocations: readonly RecurringAllocation[]): string {
   return JSON.stringify(allocations);
@@ -61,6 +62,7 @@ export class SqliteRecurringExpenseRepository implements RecurringExpenseReposit
   constructor(private readonly db: DatabaseConnection) {}
 
   async save(template: RecurringExpense): Promise<void> {
+    await assertGroupWritableDb(this.db, template.groupId);
     await this.db.run(
       `insert into recurring_expenses (
          id, group_id, title, amount_minor, currency_code, note, payers_json, splits_json,
@@ -173,6 +175,11 @@ export class SqliteRecurringExpenseRepository implements RecurringExpenseReposit
   }
 
   async setPaused(id: string, paused: boolean, now: string): Promise<void> {
+    const row = await this.db.get<{ group_id: string }>(
+      'select group_id from recurring_expenses where id = ?',
+      [id],
+    );
+    if (row !== null) await assertGroupWritableDb(this.db, row.group_id);
     await this.db.run(
       'update recurring_expenses set paused = ?, updated_at = ?, client_updated_at = ?, version = version + 1 where id = ?',
       [paused ? 1 : 0, now, now, id],
@@ -180,6 +187,11 @@ export class SqliteRecurringExpenseRepository implements RecurringExpenseReposit
   }
 
   async softDelete(id: string, now: string): Promise<void> {
+    const row = await this.db.get<{ group_id: string }>(
+      'select group_id from recurring_expenses where id = ?',
+      [id],
+    );
+    if (row !== null) await assertGroupWritableDb(this.db, row.group_id);
     await this.db.run(
       'update recurring_expenses set deleted_at = ?, updated_at = ?, client_updated_at = ?, version = version + 1 where id = ? and deleted_at is null',
       [now, now, now, id],

@@ -14,6 +14,8 @@ import type { ReactNode } from 'react';
 import type { ColorValue } from 'react-native';
 
 import { CaptureFab } from '@presentation/components/CaptureFab';
+import { useFileCleanup } from '@presentation/hooks/use-file-cleanup';
+import { useRetentionCleanup } from '@presentation/hooks/use-retention-cleanup';
 import { useOutstandingReminders } from '@presentation/notifications/use-outstanding-reminders';
 import { Icon, Stack, useTheme } from '@presentation/design-system';
 
@@ -102,6 +104,8 @@ function ThemedTabs(): ReactNode {
 
 export default function TabsLayout(): ReactNode {
   useOutstandingReminders();
+  useFileCleanup();
+  useRetentionCleanup();
   return (
     <Stack gap={0} style={{ flex: 1 }}>
       <ThemedTabs />

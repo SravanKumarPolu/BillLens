@@ -23,7 +23,7 @@
 
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 
 import type { CreateExpenseManuallyInput } from '@application/expenses';
@@ -52,7 +52,7 @@ import {
   todayDateOnly,
 } from '@presentation/view-models/expense-form';
 import { useGroupStore } from '@store/group-store';
-import { tryGetAppServices } from '@store/services-registry';
+import { tryGetAppServices, useAppServicesReady } from '@store/services-registry';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -92,11 +92,14 @@ export function NewExpenseScreen({ groupId, expenseId }: NewExpenseScreenProps):
   >([]);
 
   const [groupData, setGroupData] = useState<GroupFormData | null>(null);
+  const servicesReady = useAppServicesReady();
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expectedVersion, setExpectedVersion] = useState<number | null>(null);
+  // Stable across retries of the same create attempt.
+  const pendingCreateIdRef = useRef<string | null>(null);
 
   const upsertGroup = useGroupStore((s) => s.upsertGroup);
   const existingGroup = useGroupStore((s) => s.groups.find((g) => g.id === groupId));
@@ -107,10 +110,7 @@ export function NewExpenseScreen({ groupId, expenseId }: NewExpenseScreenProps):
     void (async () => {
       const services = tryGetAppServices();
       if (services === null) {
-        // Services not ready yet — the gate will finish initializing;
-        // retry on the next effect run is unnecessary because the gate
-        // triggers a re-render via the zustand registry subscription
-        // only for components using its hooks. Simplest honest state:
+        // The registry hook triggers a retry when initialization completes.
         if (!cancelled) {
           setLoadError('Storage is still starting up. Pull the screen again in a moment.');
           setIsLoading(false);
@@ -214,7 +214,7 @@ export function NewExpenseScreen({ groupId, expenseId }: NewExpenseScreenProps):
     return () => {
       cancelled = true;
     };
-  }, [groupId, expenseId]);
+  }, [groupId, expenseId, servicesReady]);
 
   const formState: ManualExpenseFormState = useMemo(
     () => ({
@@ -359,7 +359,8 @@ export function NewExpenseScreen({ groupId, expenseId }: NewExpenseScreenProps):
     // Generate the NEW expense id once so a retry after a failure reuses it
     // (the repository's upsert semantics make the retry idempotent). In edit
     // mode the prop `expenseId` identifies the record to update.
-    const newExpenseId = generateExpenseId();
+    const newExpenseId = pendingCreateIdRef.current ?? generateExpenseId();
+    pendingCreateIdRef.current = newExpenseId;
 
     const split =
       splitType === 'equal'
@@ -454,6 +455,7 @@ export function NewExpenseScreen({ groupId, expenseId }: NewExpenseScreenProps):
           createdAt: existingGroup?.createdAt ?? new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
+        pendingCreateIdRef.current = null;
         router.back();
       } catch (error) {
         // Diagnostics without logging financial values or payloads.
@@ -562,6 +564,12 @@ export function NewExpenseScreen({ groupId, expenseId }: NewExpenseScreenProps):
       onChangeSplitValue={handleChangeSplitValue}
       onSubmit={handleSubmit}
       onCancel={handleCancel}
+      onOpenItemized={() =>
+        router.replace(`/expenses/itemized/new?groupId=${encodeURIComponent(groupId)}`)
+      }
+      onOpenScan={() =>
+        router.push(`/capture?mode=scan&groupId=${encodeURIComponent(groupId)}`)
+      }
     />
   );
 }
@@ -595,6 +603,8 @@ export interface NewExpenseViewProps {
   readonly onChangeSplitValue?: (memberId: string, value: string) => void;
   readonly onSubmit: () => void;
   readonly onCancel: () => void;
+  readonly onOpenItemized?: () => void;
+  readonly onOpenScan?: () => void;
 }
 
 export function NewExpenseView({
@@ -622,6 +632,8 @@ export function NewExpenseView({
   onChangeSplitValue,
   onSubmit,
   onCancel,
+  onOpenItemized,
+  onOpenScan,
 }: NewExpenseViewProps): JSX.Element {
   const theme = useTheme();
   const currencyCode = fieldValues.currencyCode;
@@ -637,6 +649,16 @@ export function NewExpenseView({
             Add an expense to {groupName} without scanning a receipt.
           </Text>
         </Stack>
+
+        <Row gap="sm" style={{ flexWrap: 'wrap' }}>
+          <ModeChip label="Simple expense" selected />
+          {onOpenItemized !== undefined ? (
+            <ModeChip label="Itemized expense" selected={false} onPress={onOpenItemized} />
+          ) : null}
+          {onOpenScan !== undefined ? (
+            <ModeChip label="Scan receipt" selected={false} onPress={onOpenScan} />
+          ) : null}
+        </Row>
 
         {submitError !== null ? (
           <Card elevation="sm" padding="md" accessibilityRole="alert">
@@ -844,6 +866,47 @@ function TextField({
         ]}
       />
     </FieldShell>
+  );
+}
+
+function ModeChip({
+  label,
+  selected,
+  onPress,
+}: {
+  readonly label: string;
+  readonly selected: boolean;
+  readonly onPress?: () => void;
+}): ReactNode {
+  const theme = useTheme();
+  const style = {
+        paddingHorizontal: spacing.md,
+        paddingVertical: 6,
+        borderRadius: theme.borderRadius.full,
+        borderWidth: 1,
+        borderColor: selected ? theme.colors.brandPrimary : theme.colors.border,
+        backgroundColor: selected ? theme.colors.brandPrimary : theme.colors.surface,
+  } as const;
+  if (onPress === undefined) {
+    return (
+      <View accessibilityState={{ selected }} style={style}>
+        <Text variant="caption" color={selected ? 'onColor' : 'secondary'}>
+          {label}
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={style}
+    >
+      <Text variant="caption" color={selected ? 'onColor' : 'secondary'}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 

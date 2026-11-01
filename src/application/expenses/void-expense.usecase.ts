@@ -13,6 +13,7 @@
  */
 
 import { softDeleteExpense } from '@domain/entities/expense';
+import { assertGroupWritable } from '@application/groups/group-write-guard';
 import { InvalidEntityError } from '@domain/errors';
 import type { AuditRepository } from '@domain/repositories/audit.repository';
 import type { ExpenseRepository } from '@domain/repositories/expense.repository';
@@ -52,6 +53,7 @@ export class VoidExpenseUseCase {
     }
 
     const group = await this.groups.findById(input.groupId as never);
+    assertGroupWritable(group, 'expense');
     if (group === null || group.deletedAt !== undefined) {
       throw new InvalidEntityError(`Group ${input.groupId} not found`);
     }

@@ -2,8 +2,8 @@
 
 > Offline-first, receipt-aware shared expense app.
 
-**Status:** v2.18.0 — release candidate (Phases 1–10 complete, three
-production-hardening passes; v2.18.0 adds full group management; v2.17.0 added item-level splits and on-device ML Kit OCR; v2.16.0 added encrypted local backup/restore and yearly recurrence; v2.15.0 added recurring expenses, cross-group search, PDF/XLSX reports and
+**Status:** v2.25.0 — release candidate (Phases 1–10 complete, three
+production-hardening passes; v2.25.0 adds receipt persistence/history; v2.24.0 completed the UI/navigation audit; v2.23.0 added retention controls and guarded local erasure; v2.22.0 hardened camera/gallery replacement and native OCR compatibility; v2.21.0 added item-first expense creation; v2.20.0 added durable file-cleanup recovery and full archive guards; v2.19.0 encrypted receipt images inside backups; v2.18.0 added full group management; v2.17.0 added item-level splits and on-device ML Kit OCR; v2.16.0 added encrypted local backup/restore and yearly recurrence; v2.15.0 added recurring expenses, cross-group search, PDF/XLSX reports and
 local balance reminders; v2.14.0 fixed camera/gallery capture, Android content-URI image handling and
 manual-expense save verification; v2.13.0 added expense editing and multiple payers; v2.12.0 added exact,
 percentage and shares splits (previously only equal); v2.11.0 added lazy OCR loading, deferred startup work, a virtualised
@@ -12,7 +12,7 @@ financial conflict records, secure invitations/key delivery and expense voiding;
 **encrypted-sync core** (envelopes, device keys, reference relay — not deployed); v2.8.0 added **local data export,
 retention rules and safe local deletion**; v2.7.0 migrated to **Expo SDK 57 / React Native 0.86 /
 React 19.2**; v2.6.0 added **bidirectional cloud sync** and explicit
-financial-conflict resolution). 4,889 tests passing across 213 suites. See
+financial-conflict resolution). 4,927 tests passing across 221 suites. See
 [`CHANGELOG.md`](CHANGELOG.md) and
 [`docs/consistency-model.md`](docs/consistency-model.md).
 
