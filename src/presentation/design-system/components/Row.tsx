@@ -4,7 +4,7 @@
  * Companion to `Stack`. Use for inline layouts (icon + label, action bars).
  */
 
-import type { FlexAlignType, ViewProps } from 'react-native';
+import type { ViewProps, ViewStyle } from 'react-native';
 import { View } from 'react-native';
 
 import { spacing, type SpacingKey } from '../tokens';
@@ -13,7 +13,7 @@ export interface RowProps extends ViewProps {
   /** Gap between children. Accepts a token key or a raw pixel number. */
   readonly gap?: SpacingKey | number;
   /** Cross-axis alignment of children. Maps to `alignItems`. */
-  readonly align?: FlexAlignType;
+  readonly align?: NonNullable<ViewStyle['alignItems']>;
 }
 
 function resolveSpace(value: SpacingKey | number | undefined, fallback: number): number {
@@ -24,5 +24,10 @@ function resolveSpace(value: SpacingKey | number | undefined, fallback: number):
 
 export function Row({ gap = 'md', align = 'center', style, ...rest }: RowProps): JSX.Element {
   const resolvedGap = resolveSpace(gap, spacing.md);
-  return <View style={[{ flexDirection: 'row', gap: resolvedGap, alignItems: align }, style]} {...rest} />;
+  return (
+    <View
+      style={[{ flexDirection: 'row', gap: resolvedGap, alignItems: align }, style]}
+      {...rest}
+    />
+  );
 }

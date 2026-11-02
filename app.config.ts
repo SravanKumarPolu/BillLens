@@ -16,9 +16,7 @@ function readEnv(name: string, fallback?: string): string | undefined {
 function resolveAppEnv(): AppEnv {
   const raw = readEnv('EXPO_PUBLIC_APP_ENV', 'development');
   if (raw !== undefined && !APP_ENVS.includes(raw as AppEnv)) {
-    throw new Error(
-      `Invalid EXPO_PUBLIC_APP_ENV="${raw}". Must be one of: ${APP_ENVS.join(', ')}`,
-    );
+    throw new Error(`Invalid EXPO_PUBLIC_APP_ENV="${raw}". Must be one of: ${APP_ENVS.join(', ')}`);
   }
   return (raw as AppEnv) ?? 'development';
 }
@@ -82,9 +80,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // manages it; this is the floor).
     buildNumber: '2.26.2',
     infoPlist: {
-      NSCameraUsageDescription: 'BillLens uses the camera to scan receipts and payment screenshots for expense tracking.',
-      NSPhotoLibraryUsageDescription: 'BillLens needs access to your photo library to import receipt images and payment screenshots.',
-      NSPhotoLibraryAddUsageDescription: 'BillLens may save processed receipt images to your photo library.',
+      NSCameraUsageDescription:
+        'BillLens uses the camera to scan receipts and payment screenshots for expense tracking.',
+      NSPhotoLibraryUsageDescription:
+        'BillLens needs access to your photo library to import receipt images and payment screenshots.',
+      NSPhotoLibraryAddUsageDescription:
+        'BillLens may save processed receipt images to your photo library.',
       CFBundleURLTypes: [
         {
           CFBundleURLSchemes: ['billlens'],
@@ -107,9 +108,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // (READ_MEDIA_IMAGES on API 33+, READ_EXTERNAL_STORAGE below), which
     // the previous hardcoded legacy pair forced onto every device and
     // which Play review flags for API 33+ targets.
-    permissions: [
-      'android.permission.CAMERA',
-    ],
+    permissions: ['android.permission.CAMERA'],
     // Android share intent — allows users to share images directly into BillLens
     // from other apps (Gallery, WhatsApp, UPI apps). The `mimeType` property is
     // valid in Expo's intent filter schema but not in the TypeScript type.
@@ -137,6 +136,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-router',
+    'expo-asset',
+    'expo-font',
+    'expo-secure-store',
+    'expo-sqlite',
+    'expo-status-bar',
     // Local reminder notifications only. The channel id matches
     // REMINDER_CHANNEL_ID in the notification adapter;
     // `defaultChannel` is the Android fallback for the rare payload that

@@ -9,14 +9,7 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  ScrollView,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import type { Expense } from '@domain/entities/expense';
 import type { GroupMemberView } from '@application/groups/list-group-members.usecase';
@@ -328,7 +321,7 @@ export default function ExpenseSearchScreen(): ReactNode {
               </Stack>
             }
             ListFooterComponent={
-              loadingMore ? <ActivityIndicator style={{ marginVertical: spacing.md }} /> : null
+              loadingMore ? <ActivityIndicator style={{ marginVertical: spacing.md }} /> : undefined
             }
           />
         )}

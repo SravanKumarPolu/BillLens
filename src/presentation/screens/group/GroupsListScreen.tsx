@@ -185,10 +185,7 @@ export function GroupsListView({
               />
             </Row>
 
-            <SearchInput
-              value={viewModel.searchQuery}
-              onChangeText={onSearchChange}
-            />
+            <SearchInput value={viewModel.searchQuery} onChangeText={onSearchChange} />
 
             {!viewModel.hasNoGroups ? (
               <Row gap="xs" align="center">
@@ -210,13 +207,10 @@ export function GroupsListView({
           ) : loadError !== null ? (
             <GroupsLoadErrorState message={loadError} onRetry={onRetry} />
           ) : viewModel.hasNoGroups ? (
-            <NoGroupsEmptyState
-              onCreate={handleCreateGroup}
-              onJoin={handleJoinGroup}
-            />
+            <NoGroupsEmptyState onCreate={handleCreateGroup} onJoin={handleJoinGroup} />
           ) : viewModel.hasNoMatches ? (
             <NoMatchesState query={viewModel.searchQuery} />
-          ) : null
+          ) : undefined
         }
         initialNumToRender={12}
         maxToRenderPerBatch={12}
@@ -315,11 +309,7 @@ function FilterPill({ label, active, onPress }: FilterPillProps): JSX.Element {
         justifyContent: 'center',
       }}
     >
-      <Text
-        variant="label"
-        color={active ? 'onColor' : 'secondary'}
-        style={{ fontSize: 13 }}
-      >
+      <Text variant="label" color={active ? 'onColor' : 'secondary'} style={{ fontSize: 13 }}>
         {label}
       </Text>
     </Pressable>
@@ -395,11 +385,7 @@ function GroupListItem({ group }: { readonly group: GroupListItemViewModel }): R
               accessibilityLabel={`${describeAmount(group.userBalanceMinor, group.currencyCode)} in ${group.name}`}
             />
           </Stack>
-          <Icon
-            name="chevron-forward"
-            size={theme.iconSizes.md}
-            color={theme.colors.textMuted}
-          />
+          <Icon name="chevron-forward" size={theme.iconSizes.md} color={theme.colors.textMuted} />
         </Row>
       </Card>
     </Pressable>

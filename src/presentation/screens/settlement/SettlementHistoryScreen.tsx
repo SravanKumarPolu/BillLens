@@ -139,9 +139,7 @@ export interface GroupSettlementsScreenProps {
   readonly groupId: string;
 }
 
-export function GroupSettlementsScreen({
-  groupId,
-}: GroupSettlementsScreenProps): JSX.Element {
+export function GroupSettlementsScreen({ groupId }: GroupSettlementsScreenProps): JSX.Element {
   const [members, setMembers] = useState<readonly GroupMemberView[]>([]);
   const [groupName, setGroupName] = useState<string | null>(null);
   const [items, setItems] = useState<readonly Settlement[]>([]);
@@ -152,10 +150,7 @@ export function GroupSettlementsScreen({
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<SettlementStatusFilter>('all');
 
-  const nameById = useMemo(
-    () => new Map(members.map((m) => [m.id, m.displayName])),
-    [members],
-  );
+  const nameById = useMemo(() => new Map(members.map((m) => [m.id, m.displayName])), [members]);
 
   const load = useCallback(async (): Promise<void> => {
     const services = tryGetAppServices();
@@ -171,9 +166,7 @@ export function GroupSettlementsScreen({
         services.groups.listGroupMembers.execute(groupId),
         services.settlements.listSettlements.execute({
           groupId: asGroupId(groupId),
-          ...(filter === 'all'
-            ? {}
-            : { filter: { status: filter as Settlement['status'] } }),
+          ...(filter === 'all' ? {} : { filter: { status: filter as Settlement['status'] } }),
           pagination: { limit: PAGE_SIZE },
         }),
       ]);
@@ -200,9 +193,7 @@ export function GroupSettlementsScreen({
     try {
       const page = await services.settlements.listSettlements.execute({
         groupId: asGroupId(groupId),
-        ...(filter === 'all'
-          ? {}
-          : { filter: { status: filter as Settlement['status'] } }),
+        ...(filter === 'all' ? {} : { filter: { status: filter as Settlement['status'] } }),
         pagination: { limit: PAGE_SIZE, cursor: nextCursor },
       });
       setItems((prev) => {
@@ -303,9 +294,7 @@ export function SettlementHistoryView({
           </Stack>
         }
         ListEmptyComponent={
-          showList ? (
-            <EmptyState filtered={viewModel.filter !== 'all'} />
-          ) : null
+          showList ? <EmptyState filtered={viewModel.filter !== 'all'} /> : undefined
         }
         ListFooterComponent={
           showList && viewModel.hasMore ? (
@@ -316,7 +305,7 @@ export function SettlementHistoryView({
             >
               {viewModel.loadingMore ? 'Loading more…' : 'Scroll for older settlements'}
             </Text>
-          ) : null
+          ) : undefined
         }
         onEndReached={onLoadMore}
         onEndReachedThreshold={0.5}
@@ -460,12 +449,22 @@ function LoadingCard(): ReactNode {
   );
 }
 
-function ErrorCard({ message, onRetry }: { readonly message: string; readonly onRetry: () => void }): ReactNode {
+function ErrorCard({
+  message,
+  onRetry,
+}: {
+  readonly message: string;
+  readonly onRetry: () => void;
+}): ReactNode {
   const theme = useTheme();
   return (
     <Card elevation="sm" padding="md" accessibilityRole="alert">
       <Row gap="md" align="center">
-        <Icon name="cloud-offline-outline" size={theme.iconSizes.lg} color={theme.colors.negative} />
+        <Icon
+          name="cloud-offline-outline"
+          size={theme.iconSizes.lg}
+          color={theme.colors.negative}
+        />
         <Stack gap={0} style={{ flex: 1 }}>
           <Text variant="bodyStrong" color="primary">
             Could not load settlements
@@ -515,7 +514,11 @@ function EmptyState({ filtered }: { readonly filtered: boolean }): ReactNode {
             justifyContent: 'center',
           }}
         >
-          <Icon name="swap-horizontal-outline" size={theme.iconSizes.xl} color={theme.colors.textMuted} />
+          <Icon
+            name="swap-horizontal-outline"
+            size={theme.iconSizes.xl}
+            color={theme.colors.textMuted}
+          />
         </Row>
         <Text variant="sectionTitle" color="primary">
           {filtered ? 'No settlements here' : 'No settlements yet'}

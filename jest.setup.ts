@@ -16,9 +16,7 @@ jest.mock('@react-native-async-storage/async-storage', () => {
   return {
     __esModule: true,
     default: {
-      getItem: jest.fn(
-        async (key: string): Promise<string | null> => mockStorage.get(key) ?? null,
-      ),
+      getItem: jest.fn(async (key: string): Promise<string | null> => mockStorage.get(key) ?? null),
       setItem: jest.fn(async (key: string, value: string): Promise<void> => {
         mockStorage.set(key, value);
       }),
@@ -28,9 +26,7 @@ jest.mock('@react-native-async-storage/async-storage', () => {
       clear: jest.fn(async (): Promise<void> => {
         mockStorage.clear();
       }),
-      getAllKeys: jest.fn(
-        async (): Promise<readonly string[]> => Array.from(mockStorage.keys()),
-      ),
+      getAllKeys: jest.fn(async (): Promise<readonly string[]> => Array.from(mockStorage.keys())),
       multiGet: jest.fn(
         async (keys: readonly string[]): Promise<readonly [string, string | null][]> =>
           keys.map((k) => [k, mockStorage.get(k) ?? null] as [string, string | null]),
@@ -44,6 +40,11 @@ jest.mock('@react-native-async-storage/async-storage', () => {
     },
   };
 });
+
+jest.mock('expo-font', () => ({
+  ...jest.requireActual('expo-font'),
+  loadAsync: jest.fn().mockResolvedValue(undefined),
+}));
 
 // Reset the in-memory storage between test files so persisted state
 // from one file doesn't leak into another.

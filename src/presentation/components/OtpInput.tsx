@@ -28,6 +28,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TextInput as RNTextInput, StyleSheet, View } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 
 import { useTheme } from '@presentation/design-system/theme';
 import { borderRadius, spacing, touchTargets } from '@presentation/design-system/tokens';
@@ -58,9 +59,7 @@ interface BoxState {
 }
 
 function clampDigits(raw: string, max: number): string {
-  return raw
-    .replace(/\D/g, '')
-    .slice(0, max);
+  return raw.replace(/\D/g, '').slice(0, max);
 }
 
 export function OtpInput({
@@ -72,7 +71,7 @@ export function OtpInput({
   onComplete,
 }: OtpInputProps): JSX.Element {
   const theme = useTheme();
-  const inputsRef = useRef<(RNTextInput | null)[]>([]);
+  const inputsRef = useRef<(TextInputInstance | null)[]>([]);
   const [boxes, setBoxes] = useState<readonly BoxState[]>(
     Array.from({ length: OTP_LENGTH }, () => ({ value: '' })),
   );
@@ -162,11 +161,7 @@ export function OtpInput({
     filled ? theme.colors.brandPrimary : theme.colors.border;
 
   return (
-    <View
-      style={styles.container}
-      accessibilityRole="none"
-      accessibilityLabel={accessibilityLabel}
-    >
+    <View style={styles.container} accessibilityRole="none" accessibilityLabel={accessibilityLabel}>
       {boxes.map((box, index) => {
         const label = `Verification code digit ${index + 1}`;
         return (

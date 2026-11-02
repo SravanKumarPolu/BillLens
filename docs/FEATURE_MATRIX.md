@@ -1,63 +1,64 @@
-# Feature matrix (2026-11-01, v2.26.2)
+# Feature matrix (2026-11-02, v2.26.2)
 
 Statuses: **VERIFIED** (tests in this repo), **DEVICE-UNTESTED**,
 **PARTIAL**, **MISSING**, **EXTERNAL** (credentials/hardware/provider).
 
 ## Core expense splitting
 
-| Feature | Original | Final | Evidence / blocker |
-|---|---|---|---|
-| Create/edit/archive group | Verified | Verified | archive guard at app + SQLite layers; real-SQLite matrix |
-| Add/remove members | Verified | Verified | add/rename/deactivate UI; owner protected; history preserved |
-| Manual expense entry | Verified | Verified | screen→SQLite test: ₹100 → four ₹25 splits |
-| Equal split | Verified | Verified | domain strategy + use case + form |
-| Exact split | **Missing in UI** | **VERIFIED** | `expense-split-types.test.ts`, form split field |
-| Percentage split | **Missing in UI** | **VERIFIED** | basis-point engine + UI + tests |
-| Shares split | **Missing in UI** | **VERIFIED** | weighted engine + UI + tests |
-| Item-level split | Partial | Partial | domain engine + draft review; manual item editor still missing (no expense line-item table) |
-| Multiple payers | Domain only | **VERIFIED** | form rows + use case + edit prefill; contributions must total |
-| Balance calculation | Verified | Verified | balance engine tests + real SQLite flow |
-| Debt simplification | Verified | Verified | suggestions use case/tests |
-| Partial/full settlement | Verified | Verified | settlement state machine tests |
-| Settlement history | Verified | Verified | activity timeline + balances pending cards + dedicated `/settlements/[settlementId]` detail/reversal screen and `/groups/[groupId]/settlements` list (status filters, cursor pagination, virtualised) (v2.26.2, 2026-11-01) |
-| Expense history | Verified | Verified | group home recent + activity feed (virtualised) |
-| Expense editing | Missing | **VERIFIED** | `UpdateExpenseUseCase`, edit route, prefill, version guard, tests |
-| Offline persistence | Verified | Verified | real SQLite reopen test |
+| Feature                   | Original          | Final        | Evidence / blocker                                                                                                                                                                                                          |
+| ------------------------- | ----------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Expo SDK compatibility    | SDK 57            | SDK 58       | Expo 58 / React Native 0.88.1; `expo install --check` and Expo Doctor pass; Expo Go/device launch still needs verification                                                                                                  |
+| Create/edit/archive group | Verified          | Verified     | archive guard at app + SQLite layers; real-SQLite matrix                                                                                                                                                                    |
+| Add/remove members        | Verified          | Verified     | add/rename/deactivate UI; owner protected; history preserved                                                                                                                                                                |
+| Manual expense entry      | Verified          | Verified     | screen→SQLite test: ₹100 → four ₹25 splits                                                                                                                                                                                  |
+| Equal split               | Verified          | Verified     | domain strategy + use case + form                                                                                                                                                                                           |
+| Exact split               | **Missing in UI** | **VERIFIED** | `expense-split-types.test.ts`, form split field                                                                                                                                                                             |
+| Percentage split          | **Missing in UI** | **VERIFIED** | basis-point engine + UI + tests                                                                                                                                                                                             |
+| Shares split              | **Missing in UI** | **VERIFIED** | weighted engine + UI + tests                                                                                                                                                                                                |
+| Item-level split          | Partial           | Partial      | domain engine + draft review; manual item editor still missing (no expense line-item table)                                                                                                                                 |
+| Multiple payers           | Domain only       | **VERIFIED** | form rows + use case + edit prefill; contributions must total                                                                                                                                                               |
+| Balance calculation       | Verified          | Verified     | balance engine tests + real SQLite flow                                                                                                                                                                                     |
+| Debt simplification       | Verified          | Verified     | suggestions use case/tests                                                                                                                                                                                                  |
+| Partial/full settlement   | Verified          | Verified     | settlement state machine tests                                                                                                                                                                                              |
+| Settlement history        | Verified          | Verified     | activity timeline + balances pending cards + dedicated `/settlements/[settlementId]` detail/reversal screen and `/groups/[groupId]/settlements` list (status filters, cursor pagination, virtualised) (v2.26.2, 2026-11-01) |
+| Expense history           | Verified          | Verified     | group home recent + activity feed (virtualised)                                                                                                                                                                             |
+| Expense editing           | Missing           | **VERIFIED** | `UpdateExpenseUseCase`, edit route, prefill, version guard, tests                                                                                                                                                           |
+| Offline persistence       | Verified          | Verified     | real SQLite reopen test                                                                                                                                                                                                     |
 
 ## Receipt OCR
 
-| Feature | Status | Notes |
-|---|---|---|
-| Camera / gallery capture | Device-untested | camera API + picker enum + content-URI copy fixed; needs phone retest |
-| Mock OCR pipeline | Verified | parser + draft tests |
-| Merchant/date/total/lines | Verified (parser) | confidence + review UI |
-| Discounts/tax/service | Partial | parser fields; coverage varies |
-| Duplicate warning | Verified (domain) | duplicate detection tests |
-| Confirm-before-save | Verified | drafts never auto-confirm |
-| Remote OCR provider | External | needs Supabase + provider; receipt fixture unverified |
+| Feature                   | Status            | Notes                                                                 |
+| ------------------------- | ----------------- | --------------------------------------------------------------------- |
+| Camera / gallery capture  | Device-untested   | camera API + picker enum + content-URI copy fixed; needs phone retest |
+| Mock OCR pipeline         | Verified          | parser + draft tests                                                  |
+| Merchant/date/total/lines | Verified (parser) | confidence + review UI                                                |
+| Discounts/tax/service     | Partial           | parser fields; coverage varies                                        |
+| Duplicate warning         | Verified (domain) | duplicate detection tests                                             |
+| Confirm-before-save       | Verified          | drafts never auto-confirm                                             |
+| Remote OCR provider       | External          | needs Supabase + provider; receipt fixture unverified                 |
 
 ## Sync, security, retention
 
-| Feature | Status | Notes |
-|---|---|---|
-| Offline queue / idempotency | Verified | sync repository tests |
-| Supabase push/pull + conflicts | Verified in Node | project not configured here |
-| Encrypted envelopes/keys | Verified | 25+ crypto tests |
-| Encrypted event persistence/conflicts | Verified | migration 0008 tests |
-| Encrypted sync in app | **MISSING** | not wired; relay not deployed |
-| Invitations/key delivery/recovery | Verified (service) | no screens |
-| Retention + local deletion | Verified | configurable review, temp cleanup, guarded erase-all; account deletion clears SQLite rows while preserving schema |
-| Expense voiding | Verified | use case + detail screen |
-| Search / filters | Verified | `/search`: title/note text, group, date, pagination |
-| Navigation integrity | Verified (static) | route-link test; dead sign-in control removed |
-| Recurring expenses | Verified | daily/weekly/monthly/yearly; catch-up + idempotency tests |
-| PDF / XLSX export | Implemented, device-untested | lazy `expo-print`/`xlsx` chunks; escaped HTML |
-| Reminders / notifications | Implemented, device-untested | opt-in daily local reminder (Expo Go guarded); per-settlement reminder create/cancel wired on `/settlements/[settlementId]` for pending/requested items (v2.26.2); no dedicated inbox; no push |
-| Encrypted backup / restore | Verified (Node/SQLite) | receipt rows now actually persisted; images included |
-| Receipt history / deletion | Verified (Node/SQLite) | `/receipts`; soft delete + queue image cleanup |
-| Multi-currency display | Verified | per-currency balances |
-| FX conversion | **MISSING** | no rates source; no 1:1 assumption |
-| Guest → account migration | Partial | identity domain; no cloud project to verify |
+| Feature                               | Status                       | Notes                                                                                                                                                                                          |
+| ------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Offline queue / idempotency           | Verified                     | sync repository tests                                                                                                                                                                          |
+| Supabase push/pull + conflicts        | Verified in Node             | project not configured here                                                                                                                                                                    |
+| Encrypted envelopes/keys              | Verified                     | 25+ crypto tests                                                                                                                                                                               |
+| Encrypted event persistence/conflicts | Verified                     | migration 0008 tests                                                                                                                                                                           |
+| Encrypted sync in app                 | **MISSING**                  | not wired; relay not deployed                                                                                                                                                                  |
+| Invitations/key delivery/recovery     | Verified (service)           | no screens                                                                                                                                                                                     |
+| Retention + local deletion            | Verified                     | configurable review, temp cleanup, guarded erase-all; account deletion clears SQLite rows while preserving schema                                                                              |
+| Expense voiding                       | Verified                     | use case + detail screen                                                                                                                                                                       |
+| Search / filters                      | Verified                     | `/search`: title/note text, group, date, pagination                                                                                                                                            |
+| Navigation integrity                  | Verified (static)            | route-link test; dead sign-in control removed                                                                                                                                                  |
+| Recurring expenses                    | Verified                     | daily/weekly/monthly/yearly; catch-up + idempotency tests                                                                                                                                      |
+| PDF / XLSX export                     | Implemented, device-untested | lazy `expo-print`/`xlsx` chunks; escaped HTML                                                                                                                                                  |
+| Reminders / notifications             | Implemented, device-untested | opt-in daily local reminder (Expo Go guarded); per-settlement reminder create/cancel wired on `/settlements/[settlementId]` for pending/requested items (v2.26.2); no dedicated inbox; no push |
+| Encrypted backup / restore            | Verified (Node/SQLite)       | receipt rows now actually persisted; images included                                                                                                                                           |
+| Receipt history / deletion            | Verified (Node/SQLite)       | `/receipts`; soft delete + queue image cleanup                                                                                                                                                 |
+| Multi-currency display                | Verified                     | per-currency balances                                                                                                                                                                          |
+| FX conversion                         | **MISSING**                  | no rates source; no 1:1 assumption                                                                                                                                                             |
+| Guest → account migration             | Partial                      | identity domain; no cloud project to verify                                                                                                                                                    |
 
 ## Splid parity (public capabilities, not independently tested)
 
@@ -78,8 +79,8 @@ sync, on-device OCR, and device verification of notification/export/backup paths
 
 - Native permission surface fixed: `expo-camera` now receives
   `cameraPermission` (the old `cameraPermissionText` was ignored), and camera
-  + image picker no longer request microphone access — resolved Android
-  permissions are `CAMERA` only.
+  - image picker no longer request microphone access — resolved Android
+    permissions are `CAMERA` only.
 - `npm run android` / `ios` use development builds (`expo run:*`); Jest
   `testTimeout` is 15 s so cold CI runs do not time out on real-SQLite/crypto
   suites.

@@ -8,9 +8,9 @@
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps, ReactElement } from 'react';
-import type { ColorValue } from 'react-native';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
+type IconColor = ComponentProps<typeof Ionicons>['color'];
 
 export interface IconProps {
   /** Ionicons glyph name, e.g. "checkmark-circle". */
@@ -18,7 +18,7 @@ export interface IconProps {
   /** Pixel size. Defaults to the theme `iconSizes.md` (20). */
   readonly size?: number;
   /** Icon colour. Accepts the same strings as RN `color`. */
-  readonly color?: ColorValue;
+  readonly color?: IconColor;
 }
 
 export function Icon({ name, size = 20, color }: IconProps): ReactElement {
