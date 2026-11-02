@@ -17,8 +17,9 @@
 4. Deletion is **scheduled** — you get a 14-day recovery window.
 
 Guest users (no account): the same screen performs an **immediate,
-permanent wipe of all local BillLens data** — there is no cloud
-account to delete. This cannot be undone.
+permanent wipe of all local BillLens data** — database rows are cleared
+while the SQLite schema and migration version are retained. There is no
+cloud account to delete. This cannot be undone.
 
 A deletion request can also be submitted by email from the address on
 the account: privacy@billlens.app (used by Play Console's

@@ -45,6 +45,8 @@
    are purged; sessions were already revoked at request time.
 4. Group history contributed to *other* groups is preserved for those
    members (see `account-deletion-policy.md`).
+5. Guest account deletion immediately clears local database rows while
+   preserving the SQLite schema and migration version for continued use.
 
 ## Verification
 

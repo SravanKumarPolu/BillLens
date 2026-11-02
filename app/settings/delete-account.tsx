@@ -28,26 +28,23 @@ export default function DeleteAccountRoute(): JSX.Element {
     if (services === null || services.identity === null) {
       throw new Error('Services are still initialising — please try again in a moment.');
     }
-    // Stop the offline-sync loop FIRST: the wiper drops the queue table,
-    // and an in-flight upload during a wipe could resurrect data.
+    // Stop the offline-sync loop FIRST: the wiper clears its queue, and an
+    // in-flight upload during a wipe could resurrect data.
     await stopSyncCoordinator();
-    try {
-      const result = await services.identity.accountDeletion.requestDeletion.execute({
-        confirmed: true,
-      });
-      // Map the use-case result onto the screen's outcome vocabulary.
-      if (result.outcome === 'scheduled') {
-        return {
-          kind: 'scheduled',
-          recoveryDeadlineAt: result.request.recoveryDeadlineAt as string,
-        };
-      }
-      return { kind: 'guest_wipe_completed' };
-    } finally {
-      // Drop the cached services graph so the next launch rebuilds from
-      // the (wiped or still-present) database cleanly.
-      resetAppServices();
+    const result = await services.identity.accountDeletion.requestDeletion.execute({
+      confirmed: true,
+    });
+    // Only invalidate services after deletion succeeds. On failure, callers
+    // can report the error and retry with the still-initialized graph.
+    resetAppServices();
+    // Map the use-case result onto the screen's outcome vocabulary.
+    if (result.outcome === 'scheduled') {
+      return {
+        kind: 'scheduled',
+        recoveryDeadlineAt: result.request.recoveryDeadlineAt as string,
+      };
     }
+    return { kind: 'guest_wipe_completed' };
   };
 
   return <DeleteAccountScreen onConfirmDelete={onConfirmDelete} />;

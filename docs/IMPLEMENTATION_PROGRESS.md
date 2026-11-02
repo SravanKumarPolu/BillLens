@@ -16,7 +16,7 @@ Status values: **Verified** (tests in this repo), **Device-untested**
 | 8. Minimal relay | Device-untested / External | Reference server tested in Node; not deployed |
 | 9. Automatic sync | Deferred | Supabase coordinator exists (active only when env configured); encrypted relay path fully built + Node-tested but not wired to app lifecycle/UI, no deployed relay |
 | 10. Financial conflicts | Partial | Detection + `sync_event_conflicts` persistence + status resolution; no review UI/apply |
-| 11. Retention and deletion | Verified | 365-day policy (6/24 configurable), guards, audit; local copy removal; expense voiding + UI |
+| 11. Retention and deletion | Verified | 365-day policy (6/24 configurable), guards, audit; guest account wipe clears SQLite rows while preserving schema; local copy removal; expense voiding + UI |
 | 12. End-to-end tests | Partial | Two-device Node + two separate real SQLite files over the reference relay — **executes and passes in this environment since v2.26.0** (`node:sqlite` engine); physical devices unverified |
 | 13. Final security audit | Deferred | No independent review |
 

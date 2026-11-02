@@ -46,7 +46,7 @@ Statuses: **VERIFIED** (tests in this repo), **DEVICE-UNTESTED**,
 | Encrypted event persistence/conflicts | Verified | migration 0008 tests |
 | Encrypted sync in app | **MISSING** | not wired; relay not deployed |
 | Invitations/key delivery/recovery | Verified (service) | no screens |
-| Retention + local deletion | Verified | configurable review, temp cleanup, guarded erase-all |
+| Retention + local deletion | Verified | configurable review, temp cleanup, guarded erase-all; account deletion clears SQLite rows while preserving schema |
 | Expense voiding | Verified | use case + detail screen |
 | Search / filters | Verified | `/search`: title/note text, group, date, pagination |
 | Navigation integrity | Verified (static) | route-link test; dead sign-in control removed |
