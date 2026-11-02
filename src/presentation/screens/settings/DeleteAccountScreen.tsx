@@ -103,6 +103,14 @@ export function DeleteAccountScreen({
         // Deletion accepted — return to the entry screen after a beat.
         router.replace('/(tabs)/settings');
       }
+    } catch (error) {
+      setOutcome({
+        kind: 'error',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Account deletion failed. Please try again.',
+      });
     } finally {
       setBusy(false);
     }

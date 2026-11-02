@@ -4,8 +4,7 @@
  *
  * Wipes, in order:
  *   1. All local receipt/payment image files (expo-file-system `File` API).
- *   2. Every SQLite row (drop-and-recreate via `runMigrations` on a
- *      fresh connection — simplest correct approach for a full wipe).
+ *   2. Every SQLite row while preserving the schema and migration state.
  *   3. SecureStore entries (session tokens, guest device secret).
  *   4. The persisted zustand stores (AsyncStorage keys).
  *
@@ -69,19 +68,25 @@ export class ExpoLocalDataWiper implements LocalDataWiper {
       }
     }
 
-    // --- 2. Database rows (drop + recreate the full schema) ------------------
-    // Dropping every table and re-running migrations guarantees zero
-    // residual rows regardless of future schema growth.
+    // --- 2. Database rows ----------------------------------------------------
+    // Preserve the schema so the active connection remains usable and a
+    // subsequent boot does not have to repair a partially dropped database.
     try {
       const tables = await this.database.all<{ name: string }>(
-        `select name from sqlite_master where type = 'table' and name not like 'sqlite_%'`,
+        `select name from sqlite_master
+         where type = 'table' and name not like 'sqlite_%' and name <> 'schema_version'`,
       );
-      await this.database.transaction(async (tx) => {
-        // RECREATE the schema_version table empty so runMigrations re-applies.
-        for (const table of tables) {
-          await tx.exec(`drop table if exists "${table.name}"`);
-        }
-      });
+      await this.database.exec('pragma foreign_keys = off');
+      try {
+        await this.database.transaction(async (tx) => {
+          for (const table of tables) {
+            const quotedName = table.name.replace(/"/g, '""');
+            await tx.exec(`delete from "${quotedName}"`);
+          }
+        });
+      } finally {
+        await this.database.exec('pragma foreign_keys = on');
+      }
       wipedStores.push(`sqlite:${tables.length}-tables`);
     } catch (error) {
       throw new Error(`Database wipe failed: ${String(error)}`);

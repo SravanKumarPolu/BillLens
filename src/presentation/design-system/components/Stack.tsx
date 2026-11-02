@@ -25,5 +25,10 @@ function resolveSpace(value: SpacingKey | number | undefined, fallback: number):
 
 export function Stack({ gap = 'md', align = 'stretch', style, ...rest }: StackProps): JSX.Element {
   const resolvedGap = resolveSpace(gap, spacing.md);
-  return <View style={[{ flexDirection: 'column', gap: resolvedGap, alignItems: align }, style]} {...rest} />;
+  return (
+    <View
+      style={[{ flexDirection: 'column', gap: resolvedGap, alignItems: align }, style]}
+      {...rest}
+    />
+  );
 }

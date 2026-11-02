@@ -24,5 +24,10 @@ function resolveSpace(value: SpacingKey | number | undefined, fallback: number):
 
 export function Row({ gap = 'md', align = 'center', style, ...rest }: RowProps): JSX.Element {
   const resolvedGap = resolveSpace(gap, spacing.md);
-  return <View style={[{ flexDirection: 'row', gap: resolvedGap, alignItems: align }, style]} {...rest} />;
+  return (
+    <View
+      style={[{ flexDirection: 'row', gap: resolvedGap, alignItems: align }, style]}
+      {...rest}
+    />
+  );
 }

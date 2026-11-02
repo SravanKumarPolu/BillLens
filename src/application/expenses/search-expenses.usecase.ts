@@ -20,6 +20,8 @@ export interface SearchExpensesInput {
   readonly toDate?: string;
   readonly minAmountMinor?: number;
   readonly maxAmountMinor?: number;
+  readonly category?: string;
+  readonly memberId?: string;
   readonly limit?: number;
   readonly offset?: number;
 }
@@ -63,6 +65,12 @@ export class SearchExpensesUseCase {
       ...(input.toDate !== undefined ? { toDate: input.toDate } : {}),
       ...(min !== undefined ? { minAmountMinor: min } : {}),
       ...(max !== undefined ? { maxAmountMinor: max } : {}),
+      ...(input.category !== undefined && input.category.trim().length > 0
+        ? { category: input.category.trim() }
+        : {}),
+      ...(input.memberId !== undefined && input.memberId.trim().length > 0
+        ? { memberId: input.memberId.trim() }
+        : {}),
       limit: Math.min(MAX_LIMIT, nonNegativeInt(input.limit, DEFAULT_LIMIT) || DEFAULT_LIMIT),
       offset: nonNegativeInt(input.offset, 0),
     };

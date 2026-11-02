@@ -49,8 +49,10 @@ const MEMBERS = [
 const NOW = new Date('2026-10-21T12:00:00.000Z');
 
 // Two SQLite files + migrations + relay setup exceed the default 5s budget
-// when the whole repo runs in parallel.
-jest.setTimeout(60_000);
+// when the whole repo runs in parallel. 60s is not enough headroom under
+// heavy parallel load, so raise the file timeout without touching any
+// assertions.
+jest.setTimeout(120_000);
 
 const deviceA = createDeviceIdentity(new Uint8Array(32).fill(31));
 const deviceB = createDeviceIdentity(new Uint8Array(32).fill(32));

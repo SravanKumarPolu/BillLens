@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
-import { runMigrations, getSchemaVersion } from '../sqlite/schema';
+import { runMigrations, getSchemaVersion, CURRENT_SCHEMA_VERSION } from '../sqlite/schema';
 import { SqliteSyncCursorRepository } from '../sync/sqlite-sync-cursor-repository';
 
 import { InMemoryDatabase } from './in-memory-database';
@@ -16,7 +16,7 @@ describe('SqliteSyncCursorRepository (v2.6.0 — bidirectional sync)', () => {
   });
 
   it('migration 0007 is applied in the current schema', async () => {
-    expect(await getSchemaVersion(db)).toBe(13);
+    expect(await getSchemaVersion(db)).toBe(CURRENT_SCHEMA_VERSION);
   });
 
   it('get returns null before any save (first sync = full download)', async () => {

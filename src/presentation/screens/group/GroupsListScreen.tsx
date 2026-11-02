@@ -20,7 +20,7 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
-import { Pressable, TextInput } from 'react-native';
+import { FlatList, Platform, Pressable, TextInput, View } from 'react-native';
 
 import { AmountText } from '@presentation/design-system/components/AmountText';
 import { Button } from '@presentation/design-system/components/Button';
@@ -37,6 +37,7 @@ import { Text } from '@presentation/design-system/components/Text';
 import { describeAmount } from '@presentation/design-system/financial-format';
 import { useTheme } from '@presentation/design-system/theme';
 import { spacing } from '@presentation/design-system/tokens';
+import { useGroupStoreHydration } from '@presentation/hooks/use-group-store-hydration';
 import {
   type GroupFilter,
   type GroupListItemViewModel,
@@ -74,13 +75,16 @@ export interface GroupsListScreenProps {
 
 export function GroupsListScreen({ loadingOverride }: GroupsListScreenProps): JSX.Element {
   const groups = useGroupStore((s) => s.groups);
+  // Hydrates the cache from the SQLite read model (real balances, real
+  // members, real sync state) and reports loading / error for the UI.
+  const hydration = useGroupStoreHydration();
   const [filter, setFilter] = useState<GroupFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Phase 2: the store is hydrated synchronously from AsyncStorage, so
-  // there is no real loading state. The prop is exercised by tests and
-  // will be wired up for real once the SQLite-backed repository lands.
-  const isLoading = loadingOverride ?? false;
+  // First paint uses the persisted cache (instant); the skeleton shows
+  // only while the first SQLite pass is still in flight AND the cache
+  // is empty, so a returning user never sees a flash of skeletons.
+  const isLoading = loadingOverride ?? (hydration.loading && groups.length === 0);
 
   const viewModel = useMemo(
     () =>
@@ -96,6 +100,8 @@ export function GroupsListScreen({ loadingOverride }: GroupsListScreenProps): JS
     <GroupsListView
       viewModel={viewModel}
       isLoading={isLoading}
+      loadError={hydration.error}
+      onRetry={hydration.retry}
       onFilterChange={setFilter}
       onSearchChange={setSearchQuery}
     />
@@ -109,6 +115,9 @@ export function GroupsListScreen({ loadingOverride }: GroupsListScreenProps): JS
 export interface GroupsListViewProps {
   readonly viewModel: GroupsListViewModel;
   readonly isLoading: boolean;
+  /** Non-null when the SQLite hydration failed (retry offered). */
+  readonly loadError?: string | null;
+  readonly onRetry?: () => void;
   readonly onFilterChange: (filter: GroupFilter) => void;
   readonly onSearchChange: (query: string) => void;
 }
@@ -122,6 +131,8 @@ const FILTER_PILLS: readonly { readonly value: GroupFilter; readonly label: stri
 export function GroupsListView({
   viewModel,
   isLoading,
+  loadError = null,
+  onRetry,
   onFilterChange,
   onSearchChange,
 }: GroupsListViewProps): JSX.Element {
@@ -132,73 +143,86 @@ export function GroupsListView({
     router.push('/groups/join');
   };
 
+  // FlatList (not ScrollView + map): the groups list is unbounded over a
+  // member's lifetime. Only the visible window renders (performance
+  // standard rule 5). The header (title, search, filters) stays pinned
+  // via ListHeaderComponent so the empty/skeleton/error states still
+  // render inside the list.
   return (
-    <Screen scrollable safeArea>
-      <Stack gap="lg" align="stretch" style={{ padding: spacing.xl }}>
-        <Row gap="md" align="center">
-          <Stack gap={0} style={{ flex: 1 }}>
-            <Text variant="screenTitle" color="primary" accessibilityRole="header">
-              Groups
-            </Text>
-            <Text variant="caption" color="muted">
-              {viewModel.allGroups.length}{' '}
-              {viewModel.allGroups.length === 1 ? 'group' : 'groups'}
-            </Text>
-          </Stack>
-          <IconButton
-            icon="search-outline"
-            onPress={() => router.push('/search')}
-            accessibilityLabel="Search all expenses"
-          />
-          <IconButton
-            icon="add-circle-outline"
-            onPress={handleCreateGroup}
-            accessibilityLabel="Create a new group from the header"
-          />
-          <IconButton
-            icon="person-add-outline"
-            onPress={handleJoinGroup}
-            accessibilityLabel="Join an existing group from the header"
-          />
-        </Row>
-
-        <SearchInput
-          value={viewModel.searchQuery}
-          onChangeText={onSearchChange}
-        />
-
-        {!viewModel.hasNoGroups ? (
-          <Row gap="xs" align="center">
-            {FILTER_PILLS.map((pill) => (
-              <FilterPill
-                key={pill.value}
-                label={pill.label}
-                active={viewModel.filter === pill.value}
-                onPress={() => onFilterChange(pill.value)}
+    <Screen safeArea>
+      <FlatList
+        data={viewModel.visibleGroups}
+        keyExtractor={(group) => group.id}
+        renderItem={({ item }) => <GroupListItem group={item} />}
+        ItemSeparatorComponent={GroupsListSeparator}
+        contentContainerStyle={{ padding: spacing.xl }}
+        ListHeaderComponent={
+          <Stack gap="lg" align="stretch" style={{ marginBottom: spacing.lg }}>
+            <Row gap="md" align="center">
+              <Stack gap={0} style={{ flex: 1 }}>
+                <Text variant="screenTitle" color="primary" accessibilityRole="header">
+                  Groups
+                </Text>
+                <Text variant="caption" color="muted">
+                  {viewModel.allGroups.length}{' '}
+                  {viewModel.allGroups.length === 1 ? 'group' : 'groups'}
+                </Text>
+              </Stack>
+              <IconButton
+                icon="search-outline"
+                onPress={() => router.push('/search')}
+                accessibilityLabel="Search all expenses"
               />
-            ))}
-          </Row>
-        ) : null}
+              <IconButton
+                icon="add-circle-outline"
+                onPress={handleCreateGroup}
+                accessibilityLabel="Create a new group from the header"
+              />
+              <IconButton
+                icon="person-add-outline"
+                onPress={handleJoinGroup}
+                accessibilityLabel="Join an existing group from the header"
+              />
+            </Row>
 
-        {isLoading ? (
-          <GroupsListSkeleton />
-        ) : viewModel.hasNoGroups ? (
-          <NoGroupsEmptyState
-            onCreate={handleCreateGroup}
-            onJoin={handleJoinGroup}
-          />
-        ) : viewModel.hasNoMatches ? (
-          <NoMatchesState query={viewModel.searchQuery} />
-        ) : (
-          <Stack gap="md" align="stretch">
-            {viewModel.visibleGroups.map((group) => (
-              <GroupListItem key={group.id} group={group} />
-            ))}
+            <SearchInput value={viewModel.searchQuery} onChangeText={onSearchChange} />
+
+            {!viewModel.hasNoGroups ? (
+              <Row gap="xs" align="center">
+                {FILTER_PILLS.map((pill) => (
+                  <FilterPill
+                    key={pill.value}
+                    label={pill.label}
+                    active={viewModel.filter === pill.value}
+                    onPress={() => onFilterChange(pill.value)}
+                  />
+                ))}
+              </Row>
+            ) : null}
           </Stack>
-        )}
-      </Stack>
+        }
+        ListEmptyComponent={
+          isLoading ? (
+            <GroupsListSkeleton />
+          ) : loadError !== null ? (
+            <GroupsLoadErrorState message={loadError} onRetry={onRetry} />
+          ) : viewModel.hasNoGroups ? (
+            <NoGroupsEmptyState onCreate={handleCreateGroup} onJoin={handleJoinGroup} />
+          ) : viewModel.hasNoMatches ? (
+            <NoMatchesState query={viewModel.searchQuery} />
+          ) : undefined
+        }
+        initialNumToRender={12}
+        maxToRenderPerBatch={12}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS !== 'web'}
+      />
     </Screen>
   );
+}
+
+function GroupsListSeparator(): ReactNode {
+  return <View style={{ height: spacing.md }} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -285,11 +309,7 @@ function FilterPill({ label, active, onPress }: FilterPillProps): JSX.Element {
         justifyContent: 'center',
       }}
     >
-      <Text
-        variant="label"
-        color={active ? 'onColor' : 'secondary'}
-        style={{ fontSize: 13 }}
-      >
+      <Text variant="label" color={active ? 'onColor' : 'secondary'} style={{ fontSize: 13 }}>
         {label}
       </Text>
     </Pressable>
@@ -304,12 +324,17 @@ const SYNC_DOT_VARIANT: Readonly<Record<GroupListItemViewModel['syncState'], Sta
   synced: 'syncComplete',
   pending: 'syncPending',
   failed: 'syncFailed',
+  // Neutral grey: this device's data is the system of record (no cloud
+  // configured). Previously every group showed the amber "Syncing" dot
+  // forever because the cache wrote 'pending' and nothing ever updated it.
+  local: 'confidenceUnknown',
 };
 
 const SYNC_LABEL: Readonly<Record<GroupListItemViewModel['syncState'], string>> = {
   synced: 'Synced',
   pending: 'Syncing',
   failed: 'Sync failed',
+  local: 'Local only',
 };
 
 function GroupListItem({ group }: { readonly group: GroupListItemViewModel }): ReactNode {
@@ -360,11 +385,7 @@ function GroupListItem({ group }: { readonly group: GroupListItemViewModel }): R
               accessibilityLabel={`${describeAmount(group.userBalanceMinor, group.currencyCode)} in ${group.name}`}
             />
           </Stack>
-          <Icon
-            name="chevron-forward"
-            size={theme.iconSizes.md}
-            color={theme.colors.textMuted}
-          />
+          <Icon name="chevron-forward" size={theme.iconSizes.md} color={theme.colors.textMuted} />
         </Row>
       </Card>
     </Pressable>
@@ -469,6 +490,46 @@ function NoMatchesState({ query }: { readonly query: string }): ReactNode {
         <Text variant="caption" color="muted" style={{ textAlign: 'center' }}>
           Nothing matches “{query}”. Try a different search or filter.
         </Text>
+      </Stack>
+    </Card>
+  );
+}
+
+function GroupsLoadErrorState({
+  message,
+  onRetry,
+}: {
+  readonly message: string;
+  readonly onRetry?: () => void;
+}): ReactNode {
+  const theme = useTheme();
+  return (
+    <Card elevation="sm" padding="lg" accessibilityRole="alert">
+      <Stack gap="md" align="stretch">
+        <Row gap="md" align="center">
+          <Icon
+            name="cloud-offline-outline"
+            size={theme.iconSizes.lg}
+            color={theme.colors.negative}
+          />
+          <Stack gap={0} style={{ flex: 1 }}>
+            <Text variant="bodyStrong" color="primary">
+              Could not load your groups
+            </Text>
+            <Text variant="caption" color="secondary">
+              {message}
+            </Text>
+          </Stack>
+        </Row>
+        {onRetry !== undefined ? (
+          <Button
+            label="Try again"
+            variant="secondary"
+            size="sm"
+            onPress={onRetry}
+            accessibilityLabel="Retry loading groups"
+          />
+        ) : null}
       </Stack>
     </Card>
   );

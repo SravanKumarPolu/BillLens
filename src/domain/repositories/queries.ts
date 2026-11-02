@@ -28,10 +28,26 @@ export interface GroupSummary {
   readonly memberCount: number;
   readonly activeMemberCount: number;
   readonly expenseCount: number;
+  /** Total of active expenses in the GROUP's currency (minor units). */
   readonly totalAmountMinor: number;
   readonly lastActivityAt: DateTime;
   readonly userRole: 'owner' | 'admin' | 'member';
+  /**
+   * The local user's net balance in the GROUP's currency (minor units),
+   * computed with the same completed-settlement contract as the balance
+   * engine: `paid − share − settlementsReceived + settlementsSent`, where
+   * only `completed`/`reversed` settlements count. Positive = the user is
+   * owed. Expenses/settlements in other currencies are excluded (they are
+   * reported per-currency on the balances screen).
+   */
   readonly userBalanceMinor: number;
+  readonly archived: boolean;
+  readonly updatedAt: DateTime;
+  readonly createdAt: DateTime;
+  /** Queued/in-flight sync operations that resolve to this group. */
+  readonly pendingSyncOps: number;
+  /** Failed/conflicting sync operations that resolve to this group. */
+  readonly failedSyncOps: number;
 }
 
 export interface GroupSummaryQuery {

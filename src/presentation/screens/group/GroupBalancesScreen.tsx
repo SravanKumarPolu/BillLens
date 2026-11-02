@@ -142,6 +142,7 @@ export function GroupBalancesView({
   onConfirm,
   onDispute,
 }: GroupBalancesViewProps): JSX.Element {
+  const theme = useTheme();
   return (
     <Screen scrollable safeArea>
       <Stack gap="xl" align="stretch" style={{ padding: spacing.xl }}>
@@ -168,6 +169,35 @@ export function GroupBalancesView({
           onConfirm={onConfirm}
           onDispute={onDispute}
         />
+
+        <Pressable
+          onPress={() => router.push(`/groups/${viewModel.id}/settlements`)}
+          accessibilityRole="button"
+          accessibilityLabel="Open settlement history"
+        >
+          <Card elevation="sm" padding="md">
+            <Row gap="md" align="center">
+              <Icon
+                name="swap-horizontal-outline"
+                size={theme.iconSizes.md}
+                color={theme.colors.brandPrimary}
+              />
+              <Stack gap={0} style={{ flex: 1 }}>
+                <Text variant="bodyStrong" color="primary">
+                  Settlement history
+                </Text>
+                <Text variant="caption" color="muted">
+                  Every transfer, status and reversal
+                </Text>
+              </Stack>
+              <Icon
+                name="chevron-forward"
+                size={theme.iconSizes.md}
+                color={theme.colors.textMuted}
+              />
+            </Row>
+          </Card>
+        </Pressable>
 
         <MembersBalancesSection viewModel={viewModel} />
 

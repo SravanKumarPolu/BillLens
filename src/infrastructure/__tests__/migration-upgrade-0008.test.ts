@@ -16,6 +16,7 @@ import {
   SCHEMA_VERSION_TABLE_SQL,
   getSchemaVersion,
   runMigrations,
+  CURRENT_SCHEMA_VERSION,
 } from '@infrastructure/sqlite/schema';
 import { splitSqlStatements } from '@infrastructure/sqlite/sql-statements';
 
@@ -53,7 +54,7 @@ describeWithSqlite('migration 0008 upgrade', () => {
 
     await runMigrations(db);
 
-    expect(await getSchemaVersion(db)).toBe(13);
+    expect(await getSchemaVersion(db)).toBe(CURRENT_SCHEMA_VERSION);
     const tables = await db.all<{ name: string }>(
       "select name from sqlite_master where type = 'table' order by name",
     );

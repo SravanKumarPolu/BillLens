@@ -54,6 +54,7 @@ import {
 } from '@presentation/view-models/expense-form';
 import { useGroupStore } from '@store/group-store';
 import { tryGetAppServices, useAppServicesReady } from '@store/services-registry';
+import { hydrateGroupStore } from '@presentation/hooks/use-group-store-hydration';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -456,6 +457,9 @@ export function NewExpenseScreen({ groupId, expenseId }: NewExpenseScreenProps):
           createdAt: existingGroup?.createdAt ?? new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
+        // Recompute the cached balance from SQLite (the optimistic upsert
+        // above cannot know the new net).
+        void hydrateGroupStore();
         pendingCreateIdRef.current = null;
         router.back();
       } catch (error) {

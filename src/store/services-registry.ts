@@ -36,7 +36,6 @@
  *     deletion wipe flows).
  */
 
-import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import { create } from 'zustand';
 
@@ -47,14 +46,17 @@ import type { AppServices } from '@infrastructure/composition-root';
 import { createCompositionRoot } from '@infrastructure/composition-root';
 import { ExpoLocalNotificationPort } from '@infrastructure/notifications/expo-local-notification-port';
 import { ExpoRemotePushRegistration } from '@infrastructure/notifications/remote-push-registration';
-import { SupabaseAuthenticationProvider } from '@infrastructure/remote/supabase-authentication-provider';
-import { SupabaseRemoteSyncPort } from '@infrastructure/remote/supabase-remote-sync-port';
 import { ExpoLocalDataWiper } from '@infrastructure/security/expo-local-data-wiper';
 import { ExpoSecureStorage } from '@infrastructure/security/expo-secure-store';
 import { ExpoSqliteDatabase } from '@infrastructure/sqlite/expo-sqlite-database';
 import { runMigrations } from '@infrastructure/sqlite/schema';
 import { recoverInterruptedDrafts } from '@infrastructure/sync/draft-recovery';
 import { getAuthStoreWriter } from '@store/auth-store';
+// Type-only: erased at runtime, so supabase-js is NOT bundled into the
+// entry chunk. The value imports below are dynamic and run only when a
+// Supabase project is actually configured.
+import type { SupabaseAuthenticationProvider } from '@infrastructure/remote/supabase-authentication-provider';
+import type { SupabaseRemoteSyncPort } from '@infrastructure/remote/supabase-remote-sync-port';
 
 // ---------------------------------------------------------------------------
 // Registry state (single source of truth; readable outside React via
@@ -138,18 +140,9 @@ export function configureAppServicesFactory(
  * Production bootstrap: open DB → migrate → recover interrupted drafts →
  * select the OCR provider → compose (v2.4.0).
  *
- * OCR selection: `EXPO_PUBLIC_OCR_MODE` overrides; otherwise `remote`
- * when a Supabase project is configured (the ocr-receipt Edge Function
- * deploys with it), else the on-device mock. See
- * `src/infrastructure/capture/ocr-provider-selector.ts`.
- */
-/**
- * Production bootstrap: open DB → migrate → recover interrupted drafts →
- * select the OCR provider → compose (v2.4.0).
- *
- * OCR selection: `EXPO_PUBLIC_OCR_MODE` overrides; otherwise `remote`
- * when a Supabase project is configured (the ocr-receipt Edge Function
- * deploys with it), else the on-device mock. See
+ * OCR selection: `EXPO_PUBLIC_OCR_MODE` overrides (`mock` | `remote` |
+ * `mlkit`); otherwise `remote` when a Supabase project is configured,
+ * else on-device ML Kit. Mock is never implicit. See
  * `src/infrastructure/capture/ocr-provider-selector.ts`.
  *
  * Identity (v2.4.0): when Supabase is configured a
@@ -216,8 +209,9 @@ async function productionFactory(): Promise<AppServices> {
     );
     const ocr = resolveOcrProvider({
       ...(process.env.EXPO_PUBLIC_OCR_MODE === 'remote' ||
-      process.env.EXPO_PUBLIC_OCR_MODE === 'mock'
-        ? { modeOverride: process.env.EXPO_PUBLIC_OCR_MODE as 'remote' | 'mock' }
+      process.env.EXPO_PUBLIC_OCR_MODE === 'mock' ||
+      process.env.EXPO_PUBLIC_OCR_MODE === 'mlkit'
+        ? { modeOverride: process.env.EXPO_PUBLIC_OCR_MODE as 'remote' | 'mock' | 'mlkit' }
         : {}),
       supabaseUrl: env.supabaseUrl ?? '',
       supabaseAnonKey: env.supabaseAnonKey ?? '',
@@ -250,12 +244,10 @@ async function productionFactory(): Promise<AppServices> {
           supabaseUrl: env.supabaseUrl,
           supabaseAnonKey: env.supabaseAnonKey,
           // Session-bound remote sync: every upload carries the user JWT.
-          remoteSync: new SupabaseRemoteSyncPort(
-            env.supabaseUrl,
-            env.supabaseAnonKey,
-            getAccessToken,
-          ),
-          authProvider: buildSupabaseAuthProvider(env),
+          // Both adapters are built through dynamic imports so supabase-js
+          // stays out of the entry chunk in local-only builds.
+          remoteSync: await buildSupabaseRemoteSync(env, getAccessToken),
+          authProvider: await buildSupabaseAuthProvider(env),
         }
       : {}),
     authStateWriter: getAuthStoreWriter(),
@@ -276,8 +268,25 @@ async function productionFactory(): Promise<AppServices> {
   });
 }
 
+/** Construct the remote sync port only when a Supabase project is configured. */
+async function buildSupabaseRemoteSync(
+  env: ReturnType<typeof getEnv>,
+  getAccessToken: () => Promise<string | null>,
+): Promise<SupabaseRemoteSyncPort> {
+  const { SupabaseRemoteSyncPort } = await import(
+    '@infrastructure/remote/supabase-remote-sync-port'
+  );
+  return new SupabaseRemoteSyncPort(env.supabaseUrl, env.supabaseAnonKey, getAccessToken);
+}
+
 /** Build the Supabase auth provider over a fresh supabase-js client. */
-function buildSupabaseAuthProvider(env: ReturnType<typeof getEnv>): SupabaseAuthenticationProvider {
+async function buildSupabaseAuthProvider(
+  env: ReturnType<typeof getEnv>,
+): Promise<SupabaseAuthenticationProvider> {
+  const [{ createClient }, { SupabaseAuthenticationProvider }] = await Promise.all([
+    import('@supabase/supabase-js'),
+    import('@infrastructure/remote/supabase-authentication-provider'),
+  ]);
   const client = createClient(env.supabaseUrl ?? '', env.supabaseAnonKey ?? '', {
     auth: { persistSession: false, autoRefreshToken: true },
   });

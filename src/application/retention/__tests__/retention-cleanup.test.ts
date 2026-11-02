@@ -1,14 +1,13 @@
 import { describe, expect, it, jest } from '@jest/globals';
 
-import {
-  RetentionCleanupUseCase,
-  type RetentionCleanupStore,
-} from '../retention-cleanup.usecase';
+import { RetentionCleanupUseCase, type RetentionCleanupStore } from '../retention-cleanup.usecase';
 
 describe('RetentionCleanupUseCase', () => {
   it('uses the correct cutoff and delegates bounded candidates', async () => {
     const enqueue = jest.fn<RetentionCleanupStore['enqueueCleanup']>(async () => 1);
-    const find = jest.fn<RetentionCleanupStore['findOrphanFiles']>(async () => ['file:///tmp/a.jpg']);
+    const find = jest.fn<RetentionCleanupStore['findOrphanFiles']>(async () => [
+      'file:///tmp/a.jpg',
+    ]);
     const store: RetentionCleanupStore = { findOrphanFiles: find, enqueueCleanup: enqueue };
 
     const result = await new RetentionCleanupUseCase(store).execute({

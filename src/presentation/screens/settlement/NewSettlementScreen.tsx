@@ -48,6 +48,7 @@ import {
 } from '@presentation/hooks/use-settlement-form';
 import { moneyDecimals, parseMoneyInput } from '@presentation/utils/parse-money-input';
 import { useGroupStore } from '@store/group-store';
+import { hydrateGroupStore } from '@presentation/hooks/use-group-store-hydration';
 
 /** Integer-only minor → major string (no floats; respects JPY/KWD scale). */
 function minorToMajorInput(minor: number, currencyCode: string): string {
@@ -241,6 +242,9 @@ export function NewSettlementScreen({ groupId }: NewSettlementScreenProps): JSX.
         createdAt: existingGroup?.createdAt ?? new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+      // Recompute the cached balance from SQLite (the optimistic upsert
+      // above cannot know the new net).
+      void hydrateGroupStore();
       router.back();
     } catch {
       // The hook already stored the error in `form.error` — the view

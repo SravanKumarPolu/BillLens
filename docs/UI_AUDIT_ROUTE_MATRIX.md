@@ -22,7 +22,7 @@ physical-device or TalkBack run.**
 | `/recurring`, `/recurring/new` | Recurrence list/create | Verified | Unverified |
 | `/capture/*` | Camera/gallery/review/processing | Replacement added | Native OCR unverified |
 | `/drafts/*` | Draft inbox/review | Fake controls removed | Unverified |
-| `/settlements/*` | Settlement flow | Existing | Unverified |
+| `/settlements/*`, `/groups/[id]/settlements` | Settlement flow: new/preview, detail + guarded reversal, per-group history (v2.26.2) | Verified (source + tests) | Unverified |
 | `/receipts` | Receipt history/delete | Verified links | Unverified |
 | `/settings/*` | Data, backup, erase, sync, metrics, feedback | Verified links | Unverified |
 

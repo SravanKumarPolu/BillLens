@@ -59,9 +59,7 @@ interface BoxState {
 }
 
 function clampDigits(raw: string, max: number): string {
-  return raw
-    .replace(/\D/g, '')
-    .slice(0, max);
+  return raw.replace(/\D/g, '').slice(0, max);
 }
 
 export function OtpInput({
@@ -74,12 +72,6 @@ export function OtpInput({
 }: OtpInputProps): JSX.Element {
   const theme = useTheme();
   const inputsRef = useRef<(TextInputInstance | null)[]>([]);
-  const focusInput = (index: number): void => {
-    const input = inputsRef.current[index];
-    if (input !== null && input !== undefined) {
-      RNTextInput.State.focusTextInput(input.getNativeRef());
-    }
-  };
   const [boxes, setBoxes] = useState<readonly BoxState[]>(
     Array.from({ length: OTP_LENGTH }, () => ({ value: '' })),
   );
@@ -100,7 +92,7 @@ export function OtpInput({
     if (autoFocus && !disabled) {
       // Defer to next tick so refs are populated.
       const id = setTimeout(() => {
-        focusInput(0);
+        inputsRef.current[0]?.focus();
       }, 0);
       return () => clearTimeout(id);
     }
@@ -140,7 +132,7 @@ export function OtpInput({
     // Advance focus to the box after the last filled digit, or the
     // last box if we ran out of room.
     const nextFocusIndex = Math.min(index + digits.length, OTP_LENGTH - 1);
-    focusInput(nextFocusIndex);
+    inputsRef.current[nextFocusIndex]?.focus();
   };
 
   const handleKeyPress = (index: number, key: string): void => {
@@ -159,7 +151,7 @@ export function OtpInput({
         next[index - 1] = { value: '' };
         emitChange(next);
         // Defer focus so React renders the cleared state first.
-        setTimeout(() => focusInput(index - 1), 0);
+        setTimeout(() => inputsRef.current[index - 1]?.focus(), 0);
       }
       return next;
     });
@@ -169,11 +161,7 @@ export function OtpInput({
     filled ? theme.colors.brandPrimary : theme.colors.border;
 
   return (
-    <View
-      style={styles.container}
-      accessibilityRole="none"
-      accessibilityLabel={accessibilityLabel}
-    >
+    <View style={styles.container} accessibilityRole="none" accessibilityLabel={accessibilityLabel}>
       {boxes.map((box, index) => {
         const label = `Verification code digit ${index + 1}`;
         return (

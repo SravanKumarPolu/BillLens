@@ -24,7 +24,38 @@ import type { StorageMode } from '@domain/entities/receipt';
 export type GroupType = 'Trip' | 'Home' | 'Couple' | 'Event' | 'General';
 
 /** Coarse sync state for a group, surfaced in the list via `StatusDot`. */
-export type GroupSyncState = 'synced' | 'pending' | 'failed';
+/**
+ * Per-group sync badge state, derived from the REAL sync-queue counters
+ * (`GroupSummary.pendingSyncOps` / `failedSyncOps`) plus whether a cloud
+ * project is configured:
+ *
+ *   - `failed` — at least one failed/conflicting operation for the group.
+ *   - `pending` — queued work AND cloud sync is configured (it will drain).
+ *   - `local`  — queued work but no cloud configured, or a fully drained
+ *                queue with no cloud: this device's data is the system of
+ *                record. Previously every group was written as `pending`
+ *                at creation and never updated, so the UI showed
+ *                "Syncing" forever — a false status.
+ *   - `synced` — cloud configured and the queue for this group is drained.
+ */
+export type GroupSyncState = 'synced' | 'pending' | 'failed' | 'local';
+
+/** Inputs to {@link deriveGroupSyncState} — the real queue counters. */
+export interface GroupSyncStateInput {
+  readonly pendingSyncOps: number;
+  readonly failedSyncOps: number;
+  readonly cloudConfigured: boolean;
+}
+
+/**
+ * Pure derivation of the group-card sync badge from real queue state.
+ * Unit-tested; never guess a status the queue does not support.
+ */
+export function deriveGroupSyncState(input: GroupSyncStateInput): GroupSyncState {
+  if (input.failedSyncOps > 0) return 'failed';
+  if (!input.cloudConfigured) return 'local';
+  return input.pendingSyncOps > 0 ? 'pending' : 'synced';
+}
 
 /** Filter applied to the groups list. */
 export type GroupFilter = 'all' | 'active' | 'archived';

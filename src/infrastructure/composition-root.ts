@@ -125,6 +125,12 @@ import {
   ResolveDisputeUseCase,
   ReverseSettlementUseCase,
 } from '@application/settlements/index';
+import {
+  CancelSettlementReminderUseCase,
+  CreateSettlementReminderUseCase,
+  ListSettlementRemindersUseCase,
+  ReconcileReminderStateUseCase,
+} from '@application/reminders/index';
 import { DownloadCoordinator } from '@application/sync/download-coordinator';
 import type { RemoteChangeApplier } from '@application/sync/remote-change-applier.port';
 import { SyncCoordinator } from '@application/sync/sync-coordinator';
@@ -140,8 +146,10 @@ import type { ExpenseRepository } from '@domain/repositories/expense.repository'
 import type { ExtractionResultRepository } from '@domain/repositories/extraction-result.repository';
 import type { GroupMemberRepository } from '@domain/repositories/group-member.repository';
 import type { GroupRepository } from '@domain/repositories/group.repository';
+import type { GroupSummaryQuery } from '@domain/repositories/queries';
 import type { GuestIdentityRepository } from '@domain/repositories/guest-identity.repository';
 import type { SettlementRepository } from '@domain/repositories/settlement.repository';
+import type { SettlementReminderRepository } from '@domain/repositories/settlement-reminder.repository';
 import type { SyncCursorRepository } from '@domain/repositories/sync-cursor.repository';
 import type { SyncRepository } from '@domain/repositories/sync.repository';
 import type { IncrementalDownloadPort } from '@domain/services/sync/incremental-download';
@@ -151,8 +159,8 @@ import { ExpoConnectivityPort } from './connectivity/expo-connectivity-port';
 import { UnavailableLocalNotificationPort } from './notifications/unavailable-local-notification-port';
 import { SqliteOutstandingReminderStore } from './sqlite/sqlite-outstanding-reminder-store';
 import { GuestAuthenticationProvider } from './remote/guest-authentication-provider';
-import { SupabaseIncrementalDownloadPort } from './remote/supabase-incremental-download-port';
-import { SupabaseRemoteSyncPort } from './remote/supabase-remote-sync-port';
+import { UnavailableIncrementalDownloadPort } from './remote/unavailable-incremental-download-port';
+import { UnavailableRemoteSyncPort } from './remote/unavailable-remote-sync-port';
 import { SessionStorage } from './security/session-storage';
 import type { DatabaseConnection } from './sqlite/database-connection';
 import { SqliteAccountDeletionRepository } from './sqlite/sqlite-account-deletion-repository';
@@ -172,6 +180,7 @@ import {
 import { SqliteBackupStore } from './sqlite/sqlite-backup-store';
 import { ExpoBackupAttachmentStore } from './backup/expo-backup-attachment-store';
 import { SqliteGroupManagementStore } from './sqlite/sqlite-group-management-store';
+import { SqliteGroupSummaryQuery } from './sqlite/sqlite-group-summary-query';
 import {
   AddGroupMemberUseCase,
   ArchiveGroupUseCase,
@@ -201,6 +210,7 @@ import { SqliteGroupRepository } from './sqlite/sqlite-group-repository';
 import { SqliteGuestIdentityRepository } from './sqlite/sqlite-guest-identity-repository';
 import { SqliteMetricRepository } from './sqlite/sqlite-metric-repository';
 import { SqliteSettlementRepository } from './sqlite/sqlite-settlement-repository';
+import { SqliteSettlementReminderRepository } from './sqlite/sqlite-settlement-reminder-repository';
 import { SqliteUnitOfWork } from './sqlite/sqlite-unit-of-work';
 import { SqliteRemoteChangeApplier } from './sync/sqlite-remote-change-applier';
 import { SqliteSyncConflictRepository } from './sync/sqlite-sync-conflict-repository';
@@ -356,6 +366,8 @@ export interface RepositoryServices {
   readonly receipts: SqliteReceiptRepository;
   /** Settlement write-side adapter (state machine + reversal + history). */
   readonly settlements: SettlementRepository;
+  /** Per-settlement payment follow-ups (Prompt 59). Local-only — not synced. */
+  readonly settlementReminders: SettlementReminderRepository;
   /** Append-only audit trail (backs every financial use case). */
   readonly audit: AuditRepository;
 }
@@ -377,6 +389,19 @@ export interface BackupServices {
   readonly create: CreateBackupUseCase;
   readonly inspect: InspectBackupUseCase;
   readonly restore: RestoreBackupUseCase;
+}
+
+/**
+ * Read-model query services (domain `queries.ts` contracts).
+ *
+ * `groupSummaries` is the authoritative list of the local user's groups
+ * with real per-group balances, member/expense counts, last-activity
+ * timestamps and sync-queue counters. The Groups tab and the Home
+ * dashboard's recent-groups list are hydrated from it; the persisted
+ * zustand store remains only a UI cache.
+ */
+export interface QueryServices {
+  readonly groupSummaries: GroupSummaryQuery;
 }
 
 export interface ExpenseServices {
@@ -422,6 +447,18 @@ export interface SettlementServices {
   readonly listSettlements: ListSettlementsUseCase;
   readonly listPendingConfirmations: ListPendingConfirmationsUseCase;
   readonly listDisputedSettlements: ListDisputedSettlementsUseCase;
+}
+
+/**
+ * Per-settlement reminder use cases (Prompt 59 / KL-9). Local device
+ * reminders only — the OS notification is scheduled when the runtime
+ * can present it, and the row is always persisted.
+ */
+export interface ReminderServices {
+  readonly createSettlementReminder: CreateSettlementReminderUseCase;
+  readonly cancelSettlementReminder: CancelSettlementReminderUseCase;
+  readonly listSettlementReminders: ListSettlementRemindersUseCase;
+  readonly reconcileReminderState: ReconcileReminderStateUseCase;
 }
 
 /**
@@ -486,6 +523,13 @@ export interface AppServices {
   readonly capture: CaptureServices;
   readonly session: SessionServices | null;
   /**
+   * Cross-entity read models (the domain `queries.ts` contracts) —
+   * joined/aggregated views that back list screens. SQLite is the
+   * single source of truth; the persisted UI store is only a cache
+   * hydrated from these.
+   */
+  readonly queries: QueryServices;
+  /**
    * Identity services — null when the caller did not provide secure
    * storage (pure test harnesses). Like `session`, nothing else breaks;
    * identity-dependent screens null-check.
@@ -497,6 +541,7 @@ export interface AppServices {
   readonly backup: BackupServices;
   readonly groups: GroupServices;
   readonly settlements: SettlementServices;
+  readonly reminders: ReminderServices;
   readonly monitoring: MonitoringServices;
   readonly feedback: FeedbackServices;
   readonly activity: ActivityServices;
@@ -530,12 +575,15 @@ export interface CompositionRootInput {
   readonly database: DatabaseConnection;
   /** Override the connectivity port (default: ExpoConnectivityPort). */
   readonly connectivity?: ConnectivityPort;
-  /** Override the remote sync port (default: SupabaseRemoteSyncPort). */
+  /** Override the remote sync port (default: UnavailableRemoteSyncPort —
+   *  the real Supabase adapter is injected by the bootstrap when a
+   *  project is configured, keeping supabase-js out of the entry chunk). */
   readonly remoteSync?: RemoteSyncPort;
   /**
    * Override the remote download feed (v2.6.0, bidirectional sync;
-   * default: SupabaseIncrementalDownloadPort). Tests inject an
-   * in-memory feed here.
+   * default: UnavailableIncrementalDownloadPort — the Supabase adapter is
+   * injected by the bootstrap when a project is configured). Tests inject
+   * an in-memory feed here.
    */
   readonly remoteDownload?: IncrementalDownloadPort;
   /**
@@ -633,19 +681,26 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
 
   // --- Infrastructure adapters (one per port) -------------------------------
   const balanceQuery = new SqliteBalanceQueryPort(database);
+  const groupSummaries = new SqliteGroupSummaryQuery(database);
   const syncRepository = new SqliteSyncRepository(database);
   const connectivity = input.connectivity ?? new ExpoConnectivityPort();
-  const remoteSync =
-    input.remoteSync ?? new SupabaseRemoteSyncPort(input.supabaseUrl, input.supabaseAnonKey);
+  // Defaults are the UNAVAILABLE adapters: the real Supabase ports are
+  // constructed by the bootstrap (services-registry) ONLY when a project
+  // is configured, via dynamic import, so supabase-js stays out of the
+  // web entry chunk (performance standard: optional services lazy).
+  // The unavailable adapters mirror the Supabase adapters' own
+  // not-configured behaviour (NOT_CONFIGURED) — the sync loop is not
+  // started without configuration, so they are never exercised in that
+  // mode; they exist so a misconfigured start fails honestly.
+  const remoteSync = input.remoteSync ?? new UnavailableRemoteSyncPort();
   // v2.6.0 — bidirectional sync: the download feed (Supabase), the
   // cursor store (SQLite, migration 0007) and the remote change
   // applier (reconcileChange-driven writes that never echo back to
-  // the upload queue). When no remote sync port override was given,
-  // the download port shares the Supabase env configuration; tests
-  // can inject both through the same overrides.
+  // the upload queue). When a Supabase project is configured the
+  // bootstrap injects the download port alongside the sync port;
+  // tests can inject both through the same overrides.
   const conflictRepository = new SqliteSyncConflictRepository(database);
-  const remoteDownload =
-    input.remoteDownload ?? new SupabaseIncrementalDownloadPort(input.supabaseUrl, input.supabaseAnonKey);
+  const remoteDownload = input.remoteDownload ?? new UnavailableIncrementalDownloadPort();
   const cursorRepository = input.syncCursors ?? new SqliteSyncCursorRepository(database);
   const remoteChangeApplier =
     input.remoteChangeApplier ?? new SqliteRemoteChangeApplier(database, conflictRepository);
@@ -708,6 +763,7 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
     drafts: new SqliteExpenseDraftRepository(database),
     receipts: new SqliteReceiptRepository(database),
     settlements: new SqliteSettlementRepository(database),
+    settlementReminders: new SqliteSettlementReminderRepository(database),
     audit: new SqliteAuditRepository(database),
   };
 
@@ -820,6 +876,24 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
     ),
     listDisputedSettlements: new ListDisputedSettlementsUseCase(
       repositories.settlements,
+    ),
+  };
+
+  const reminders: ReminderServices = {
+    createSettlementReminder: new CreateSettlementReminderUseCase(
+      repositories.settlementReminders,
+      repositories.audit,
+    ),
+    cancelSettlementReminder: new CancelSettlementReminderUseCase(
+      repositories.settlementReminders,
+      repositories.audit,
+    ),
+    listSettlementReminders: new ListSettlementRemindersUseCase(
+      repositories.settlementReminders,
+    ),
+    reconcileReminderState: new ReconcileReminderStateUseCase(
+      repositories.settlementReminders,
+      repositories.audit,
     ),
   };
 
@@ -1025,11 +1099,15 @@ export function createCompositionRoot(input: CompositionRootInput): AppServices 
     session,
     identity,
     repositories,
+    queries: {
+      groupSummaries,
+    },
     expenses,
     recurring,
     backup,
     groups,
     settlements,
+    reminders,
     monitoring,
     feedback,
     activity,

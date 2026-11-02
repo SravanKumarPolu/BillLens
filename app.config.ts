@@ -16,9 +16,7 @@ function readEnv(name: string, fallback?: string): string | undefined {
 function resolveAppEnv(): AppEnv {
   const raw = readEnv('EXPO_PUBLIC_APP_ENV', 'development');
   if (raw !== undefined && !APP_ENVS.includes(raw as AppEnv)) {
-    throw new Error(
-      `Invalid EXPO_PUBLIC_APP_ENV="${raw}". Must be one of: ${APP_ENVS.join(', ')}`,
-    );
+    throw new Error(`Invalid EXPO_PUBLIC_APP_ENV="${raw}". Must be one of: ${APP_ENVS.join(', ')}`);
   }
   return (raw as AppEnv) ?? 'development';
 }
@@ -44,7 +42,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: appNames[appEnv],
   slug: 'billlens',
-  version: '2.26.0',
+  version: '2.26.2',
   orientation: 'portrait',
   icon: './assets/icon.png',
   // Deep link scheme. All expo-router routes are addressable as
@@ -80,11 +78,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: bundleIdentifiers[appEnv].ios,
     // TestFlight build number — bumped per upload (EAS autoIncrement also
     // manages it; this is the floor).
-    buildNumber: '2.26.0',
+    buildNumber: '2.26.2',
     infoPlist: {
-      NSCameraUsageDescription: 'BillLens uses the camera to scan receipts and payment screenshots for expense tracking.',
-      NSPhotoLibraryUsageDescription: 'BillLens needs access to your photo library to import receipt images and payment screenshots.',
-      NSPhotoLibraryAddUsageDescription: 'BillLens may save processed receipt images to your photo library.',
+      NSCameraUsageDescription:
+        'BillLens uses the camera to scan receipts and payment screenshots for expense tracking.',
+      NSPhotoLibraryUsageDescription:
+        'BillLens needs access to your photo library to import receipt images and payment screenshots.',
+      NSPhotoLibraryAddUsageDescription:
+        'BillLens may save processed receipt images to your photo library.',
       CFBundleURLTypes: [
         {
           CFBundleURLSchemes: ['billlens'],
@@ -101,30 +102,32 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     package: bundleIdentifiers[appEnv].android,
     // Play internal-testing version code (2.6.0 → 20600). EAS
     // autoIncrement raises it per build; this is the floor.
-    versionCode: 22600,
+    versionCode: 22602,
     // v2.5.0: only CAMERA is declared explicitly — the expo-image-picker
     // config plugin injects the CORRECT media permission per target SDK
     // (READ_MEDIA_IMAGES on API 33+, READ_EXTERNAL_STORAGE below), which
     // the previous hardcoded legacy pair forced onto every device and
     // which Play review flags for API 33+ targets.
-    permissions: [
-      'android.permission.CAMERA',
-    ],
+    permissions: ['android.permission.CAMERA'],
     // Android share intent — allows users to share images directly into BillLens
     // from other apps (Gallery, WhatsApp, UPI apps). The `mimeType` property is
     // valid in Expo's intent filter schema but not in the TypeScript type.
-    intentFilters: ([
+    // Expo prefixes `android.intent.action.` / `android.intent.category.` —
+    // pass the short names or the generated manifest double-prefixes them
+    // (e.g. android.intent.action.android.intent.action.SEND) and share
+    // targets never match.
+    intentFilters: [
       {
-        action: 'android.intent.action.SEND',
-        mimeType: 'image/*',
-        data: { scheme: 'content' },
+        action: 'SEND',
+        category: ['DEFAULT'],
+        data: [{ mimeType: 'image/*' }],
       },
       {
-        action: 'android.intent.action.SEND_MULTIPLE',
-        mimeType: 'image/*',
-        data: { scheme: 'content' },
+        action: 'SEND_MULTIPLE',
+        category: ['DEFAULT'],
+        data: [{ mimeType: 'image/*' }],
       },
-    ] as never) as never,
+    ],
   },
   web: {
     bundler: 'metro',
@@ -151,7 +154,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     './plugins/with-mlkit-android-compat',
-    // SDK 57+ configures the splash screen through its plugin.
+    // SDK 57 removed the top-level `splash` field; the splash screen is
+    // configured through its plugin now.
     [
       'expo-splash-screen',
       {
@@ -163,13 +167,24 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-camera',
       {
-        cameraPermissionText: 'BillLens uses the camera to scan receipts and payment screenshots.',
+        // `cameraPermission` is the documented plugin prop (the previous
+        // `cameraPermissionText` was ignored, so the OS prompt showed the
+        // generic default). BillLens never records video or audio, so the
+        // microphone key and the Android RECORD_AUDIO permission are
+        // removed — a smaller permission surface for Play review and the
+        // Data Safety form.
+        cameraPermission: 'BillLens uses the camera to scan receipts and payment screenshots.',
+        microphonePermission: false,
+        recordAudioAndroid: false,
       },
     ],
     [
       'expo-image-picker',
       {
         photosPermission: 'BillLens needs access to your photo library to import receipt images.',
+        // Receipts are still images only — the picker never records video
+        // or audio, so the plugin must not request the microphone.
+        microphonePermission: false,
       },
     ],
   ],

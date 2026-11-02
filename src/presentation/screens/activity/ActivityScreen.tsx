@@ -20,7 +20,10 @@ import type { ReactNode } from 'react';
 import { memo, useMemo } from 'react';
 import { ActivityIndicator, FlatList, Platform, Pressable, View } from 'react-native';
 
-import type { ActivityEntry, ActivityKind } from '@application/activity/list-recent-activity.usecase';
+import type {
+  ActivityEntry,
+  ActivityKind,
+} from '@application/activity/list-recent-activity.usecase';
 import { AmountText } from '@presentation/design-system/components/AmountText';
 import { Card } from '@presentation/design-system/components/Card';
 import { Icon } from '@presentation/design-system/components/Icon';
@@ -100,8 +103,7 @@ export interface ActivityViewProps {
 }
 
 export function ActivityView({ viewModel }: ActivityViewProps): JSX.Element {
-  const showTimeline =
-    !viewModel.loading && viewModel.loadedOnce && viewModel.error === null;
+  const showTimeline = !viewModel.loading && viewModel.loadedOnce && viewModel.error === null;
 
   // FlatList (not ScrollView + map): the feed is paginated but unbounded over
   // time, and mounting every historical row is the dominant cost on long
@@ -130,11 +132,7 @@ export function ActivityView({ viewModel }: ActivityViewProps): JSX.Element {
             {viewModel.error !== null ? <ErrorCard message={viewModel.error} /> : null}
           </Stack>
         }
-        ListEmptyComponent={
-          showTimeline ? (
-            <EmptyState />
-          ) : undefined
-        }
+        ListEmptyComponent={showTimeline ? <EmptyState /> : undefined}
         ListFooterComponent={
           showTimeline && viewModel.hasMore ? (
             <Text
@@ -158,7 +156,6 @@ export function ActivityView({ viewModel }: ActivityViewProps): JSX.Element {
 function ActivitySeparator(): ReactNode {
   return <View style={{ height: 12 }} />;
 }
-
 
 // ---------------------------------------------------------------------------
 // Activity card
@@ -261,7 +258,11 @@ function ErrorCard({ message }: { readonly message: string }): ReactNode {
   return (
     <Card elevation="sm" padding="md" accessibilityRole="alert">
       <Row gap="md" align="center">
-        <Icon name="cloud-offline-outline" size={theme.iconSizes.lg} color={theme.colors.negative} />
+        <Icon
+          name="cloud-offline-outline"
+          size={theme.iconSizes.lg}
+          color={theme.colors.negative}
+        />
         <Stack gap={0} style={{ flex: 1 }}>
           <Text variant="bodyStrong" color="primary">
             Could not load recent activity

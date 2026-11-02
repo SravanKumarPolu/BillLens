@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
-import { getSchemaVersion, runMigrations } from '../sqlite/schema';
+import { getSchemaVersion, runMigrations, CURRENT_SCHEMA_VERSION } from '../sqlite/schema';
 
 import { InMemoryDatabase } from './in-memory-database';
 
@@ -25,10 +25,9 @@ describe('Phase 6 Track 1 migration (SQLite)', () => {
     await runMigrations(db);
   });
 
-  it('bumps the schema version through all applied migrations (now 4)', async () => {
-    // v1 = initial schema, v2 = Phase 6 Track 1, v3 = write-side support,
-    // v4 = feedback store.
-    expect(await getSchemaVersion(db)).toBe(13);
+  it('bumps the schema version through all applied migrations', async () => {
+    // Fresh install applies every migration in MIGRATIONS, not a hardcoded count.
+    expect(await getSchemaVersion(db)).toBe(CURRENT_SCHEMA_VERSION);
   });
 
   it('creates the settlement_state_history table', () => {
@@ -105,6 +104,6 @@ describe('Phase 6 Track 1 migration (SQLite)', () => {
   it('is idempotent — running migrations twice does not throw', async () => {
     // Re-run migrations on the already-migrated database.
     await expect(runMigrations(db)).resolves.not.toThrow();
-    expect(await getSchemaVersion(db)).toBe(13);
+    expect(await getSchemaVersion(db)).toBe(CURRENT_SCHEMA_VERSION);
   });
 });

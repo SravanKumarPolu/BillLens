@@ -1,8 +1,8 @@
 # BillLens — Implementation Status
 
-> **Date**: 2026-10-23
-> **Version**: 2.26.0 (repository verification + 14 defect repairs on top of v2.25.0)
-> **Status**: Full gate chain RE-EXECUTED in this environment. 224 suites / 4,960 tests, 0 skipped (the real-SQLite integration layer previously skipped without the `sqlite3` CLI now runs on `node:sqlite`). Honest blockers unchanged in kind: device testing, live cloud/relay, OCR provider, signing, legal.
+> **Date**: 2026-10-24
+> **Version**: 2.26.1 (final packaging pass on top of v2.26.0)
+> **Status**: Full gate chain re-executed on the final tree **and** on the extracted `BillLens-Final.zip` (install, typecheck, lint, Jest 224 suites / 4,960 tests, `db:validate`, `db:verify` on real SQLite, `secret-scan`, `expo-doctor`, `expo export -p web`). Honest blockers unchanged: device testing, live cloud/relay, OCR provider, signing, legal.
 
 ## Verification Results (2026-10-23, v2.26.0 gate — executed, not inherited)
 

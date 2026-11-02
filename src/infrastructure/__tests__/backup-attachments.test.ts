@@ -25,7 +25,7 @@ import { encryptBackup } from '@application/backup/backup-crypto';
 import { createGroup } from '@domain/entities/group';
 import { createGroupMember } from '@domain/entities/group-member';
 import { createCompositionRoot, type AppServices } from '@infrastructure/composition-root';
-import { runMigrations } from '@infrastructure/sqlite/schema';
+import { runMigrations, CURRENT_SCHEMA_VERSION } from '@infrastructure/sqlite/schema';
 import { hasSqliteCli, SqliteCliDatabase } from './sqlite-cli-database';
 
 const describeWithSqlite = hasSqliteCli() ? describe : describe.skip;
@@ -270,7 +270,7 @@ describeWithSqlite('receipt attachments in backups', () => {
     const rollbackDir = join(dir, 'rollback-files');
     mkdirSync(rollbackDir, { recursive: true });
     const failingStore = {
-      getSchemaVersion: async () => 13,
+      getSchemaVersion: async () => CURRENT_SCHEMA_VERSION,
       readTables: async () => ({}),
       replaceTables: async () => {
         throw new Error('simulated transaction failure');
